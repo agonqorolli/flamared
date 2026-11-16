@@ -162,14 +162,19 @@ pub fn known_repos(current: Option<&str>) -> Vec<Value> {
     let mut found: IndexMap<String, (u64, f64)> = IndexMap::new();
     let mut cache = HashMap::new();
     for f in sessions::session_files() {
-        let Some(top) = sessions::first_cwd(&f).and_then(|c| repo_of(&c, &mut cache)) else { continue };
-        if TEMP.iter().any(|t| top.starts_with(t)) {
-            continue; // throwaway repos in temp folders aren't projects
-        }
+        // Every repo the session worked in, not just the first: a session can move to another folder mid-way.
+        let mut tops: Vec<String> = sessions::cwds(&f).iter().filter_map(|c| repo_of(c, &mut cache)).collect();
+        tops.sort();
+        tops.dedup();
         let mtime = std::fs::metadata(&f).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0.0, |d| d.as_secs_f64());
-        let e = found.entry(top).or_insert((0, 0.0));
-        e.0 += 1;
-        e.1 = e.1.max(mtime);
+        for top in tops {
+            if TEMP.iter().any(|t| top.starts_with(t)) {
+                continue; // throwaway repos in temp folders aren't projects
+            }
+            let e = found.entry(top).or_insert((0, 0.0));
+            e.0 += 1;
+            e.1 = e.1.max(mtime);
+        }
     }
     if let Some(c) = current {
         found.entry(c.to_string()).or_insert((0, 0.0));

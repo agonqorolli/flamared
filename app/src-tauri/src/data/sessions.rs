@@ -104,12 +104,6 @@ pub fn is_codex(path: &str) -> bool {
     path.starts_with(&join(&codex_dir(), "sessions"))
 }
 
-/// The first folder a session file says it ran in.
-pub fn first_cwd(path: &str) -> Option<String> {
-    let text = std::fs::read_to_string(path).ok()?;
-    text.lines().find_map(|l| CWD_RE.captures(l)).and_then(|m| serde_json::from_str::<String>(&format!("\"{}\"", &m[1])).ok())
-}
-
 /// Every folder a session file ran in (a session can move folders mid-way).
 pub fn cwds(path: &str) -> Vec<String> {
     let Ok(text) = std::fs::read_to_string(path) else { return vec![] };
