@@ -18,7 +18,6 @@ import { useLiveRepo } from "@/lib/live";
 import { canPickFolder, pickRepoFolder } from "@/lib/api";
 import { useKeyHints, useKeys } from "@/lib/keys";
 import { useSettings } from "@/lib/settings";
-import { plural } from "@/lib/format";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 
 // The license decides what the window shows: the app, or the trial-ended screen (the app isn't even started then).
@@ -96,19 +95,6 @@ function Workspace() {
         onSettings={openSettings}
       />
       <SettingsDialog open={settingsOpen} start={settingsAt} onOpenChange={setSettingsOpen} />
-      {snap && !snap.viewing.checked_out && (
-        <Alert className="mx-3 mt-3 w-auto">
-          <AlertDescription>
-            Viewing <b className="font-medium text-foreground">{snap.viewing.branch}</b>, read-only: its {plural(snap.timeline.commits.length, "commit")} since it split
-            off. Your checkout stays on {snap.branches.find((b) => b.current)?.name ?? "its branch"}.
-          </AlertDescription>
-          <AlertAction>
-            <Button variant="outline" size="xs" onClick={() => viewBranch(null)}>
-              Back to {snap.branches.find((b) => b.current)?.name ?? "checkout"}
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
       {notice && (
         <Alert variant="destructive" className="mx-3 mt-3 w-auto">
           <AlertDescription>{notice}</AlertDescription>
@@ -143,6 +129,13 @@ function Workspace() {
               <EmptyDescription>No coding agent session was found on this machine. Opening any folder comes with the folder picker.</EmptyDescription>
             </EmptyHeader>
           )}
+        </Empty>
+      ) : !snap.viewing.checked_out && changed.size === 0 ? (
+        <Empty className="flex-1">
+          <EmptyHeader>
+            <EmptyTitle>No changes on {snap.viewing.branch}</EmptyTitle>
+            <EmptyDescription>This branch has no file changes to show.</EmptyDescription>
+          </EmptyHeader>
         </Empty>
       ) : (
         // All three screens stay mounted so each keeps its place; only the shown one listens to keys.

@@ -8,7 +8,7 @@ import type { Snapshot } from "@/lib/types";
 export function SessionsInfo({ snap }: { snap: Snapshot }) {
   const L = snap.timeline.link;
   const S = snap.timeline.sessions;
-  const where = `${L.branch || "this checkout"} since ${L.base}`;
+  const where = `${L.branch || "this working folder"} since ${L.base}`;
   const left = Object.entries(L.skipped);
   return (
     <Popover>
@@ -46,7 +46,7 @@ export function SessionsInfo({ snap }: { snap: Snapshot }) {
           </ul>
         )}
         <p className="border-t pt-2.5 text-xs leading-snug text-muted-foreground">
-          A turn counts when it ran in this repo (or a worktree of it), edited files on this branch after the branch point, and those files are still changed.
+          A turn counts when it ran in this repo (or another working folder for it), edited files on this branch after the branch point, and those files are still changed.
           {left.length > 0 && ` Left out: ${left.map(([k, n]) => `${n} ${k}`).join(", ")}.`}
         </p>
       </PopoverContent>

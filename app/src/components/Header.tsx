@@ -214,7 +214,7 @@ function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (b
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={`Branch: ${viewing}${snap.viewing.checked_out ? "" : " (viewing, read-only)"}`}>
+        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={snap.viewing.checked_out ? `Working folder: ${viewing}` : `Previewing ${viewing}`}>
           <GitBranchIcon data-icon="inline-start" />
           <span className="truncate">{viewing}</span>
           <ChevronDownIcon data-icon="inline-end" />
@@ -249,7 +249,7 @@ function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (b
                         files={
                           b.current
                             ? { n: ownCount, title: "Uncommitted changed files, as the Changes screen lists them" }
-                            : { n, title: `Files changed ${b.worktree ? "in its worktree" : "since it split off"}, as viewing it shows them` }
+                            : { n, title: `Files changed ${b.worktree ? "in its working folder" : "since it split off"}, as the preview shows them` }
                         }
                         sub={<LastCommit branch={b} />}
                         onSelect={() => {
@@ -274,12 +274,12 @@ function ReadOnlyTip() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button tabIndex={-1} className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label="About viewing a branch">
+        <button tabIndex={-1} className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label="About previewing a branch">
           <InfoIcon className="size-3" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="right" className="max-w-64">
-        Viewing a branch doesn't switch your checkout. A branch in a worktree also shows its uncommitted changes.
+        Previewing a branch doesn't change your working folder. A branch with its own working folder also shows its uncommitted changes.
       </TooltipContent>
     </Tooltip>
   );
