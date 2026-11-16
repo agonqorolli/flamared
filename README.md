@@ -12,7 +12,7 @@ Three screens built from a real repo and the agent sessions on this machine:
 
 ## Skills
 
-Project knowledge lives in skills under `.agents/skills/` (the shared Agent Skills folder; `.claude/skills` links to it for Claude Code), so coding agents load it when the work calls for it:
+Agent instructions are in [AGENTS.md](AGENTS.md) (read by Codex, Claude Code and others): commands, layout, rules, and which skill to load for which area. Project knowledge lives in skills under `.agents/skills/` (the shared Agent Skills folder; `.claude/skills` links to it for Claude Code), so coding agents load it when the work calls for it:
 
 - `product-decisions`: what the product is, what's decided, parked or dropped, and why
 - `agent-data`: what Claude Code and Codex record, and how the data layer turns it into the screens

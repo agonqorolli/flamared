@@ -13,7 +13,7 @@ description: How to run the app and check a change actually works — the deskto
   cd app/src-tauri && cargo run -q --example dump -- /path/to/repo [base | --branch name] > /tmp/snapshot.json
   cd app && SNAPSHOT_FILE=/tmp/snapshot.json pnpm exec vite --port 1430 --strictPort --host 127.0.0.1
   ```
-  Open http://127.0.0.1:1430 in the built-in browser pane. Regenerate the snapshot when its shape changes (a stale one crashes the page) or when temp files were cleared. `?license=ended|licensed|<days>` shows license states.
+  Open http://127.0.0.1:1430 in your browser tool (the built-in browser pane in Claude's desktop app, or any browser). Regenerate the snapshot when its shape changes (a stale one crashes the page) or when temp files were cleared. `?license=ended|licensed|<days>` shows license states.
 - Other examples in `app/src-tauri/examples/`: `timing.rs` (load time), `watch_probe.rs` (what the watcher counts), `license.rs` (keys; see the `license-keys` skill).
 
 ## Checks

@@ -34,7 +34,7 @@ Commit messages carry decisions ("drop X", "reverse Y", "rename Z") — those ma
 | `app/src-tauri/src/data/**`, `watch.rs`, `state.rs`, `app/src/lib/types.ts` | `agent-data` |
 | `app/src-tauri/examples/**`, `vite.config.ts`, `package.json` scripts, `.claude/launch.json`, test setup | `preview-and-verify` |
 | product scope, pricing, platforms, names, anything a commit message calls a decision | `product-decisions` |
-| `.agents/skills/**`, `.claude/skills` symlink, `.claude/settings.json`, `.claude/hooks/**` | `skill-upkeep` (this one) |
+| `AGENTS.md`, `.agents/skills/**`, `.claude/skills` symlink, `.claude/settings.json`, `.claude/hooks/**` | `skill-upkeep` (this one) |
 
 Something with no row and no home (a new subsystem, a new screen, a new external service) → candidate for a **new skill** or a new section.
 
