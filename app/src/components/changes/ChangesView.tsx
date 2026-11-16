@@ -15,38 +15,47 @@ interface Props {
   focus: { path: string; n: number } | null; // "Open in Changes" from another screen
   inTimeline: (path: string) => boolean;
   onShowInTimeline: (path: string) => void;
+  fresh: Set<string>; // files new or changed since last selected (marked in the list)
+  onSeen: (path: string) => void;
 }
 
 // Changes: groups of changed files on the left, the selected file's diff and review on the right.
-export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline }: Props) {
+export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline, fresh, onSeen }: Props) {
   const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
-  const [selected, setSelected] = useState(0);
+  // The selection follows the file, so a reload that adds or removes files above it doesn't move you.
+  // When the file itself leaves the change, the row now at its old position takes over.
+  const [selected, setSelectedState] = useState<{ path: string | null; index: number }>({ path: null, index: 0 });
   const [showAgent, setShowAgent] = useState(false);
   const review = useReview(snap);
-  const sel = Math.min(selected, Math.max(0, rows.length - 1));
+  const byPath = selected.path ? rows.findIndex((r) => r.file.path === selected.path) : -1;
+  const sel = byPath >= 0 ? byPath : Math.min(selected.index, Math.max(0, rows.length - 1));
   const row = rows[sel];
+  const select = (i: number) => {
+    const r = rows[Math.max(0, Math.min(rows.length - 1, i))];
+    if (!r) return;
+    setSelectedState({ path: r.file.path, index: r.index });
+    onSeen(r.file.path);
+  };
 
-  useEffect(() => setSelected(0), [snap.path, snap.branch]);
+  useEffect(() => setSelectedState({ path: null, index: 0 }), [snap.path, snap.branch]);
   useEffect(() => {
     const i = focus ? rows.findIndex((r) => r.file.path === focus.path) : -1;
-    if (i >= 0) setSelected(i);
-  }, [focus, rows]);
-  // j / k step through files, a / x approve or reject the selected one.
+    if (i >= 0) select(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
+  // j / k step through files (a / x are handled by the file view, which knows which version is on screen).
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [cmdk-root]")) return;
       if (e.key === "j" || e.key === "k") {
         e.preventDefault();
-        setSelected((i) => Math.max(0, Math.min(rows.length - 1, i + (e.key === "j" ? 1 : -1))));
-      } else if ((e.key === "a" || e.key === "x") && row) {
-        e.preventDefault();
-        review.toggle(row.file, e.key === "a" ? "approved" : "rejected");
+        select(sel + (e.key === "j" ? 1 : -1));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, rows.length, row, review]);
+  });
 
   if (!rows.length) {
     return (
@@ -71,21 +80,23 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline 
         </div>
         {/* Radix sizes the content as a table, which lets long text push past the edge; keep it a block. */}
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
-          <ChangesList sections={sections} selected={sel} showAgent={showAgent} reviewOf={review.stateOf} onSelect={setSelected} />
+          <ChangesList sections={sections} selected={sel} showAgent={showAgent} fresh={fresh} reviewOf={review.stateOf} onSelect={select} />
         </ScrollArea>
       </nav>
       {row && (
         <FileDetail
           row={row}
+          active={active}
           count={rows.length}
           rows={rows}
           diff={snap.diffs[row.file.path] ?? ""}
-          review={review.stateOf(row.file)}
+          reviewOf={(d) => review.stateOf(row.file, d)}
           inTimeline={inTimeline(row.file.path)}
           onShowInTimeline={() => onShowInTimeline(row.file.path)}
-          onReview={(s) => review.toggle(row.file, s)}
-          onStep={(d) => setSelected((i) => Math.max(0, Math.min(rows.length - 1, i + d)))}
-          onSelect={setSelected}
+          onReview={(s, shown) => review.toggle(row.file, s, shown)}
+          onStep={(d) => select(sel + d)}
+          onSelect={select}
+          onShowLatest={() => onSeen(row.file.path)}
         />
       )}
     </div>

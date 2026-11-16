@@ -1,4 +1,5 @@
 pub mod data;
+pub mod watch;
 
 /// Everything the screens show for one repo. Runs off the main thread: it reads git and every session file.
 #[tauri::command]
@@ -18,7 +19,8 @@ async fn repos() -> Result<Vec<serde_json::Value>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![snapshot, repos])
+        .manage(watch::Watching::default())
+        .invoke_handler(tauri::generate_handler![snapshot, repos, watch::watch])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

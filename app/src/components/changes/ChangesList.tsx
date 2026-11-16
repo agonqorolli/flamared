@@ -12,11 +12,12 @@ interface Props {
   sections: Section[];
   selected: number;
   showAgent: boolean;
+  fresh: Set<string>;
   reviewOf: (f: FileInfo) => ReviewState | null;
   onSelect: (i: number) => void;
 }
 
-export function ChangesList({ sections, selected, showAgent, reviewOf, onSelect }: Props) {
+export function ChangesList({ sections, selected, showAgent, fresh, reviewOf, onSelect }: Props) {
   return (
     <div className="flex flex-col pb-10">
       {sections.map((s) => (
@@ -24,7 +25,7 @@ export function ChangesList({ sections, selected, showAgent, reviewOf, onSelect 
           <SectionLabel tip={s.tip}>{s.label}</SectionLabel>
           <div className="flex flex-col gap-2">
             {s.blocks.map((b) => (
-              <GroupBlock key={b.key} block={b} selected={selected} showAgent={showAgent} reviewOf={reviewOf} onSelect={onSelect} />
+              <GroupBlock key={b.key} block={b} selected={selected} showAgent={showAgent} fresh={fresh} reviewOf={reviewOf} onSelect={onSelect} />
             ))}
           </div>
         </section>
@@ -33,7 +34,7 @@ export function ChangesList({ sections, selected, showAgent, reviewOf, onSelect 
   );
 }
 
-function GroupBlock({ block, selected, showAgent, reviewOf, onSelect }: { block: Block } & Omit<Props, "sections">) {
+function GroupBlock({ block, selected, showAgent, fresh, reviewOf, onSelect }: { block: Block } & Omit<Props, "sections">) {
   return (
     <div className={cn("rounded-lg border bg-card p-1.5", block.lonely && "border-warn/30")}>
       <div className="flex items-baseline gap-2 px-1.5 pt-0.5 pb-1 text-[11px] text-muted-foreground">
@@ -48,14 +49,14 @@ function GroupBlock({ block, selected, showAgent, reviewOf, onSelect }: { block:
         </div>
       )}
       {block.rows.map((r) => (
-        <FileRow key={r.index} row={r} on={r.index === selected} review={reviewOf(r.file)} onSelect={onSelect} />
+        <FileRow key={r.index} row={r} on={r.index === selected} fresh={fresh.has(r.file.path)} review={reviewOf(r.file)} onSelect={onSelect} />
       ))}
       {block.lonely && <div className="px-1.5 pt-1 text-[11px] text-warn">Not connected to the other changes</div>}
     </div>
   );
 }
 
-function FileRow({ row, on, review, onSelect }: { row: Row; on: boolean; review: ReviewState | null; onSelect: (i: number) => void }) {
+function FileRow({ row, on, fresh, review, onSelect }: { row: Row; on: boolean; fresh: boolean; review: ReviewState | null; onSelect: (i: number) => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (on) ref.current?.scrollIntoView({ block: "nearest" });
@@ -81,6 +82,7 @@ function FileRow({ row, on, review, onSelect }: { row: Row; on: boolean; review:
       <span className={cn("contents", review && !on && "[&>*]:opacity-55")}>
         <StatusLetter status={f.status} title={STATUS[f.status]} />
         <span className="min-w-0 flex-1 truncate font-mono font-medium">{f.path.slice(f.path.lastIndexOf("/") + 1)}</span>
+        {fresh && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New or changed since you last looked" />}
         {row.note && <span className="shrink-0 text-[10px] text-faint">{row.note}</span>}
         {f.binary ? <span className="shrink-0 text-[11px] text-faint">binary</span> : <Counts add={f.add} rem={f.rem} />}
       </span>

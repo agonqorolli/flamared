@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
@@ -12,14 +12,10 @@ import { SettingsProvider } from "@/lib/settings";
 import { buildTimeline } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/brand";
-import { lastRepo, loadRepos, loadSnapshot, rememberRepo } from "@/lib/api";
-import type { Snapshot } from "@/lib/types";
+import { useLiveRepo } from "@/lib/live";
 
 export default function App() {
-  const [repo, setRepo] = useState<string | null>(null);
-  const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, refresh, liveAvailable } = useLiveRepo();
   const [view, setView] = useState<View>("changes");
   const [settingsOpen, setSettingsOpen] = useState(false);
   // A jump from one screen to a file in another; `n` makes a repeat jump to the same file count again.
@@ -31,39 +27,16 @@ export default function App() {
     setFocus((f) => ({ view: to, path, n: (f?.n ?? 0) + 1 }));
   };
 
-  const load = useCallback(async (path: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const s = await loadSnapshot(path);
-      setSnap(s);
-      setRepo(path);
-      rememberRepo(path);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Open the last repo, or the one an agent worked in most recently.
   useEffect(() => {
     document.title = APP_NAME;
-    (async () => {
-      const last = lastRepo();
-      if (last) return load(last);
-      const repos = await loadRepos().catch(() => []);
-      if (repos[0]) return load(repos[0].full);
-      setLoading(false);
-    })();
-  }, [load]);
+  }, []);
 
-  // Data loads when the app opens or on refresh (no live updates).
+  // ⌘R reloads now (also while paused); ⌘, opens settings.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "r" && repo) {
+      if (e.metaKey && e.key === "r") {
         e.preventDefault();
-        load(repo);
+        refresh();
       } else if (e.metaKey && e.key === ",") {
         e.preventDefault();
         setSettingsOpen(true);
@@ -71,13 +44,22 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [repo, load]);
+  }, [refresh]);
 
   return (
     <SettingsProvider>
       <TooltipProvider delayDuration={200}>
         <div className="flex h-full flex-col">
-          <Header snap={snap} view={view} loading={loading} onView={setView} onOpenRepo={load} onRefresh={() => repo && load(repo)} onSettings={() => setSettingsOpen(true)} />
+          <Header
+            snap={snap}
+            view={view}
+            loading={loading}
+            live={liveAvailable ? { on: live, updating, pending, set: setLive } : null}
+            onView={setView}
+            onOpenRepo={open}
+            onRefresh={refresh}
+            onSettings={() => setSettingsOpen(true)}
+          />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
           {error ? (
             <Empty className="flex-1">
@@ -87,7 +69,7 @@ export default function App() {
               </EmptyHeader>
               {repo && (
                 <EmptyContent>
-                  <Button variant="outline" onClick={() => load(repo)}>
+                  <Button variant="outline" onClick={() => open(repo)}>
                     Try again
                   </Button>
                 </EmptyContent>
@@ -114,6 +96,8 @@ export default function App() {
                   focus={focus?.view === "changes" ? focus : null}
                   inTimeline={(p) => !!timeline?.paths.has(p)}
                   onShowInTimeline={jump("timeline")}
+                  fresh={fresh.paths}
+                  onSeen={(p) => seen("paths", p)}
                 />
               </div>
               <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
@@ -123,6 +107,8 @@ export default function App() {
                   focus={focus?.view === "timeline" ? focus : null}
                   inChanges={(p) => changed.has(p)}
                   onShowInChanges={jump("changes")}
+                  fresh={fresh.edits}
+                  onSeen={(k) => seen("edits", k)}
                 />
               </div>
               <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "map" && "hidden")}>

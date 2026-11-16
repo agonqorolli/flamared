@@ -86,6 +86,49 @@ fn read(repo: &str, path: &str, base: &str, status: &str) -> String {
     read_text(repo, path).unwrap_or_default()
 }
 
+/// One `git diff` for the whole change, split into each file's lines (keyed by its new path). Starting git once
+/// instead of once per file is most of what makes a reload fast.
+pub fn diff_by_file(repo: &str, args: &[&str]) -> HashMap<String, Vec<String>> {
+    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    let mut full = vec!["-c", "core.quotePath=false"];
+    full.extend_from_slice(args);
+    let text = git_or_empty(repo, &full);
+    let mut chunk: Vec<&str> = Vec::new();
+    let mut flush = |chunk: &mut Vec<&str>| {
+        if let Some(path) = chunk_path(chunk) {
+            out.insert(path, chunk.iter().map(|l| l.to_string()).collect());
+        }
+        chunk.clear();
+    };
+    for line in text.lines() {
+        if line.starts_with("diff --git ") {
+            flush(&mut chunk);
+        }
+        chunk.push(line);
+    }
+    flush(&mut chunk);
+    out
+}
+
+/// The file a diff chunk is about: its new path, or the old one for a deletion.
+fn chunk_path(chunk: &[&str]) -> Option<String> {
+    let header = chunk.first()?.strip_prefix("diff --git a/")?;
+    for l in chunk.iter().take_while(|l| !l.starts_with("@@")) {
+        if let Some(p) = l.strip_prefix("+++ b/") {
+            return Some(p.to_string());
+        }
+        if let Some(p) = l.strip_prefix("rename to ") {
+            return Some(p.to_string());
+        }
+    }
+    if let Some(p) = chunk.iter().find_map(|l| l.strip_prefix("--- a/")) {
+        return Some(p.to_string()); // deleted: "+++ /dev/null"
+    }
+    // Binary or mode-only changes have no ---/+++ lines: "a/<p> b/<p>" with the same path twice.
+    let n = header.len().checked_sub(3)? / 2;
+    (header.get(n..n + 3) == Some(" b/") && header[..n] == header[n + 3..]).then(|| header[..n].to_string())
+}
+
 /// Map an import specifier to a changed file path, if it is one.
 fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>) -> Option<String> {
     let py = importer.ends_with(".py");
@@ -126,10 +169,12 @@ fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>) -> Option<Strin
     None
 }
 
-fn symbols(repo: &str, path: &str, base: &str, status: &str) -> IndexMap<String, char> {
+/// Declarations a file's change adds (+), removes (-) or touches (~). `diff` is the file's `git diff -U0` lines;
+/// a file git doesn't track yet has none, so every declaration in it counts as added.
+fn symbols(text: impl Fn() -> String, diff: Option<&Vec<String>>, untracked: bool) -> IndexMap<String, char> {
     let mut res = IndexMap::new();
-    if status == "A" && !git_or_empty(repo, &["ls-files", path]).lines().any(|l| l == path) {
-        for line in read(repo, path, base, status).lines() {
+    if untracked {
+        for line in text().lines() {
             if let Some(m) = DECL.captures(line) {
                 res.insert(m[2].to_string(), '+');
             }
@@ -142,7 +187,7 @@ fn symbols(repo: &str, path: &str, base: &str, status: &str) -> IndexMap<String,
             order.push(n.to_string());
         }
     };
-    for line in git_or_empty(repo, &["diff", "-U0", base, "--", path]).lines() {
+    for line in diff.into_iter().flatten() {
         if line.starts_with("@@") {
             if let Some(m) = line.rsplit("@@").next().and_then(|ctx| DECL.captures(ctx)) {
                 note(&m[2], &mut order);
@@ -210,6 +255,9 @@ pub fn stem(p: &str) -> String {
 pub fn group(repo: &str, base: &str) -> Result<Grouping, String> {
     let files = changed_files(repo, base)?;
     let mut stats = numstat(repo, base)?;
+    let untracked: HashSet<String> = git(repo, &["ls-files", "--others", "--exclude-standard"])?.lines().map(String::from).collect();
+    let u0 = diff_by_file(repo, &["diff", "-U0", base]);
+    let mut texts: HashMap<String, String> = HashMap::new(); // each changed code file's text, read once
     let code: Vec<String> = files.keys().filter(|p| CODE_EXT.contains(&splitext(p).1)).cloned().collect();
     let known: BTreeSet<String> = code.iter().cloned().collect();
     let tests: BTreeSet<String> = code.iter().filter(|p| TEST_RE.is_match(basename(p))).cloned().collect();
@@ -218,7 +266,7 @@ pub fn group(repo: &str, base: &str) -> Result<Grouping, String> {
     let mut adj: HashMap<String, BTreeSet<String>> = HashMap::new();
     let mut importers: HashMap<String, BTreeSet<String>> = HashMap::new();
     for p in &code {
-        let text = read(repo, p, base, &files[p]);
+        let text = texts.entry(p.clone()).or_insert_with(|| read(repo, p, base, &files[p])).clone();
         if files[p] == "A" && !stats.contains_key(p) {
             stats.insert(p.clone(), (text.lines().count() as u64, 0)); // untracked: numstat doesn't see it
         }
@@ -317,7 +365,8 @@ pub fn group(repo: &str, base: &str) -> Result<Grouping, String> {
             .unwrap();
         let mut syms = IndexMap::new();
         for p in c {
-            for (n, k) in symbols(repo, p, base, &files[p]) {
+            let text = || texts.get(p).cloned().unwrap_or_default();
+            for (n, k) in symbols(text, u0.get(p), untracked.contains(p)) {
                 syms.insert(n, (k, p.clone()));
             }
         }

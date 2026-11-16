@@ -28,20 +28,22 @@ export function useReview(snap: Snapshot) {
   const [marks, setMarks] = useState<{ key: string; marks: Marks }>(() => ({ key, marks: read(key) }));
   const current = marks.key === key ? marks.marks : read(key);
 
+  // The mark for a given version of the file's change (by default its latest).
   const stateOf = useCallback(
-    (f: FileInfo): ReviewState | null => {
+    (f: FileInfo, diff?: string): ReviewState | null => {
       const m = current[f.path];
-      return m && m.sig === fingerprint(f, snap.diffs[f.path] || "") ? m.state : null;
+      return m && m.sig === fingerprint(f, diff ?? snap.diffs[f.path] ?? "") ? m.state : null;
     },
     [current, snap],
   );
 
-  // Setting the active state again clears it.
+  // Setting the active state again clears it. `shown` is the diff you were looking at, when it is older than the
+  // file's latest: the mark then holds for what you saw, and the newer change still shows as not reviewed.
   const toggle = useCallback(
-    (f: FileInfo, state: ReviewState | null) => {
+    (f: FileInfo, state: ReviewState | null, shown?: string) => {
       const next = { ...current };
-      if (!state || stateOf(f) === state) delete next[f.path];
-      else next[f.path] = { state, sig: fingerprint(f, snap.diffs[f.path] || "") };
+      if (!state || stateOf(f, shown) === state) delete next[f.path];
+      else next[f.path] = { state, sig: fingerprint(f, shown ?? snap.diffs[f.path] ?? "") };
       try {
         localStorage.setItem(key, JSON.stringify(next));
       } catch {

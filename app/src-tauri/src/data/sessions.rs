@@ -6,7 +6,7 @@ use super::paths::{home, join, take};
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 
 static TEST_CMD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(pytest|jest|vitest|mocha|go test|cargo test|npm (run )?test|pnpm test|yarn test|rspec|phpunit)\b").unwrap()
@@ -104,8 +104,37 @@ pub fn is_codex(path: &str) -> bool {
     path.starts_with(&join(&codex_dir(), "sessions"))
 }
 
+/// A session file's size and modification time: when neither changed, what was read from it last time still holds.
+fn stamp(path: &str) -> Option<(std::time::SystemTime, u64)> {
+    let m = std::fs::metadata(path).ok()?;
+    Some((m.modified().ok()?, m.len()))
+}
+
+type Stamped<T> = HashMap<String, ((std::time::SystemTime, u64), Arc<T>)>;
+static PARSED: LazyLock<Mutex<Stamped<Session>>> = LazyLock::new(Default::default);
+static CWDS: LazyLock<Mutex<Stamped<Vec<String>>>> = LazyLock::new(Default::default);
+
+/// Reads a session file through a cache keyed by its stamp, so a reload only re-reads the files agents wrote to.
+fn cached<T>(cache: &Mutex<Stamped<T>>, path: &str, read: impl FnOnce() -> T) -> Arc<T> {
+    let st = stamp(path);
+    if let (Some(st), Some((old, v))) = (st, cache.lock().unwrap().get(path)) {
+        if *old == st {
+            return v.clone();
+        }
+    }
+    let v = Arc::new(read());
+    if let Some(st) = st {
+        cache.lock().unwrap().insert(path.to_string(), (st, v.clone()));
+    }
+    v
+}
+
 /// Every folder a session file ran in (a session can move folders mid-way).
-pub fn cwds(path: &str) -> Vec<String> {
+pub fn cwds(path: &str) -> Arc<Vec<String>> {
+    cached(&CWDS, path, || read_cwds(path))
+}
+
+fn read_cwds(path: &str) -> Vec<String> {
     let Ok(text) = std::fs::read_to_string(path) else { return vec![] };
     let mut out: Vec<String> = Vec::new();
     for m in text.lines().filter_map(|l| CWD_RE.captures(l)) {
@@ -124,8 +153,8 @@ fn load(path: &str) -> Vec<Value> {
         .unwrap_or_default()
 }
 
-pub fn parse(path: &str) -> Session {
-    if is_codex(path) { parse_codex(path) } else { parse_claude(path) }
+pub fn parse(path: &str) -> Arc<Session> {
+    cached(&PARSED, path, || if is_codex(path) { parse_codex(path) } else { parse_claude(path) })
 }
 
 fn s(v: &Value, k: &str) -> Option<String> {

@@ -1,7 +1,7 @@
 //! Everything one screen load needs for a repo: changes grouped by logic, every agent edit that led to them,
 //! and the repo map.
 use super::git::{git, git_or_empty};
-use super::group::{group, read_text, Group, TEST_RE};
+use super::group::{diff_by_file, group, read_text, Group, TEST_RE};
 use super::paths::{basename, dirname, home, join, realpath, relpath, root_of, take};
 use super::sessions::{self, Event, Hunk};
 use chrono::{DateTime, FixedOffset};
@@ -26,7 +26,7 @@ fn is_binary(top: &str, path: &str) -> bool {
 }
 
 /// This checkout plus every worktree of the same repo (Claude Code often works in worktrees).
-fn repo_roots(top: &str) -> Vec<String> {
+pub fn repo_roots(top: &str) -> Vec<String> {
     let mut roots = vec![top.to_string()];
     for line in git_or_empty(top, &["worktree", "list", "--porcelain"]).lines() {
         if let Some(p) = line.strip_prefix("worktree ") {
@@ -110,8 +110,8 @@ fn diff_flags(path: &str, diff: &[String]) -> Vec<String> {
 }
 
 /// Full diff of one file as lines (hunk headers and +/- lines), untracked files as all-added.
-/// Binary files have no text diff (empty; the page says so).
-fn file_diff_lines(top: &str, base: &str, path: &str, untracked: &HashSet<String>) -> Vec<String> {
+/// `tracked` is the whole change's `git diff -M`, split by file. Binary files have no text diff (empty; the page says so).
+fn file_diff_lines(top: &str, path: &str, untracked: &HashSet<String>, tracked: &HashMap<String, Vec<String>>) -> Vec<String> {
     if untracked.contains(path) {
         if is_binary(top, path) {
             return vec![];
@@ -122,8 +122,8 @@ fn file_diff_lines(top: &str, base: &str, path: &str, untracked: &HashSet<String
         out.extend(body.iter().map(|l| format!("+{l}")));
         return out;
     }
-    const META: &[&str] = &["diff --git", "index ", "--- ", "+++ ", "new file", "deleted file", "similarity", "rename "];
-    git_or_empty(top, &["diff", "-M", base, "--", path]).lines().filter(|l| !META.iter().any(|m| l.starts_with(m))).map(String::from).collect()
+    const META: &[&str] = &["diff --git", "index ", "--- ", "+++ ", "new file", "deleted file", "similarity", "rename ", "old mode", "new mode", "Binary files"];
+    tracked.get(path).into_iter().flatten().filter(|l| !META.iter().any(|m| l.starts_with(m))).cloned().collect()
 }
 
 fn line_count(top: &str, p: &str) -> u64 {
@@ -140,9 +140,14 @@ fn line_count(top: &str, p: &str) -> u64 {
 
 const TEMP: &[&str] = &["/private/tmp/", "/private/var/folders/", "/tmp/"];
 
-/// The main checkout of the git repo a folder is in (a worktree counts as its repo), or None.
-fn repo_of(folder: &str, cache: &mut HashMap<String, Option<String>>) -> Option<String> {
-    cache
+static REPO_OF: LazyLock<std::sync::Mutex<HashMap<String, Option<String>>>> = LazyLock::new(Default::default);
+
+/// The main checkout of the git repo a folder is in (a worktree counts as its repo), or None. Remembered for the
+/// app's lifetime: which repo a folder belongs to practically never changes.
+fn repo_of(folder: &str) -> Option<String> {
+    REPO_OF
+        .lock()
+        .unwrap()
         .entry(folder.to_string())
         .or_insert_with(|| {
             if !std::path::Path::new(folder).is_dir() {
@@ -160,10 +165,9 @@ fn repo_of(folder: &str, cache: &mut HashMap<String, Option<String>>) -> Option<
 /// Repos coding agents have worked in on this machine, for the repo picker: sessions per repo and the last one.
 pub fn known_repos(current: Option<&str>) -> Vec<Value> {
     let mut found: IndexMap<String, (u64, f64)> = IndexMap::new();
-    let mut cache = HashMap::new();
     for f in sessions::session_files() {
         // Every repo the session worked in, not just the first: a session can move to another folder mid-way.
-        let mut tops: Vec<String> = sessions::cwds(&f).iter().filter_map(|c| repo_of(c, &mut cache)).collect();
+        let mut tops: Vec<String> = sessions::cwds(&f).iter().filter_map(|c| repo_of(c)).collect();
         tops.sort();
         tops.dedup();
         let mtime = std::fs::metadata(&f).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0.0, |d| d.as_secs_f64());
@@ -410,7 +414,8 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         .map(|(k, ps)| json!({"kind": k, "files": ps.iter().filter(|p| keep.contains_key(*p)).map(&finfo).collect::<Vec<_>>()}))
         .filter(|s| s["files"].as_array().is_some_and(|f| !f.is_empty()))
         .collect();
-    let diff_lines: HashMap<&String, Vec<String>> = keep.keys().map(|p| (p, file_diff_lines(top, base, p, &untracked))).collect();
+    let whole = diff_by_file(top, &["diff", "-M", base]);
+    let diff_lines: HashMap<&String, Vec<String>> = keep.keys().map(|p| (p, file_diff_lines(top, p, &untracked, &whole))).collect();
     let diffs: Map<String, Value> = keep
         .keys()
         .map(|p| {

@@ -1,4 +1,5 @@
-import { CheckIcon, ClockIcon, XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckIcon, ClockIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DiffView } from "@/components/DiffView";
@@ -11,25 +12,60 @@ import { toPatch, type Row } from "./model";
 
 interface Props {
   row: Row;
+  active: boolean;
   count: number;
   diff: string;
   rows: Row[];
-  review: ReviewState | null;
+  reviewOf: (diff: string) => ReviewState | null; // the mark for the version on screen
   inTimeline: boolean;
-  onReview: (s: ReviewState | null) => void;
+  onReview: (s: ReviewState | null, shown?: string) => void;
   onStep: (dir: 1 | -1) => void;
   onSelect: (i: number) => void;
   onShowInTimeline: () => void;
+  onShowLatest: () => void;
 }
 
-export function FileDetail({ row, count, diff, rows, review, inTimeline, onReview, onStep, onSelect, onShowInTimeline }: Props) {
+export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimeline, onReview, onStep, onSelect, onShowInTimeline, onShowLatest }: Props) {
   const f = row.file;
-  const { patch, more } = f.binary || !diff.trim() ? { patch: null, more: null } : toPatch(f, diff);
+  // The diff on screen holds still while you read: when the agent changes this file again, a bar offers the
+  // newer version instead of swapping it in under you. Moving to another file always shows its latest.
+  const [held, setHeld] = useState({ path: f.path, diff });
+  useEffect(() => setHeld({ path: f.path, diff }), [f.path]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = held.path === f.path ? held.diff : diff;
+  const stale = shown !== diff;
+  const review = reviewOf(shown);
+  const showLatest = () => {
+    setHeld({ path: f.path, diff });
+    onShowLatest();
+  };
+  // A / X approve or reject what is on screen, like the buttons.
+  const reviewShown = (s: ReviewState | null) => onReview(s, stale ? shown : undefined);
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [cmdk-root], [role=dialog]")) return;
+      if (e.key !== "a" && e.key !== "x") return;
+      e.preventDefault();
+      reviewShown(e.key === "a" ? "approved" : "rejected");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+  const { patch, more } = f.binary || !shown.trim() ? { patch: null, more: null } : toPatch(f, shown);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 px-6 pt-2.5 pb-4">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <DiffView id={f.path} patch={patch} more={more} empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"} />
-        <ReviewBar review={review} onReview={onReview} />
+        {stale && (
+          <div role="status" className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-lg border border-selection/40 bg-selection-bg px-3 py-1.5 text-xs">
+            <span>This file changed since you opened it.</span>
+            <Button variant="outline" size="xs" onClick={showLatest}>
+              <RefreshCwIcon data-icon="inline-start" />
+              Show latest
+            </Button>
+          </div>
+        )}
+        <DiffView id={`${f.path}:${stale ? "held" : "latest"}`} patch={patch} more={more} empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"} />
+        <ReviewBar review={review} onReview={reviewShown} />
       </div>
       <aside aria-label="File and connected files" className="flex w-[clamp(180px,26%,220px)] shrink-0 flex-col gap-3 overflow-y-auto">
         <FileCard

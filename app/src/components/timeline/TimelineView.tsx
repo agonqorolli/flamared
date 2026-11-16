@@ -12,7 +12,7 @@ import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
-import { editPatch, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
+import { editKey, editPatch, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import type { TimelineEdit } from "@/lib/types";
 
@@ -22,21 +22,33 @@ interface Props {
   focus: { path: string; n: number } | null; // "Show in Timeline" from another screen: the file's latest edit
   inChanges: (path: string) => boolean;
   onShowInChanges: (path: string) => void;
+  fresh: Set<string>; // edits that arrived since you last selected them (editKey)
+  onSeen: (key: string) => void;
 }
 
 // Timeline: every agent edit in order (latest first) with the agent's words, commands and your prompts around it.
-export function TimelineView({ timeline, active, focus, inChanges, onShowInChanges }: Props) {
+export function TimelineView({ timeline, active, focus, inChanges, onShowInChanges, fresh, onSeen }: Props) {
   const { items, edits } = timeline;
-  const [selected, setSelected] = useState(0);
+  // The selection follows the edit, so new edits arriving at the top don't move you.
+  const [selected, setSelectedState] = useState<{ key: string | null; index: number }>({ key: null, index: 0 });
   const [showAgent, setShowAgent] = useState(false);
-  const sel = Math.min(selected, Math.max(0, edits.length - 1));
+  const byKey = selected.key ? edits.findIndex((x) => editKey(x) === selected.key) : -1;
+  const sel = byKey >= 0 ? byKey : Math.min(selected.index, Math.max(0, edits.length - 1));
   const e = edits[sel];
+  const setSelected = (i: number) => {
+    const x = edits[Math.max(0, Math.min(edits.length - 1, i))];
+    if (!x) return;
+    const k = editKey(x);
+    setSelectedState({ key: k, index: i });
+    onSeen(k);
+  };
 
   useEffect(() => {
     if (!focus) return;
     const i = edits.findIndex((x) => x.path === focus.path); // edits are latest first
     if (i >= 0) setSelected(i);
-  }, [focus, edits]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   useEffect(() => {
     if (!active) return;
@@ -44,11 +56,11 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
       if (ev.metaKey || ev.ctrlKey || ev.altKey || (ev.target as HTMLElement).closest("input, textarea, [cmdk-root]")) return;
       if (ev.key !== "j" && ev.key !== "k") return;
       ev.preventDefault();
-      setSelected((i) => Math.max(0, Math.min(edits.length - 1, i + (ev.key === "j" ? 1 : -1))));
+      setSelected(sel + (ev.key === "j" ? 1 : -1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, edits.length]);
+  });
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -64,14 +76,14 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
           {!edits.length && <p className="px-1.5 pt-4 text-xs text-faint">No matching agent turns. Showing commits only.</p>}
           <div className="flex flex-col gap-2 pb-10">
             {items.map((it, k) => (
-              <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent} onSelect={setSelected} />
+              <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent} fresh={fresh} onSelect={setSelected} />
             ))}
           </div>
         </ScrollArea>
       </nav>
       {e ? (
         <EditDetail
-          key={sel}
+          key={editKey(e)}
           edit={e}
           index={sel}
           edits={edits}
@@ -91,7 +103,7 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
   );
 }
 
-function Item({ item, selected, showAgent, onSelect }: { item: TimelineItem; selected: number; showAgent: boolean; onSelect: (i: number) => void }) {
+function Item({ item, selected, showAgent, fresh, onSelect }: { item: TimelineItem; selected: number; showAgent: boolean; fresh: Set<string>; onSelect: (i: number) => void }) {
   if (item.kind === "day") return <SectionLabel>{item.label}</SectionLabel>;
   if (item.kind === "commit")
     return (
@@ -106,7 +118,7 @@ function Item({ item, selected, showAgent, onSelect }: { item: TimelineItem; sel
   return (
     <div className="rounded-lg border bg-card p-1.5">
       {rows.map((r, k) => (
-        <TurnRow key={k} row={r} agent={item.agent} selected={selected} onSelect={onSelect} />
+        <TurnRow key={k} row={r} agent={item.agent} selected={selected} fresh={fresh} onSelect={onSelect} />
       ))}
       <div className={cn("flex flex-col gap-1 px-1.5 pt-2 pb-0.5", rows.length && "mt-1.5 border-t")}>
         <div className="flex items-baseline gap-1.5 text-[11px] text-muted-foreground">
@@ -122,7 +134,7 @@ function Item({ item, selected, showAgent, onSelect }: { item: TimelineItem; sel
   );
 }
 
-function TurnRow({ row, agent, selected, onSelect }: { row: TimelineRow; agent: string; selected: number; onSelect: (i: number) => void }) {
+function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; agent: string; selected: number; fresh: Set<string>; onSelect: (i: number) => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const on = row.kind === "edit" && row.index === selected;
   useEffect(() => {
@@ -159,6 +171,7 @@ function TurnRow({ row, agent, selected, onSelect }: { row: TimelineRow; agent: 
       <span className="w-9 shrink-0 text-[10px] text-faint">{time(e.at)}</span>
       <StatusLetter status={editStatus(e)} title={editStatusTip(e)} />
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(e.path)}</span>
+      {fresh.has(editKey(e)) && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />}
       <Counts add={e.add} rem={e.rem} />
     </button>
   );

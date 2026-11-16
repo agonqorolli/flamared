@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Spinner } from "@/components/ui/spinner";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { ago, plural } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Snapshot } from "@/lib/types";
 
 export type View = "changes" | "timeline" | "map";
@@ -20,9 +21,10 @@ interface Props {
   onOpenRepo: (path: string) => void;
   onRefresh: () => void;
   onSettings: () => void;
+  live: { on: boolean; updating: boolean; pending: boolean; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
-export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh, onSettings }: Props) {
+export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefresh, onSettings }: Props) {
   return (
     <header className="flex items-center gap-3.5 border-b bg-panel px-4 py-1.5">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
@@ -38,6 +40,7 @@ export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh, onS
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
+        {live && snap && <LiveToggle {...live} />}
         <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title="Refresh (⌘R)">
           {loading ? <Spinner /> : <RefreshCwIcon />}
         </Button>
@@ -195,6 +198,31 @@ function SessionsChip({ snap }: { snap: Snapshot }) {
           still in this diff.
         </span>
         {left.length > 0 && <span className="text-muted-foreground">Left out: {left.map(([k, n]) => `${n} ${k}`).join(", ")}</span>}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// Live: the screens update by themselves when files or agent sessions change. Paused holds them still and says
+// when changes are waiting.
+function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boolean; pending: boolean; set: (on: boolean) => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="sm" aria-pressed={on} onClick={() => set(!on)} className="text-xs text-muted-foreground">
+          <span className="relative flex size-2">
+            {on && updating && <span className="absolute inline-flex size-full animate-ping rounded-full bg-add opacity-75" />}
+            <span className={cn("relative inline-flex size-2 rounded-full", on ? "bg-add" : pending ? "bg-warn" : "bg-faint")} />
+          </span>
+          {on ? "Live" : pending ? "Paused · changes waiting" : "Paused"}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-64">
+        {on
+          ? "Updates by itself when files change or an agent works in this repo. Click to pause."
+          : pending
+            ? "Changes arrived while paused. Click to go live and load them."
+            : "Not updating by itself. Click to go live, or press ⌘R to reload once."}
       </TooltipContent>
     </Tooltip>
   );
