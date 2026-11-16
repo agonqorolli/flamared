@@ -13,7 +13,7 @@ export function Said({ who, text, when, lines = 2, title }: { who: string; text:
       aria-expanded={open}
       onClick={() => setOpen(!open)}
     >
-      {when !== undefined && <span className="w-9 shrink-0 pt-px text-[10px] text-faint tabular-nums">{when}</span>}
+      {when !== undefined && <span className="w-9 shrink-0 pt-px text-micro text-faint tabular-nums">{when}</span>}
       <span className={cn("min-w-0 flex-1 text-muted-foreground", !open && (lines === 2 ? "line-clamp-2" : "line-clamp-4"))}>
         <span className="font-medium text-subtle">{who}:</span> {text}
       </span>

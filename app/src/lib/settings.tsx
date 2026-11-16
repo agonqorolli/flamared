@@ -56,7 +56,7 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
-  appearance: { theme: "dark", density: "normal" },
+  appearance: { theme: "gray", density: "normal" },
   diff: { theme: "github-dark", layout: "unified", longLines: "scroll", inline: "word-alt", markers: "classic", backgrounds: true, lineNumbers: true, fontSize: 12 },
 };
 

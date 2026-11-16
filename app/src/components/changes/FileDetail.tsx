@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { SideColumn } from "@/components/SideColumn";
 import { CheckIcon, ClockIcon, MapIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { KeyHint } from "@/components/KeyHint";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DiffView } from "@/components/DiffView";
 import { FileCard } from "@/components/FileCard";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { base } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { hint, useKeys } from "@/lib/keys";
 import type { ReviewState } from "@/lib/review";
 import { toPatch, type Row } from "./model";
 
@@ -41,18 +44,9 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
   };
   // G / W mark what is on screen "Looks good" or "Needs work", like the buttons.
   const reviewShown = (s: ReviewState | null) => onReview(s, stale ? shown : undefined);
-  useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [cmdk-root], [role=dialog]")) return;
-      if (e.key !== "g" && e.key !== "w") return;
-      e.preventDefault();
-      const mark: ReviewState = e.key === "g" ? "approved" : "rejected";
-      reviewShown(review === mark ? null : mark); // pressing it again clears it, like the pressed button
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+  // Pressing it again clears it, like the pressed button.
+  const mark = (m: ReviewState) => reviewShown(review === m ? null : m);
+  useKeys(active, { looksGood: () => mark("approved"), needsWork: () => mark("rejected") });
   const { patch, more } = f.binary || !shown.trim() ? { patch: null, more: null } : toPatch(f, shown);
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
@@ -69,7 +63,7 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
         <DiffView id={`${f.path}:${stale ? "held" : "latest"}`} patch={patch} more={more} empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"} />
         <ReviewBar review={review} onReview={reviewShown} />
       </div>
-      <aside aria-label="File and connected files" className="flex w-[clamp(calc(var(--spacing)*50),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
+      <SideColumn label="File and connected files">
         <FileCard
           what="File"
           index={row.index}
@@ -83,19 +77,21 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
           jump={
             <>
               {inTimeline && (
-                <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title="Show in Timeline" onClick={onShowInTimeline}>
+                <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title={`Show in Timeline (${hint("toTimeline")})`} onClick={onShowInTimeline}>
                   <ClockIcon />
+                  <KeyHint id="toTimeline" />
                 </Button>
               )}
-              <Button variant="outline" size="icon-xs" aria-label="Show in Map" title="Show in Map" onClick={onShowInMap}>
+              <Button variant="outline" size="icon-xs" aria-label="Show in Map" title={`Show in Map (${hint("toMap")})`} onClick={onShowInMap}>
                 <MapIcon />
+                <KeyHint id="toMap" />
               </Button>
             </>
           }
         />
         <Connected title="Uses" paths={f.links_out} empty="Uses no changed files" rows={rows} onSelect={onSelect} />
         <Connected title="Used by" paths={f.links_in} empty="Used by no changed files" rows={rows} onSelect={onSelect} />
-      </aside>
+      </SideColumn>
     </div>
   );
 }
@@ -110,13 +106,15 @@ function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview:
         {review && <span className="text-faint"> · resets if the agent changes this file</span>}
       </span>
       <ToggleGroup type="single" variant="outline" size="sm" value={review ?? ""} onValueChange={(v) => onReview((v || null) as ReviewState | null)}>
-        <ToggleGroupItem value="approved" title={review === "approved" ? "Clear the mark (G)" : "Looks good (G)"} className="data-[state=on]:bg-add-bg data-[state=on]:text-add">
+        <ToggleGroupItem value="approved" title={`${review === "approved" ? "Clear the mark" : "Looks good"} (${hint("looksGood")})`} className="data-[state=on]:bg-add-bg data-[state=on]:text-add">
           <CheckIcon data-icon="inline-start" />
           Looks good
+          <KeyHint id="looksGood" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="rejected" title={review === "rejected" ? "Clear the mark (W)" : "Needs work (W)"} className="data-[state=on]:bg-rem-bg data-[state=on]:text-rem">
+        <ToggleGroupItem value="rejected" title={`${review === "rejected" ? "Clear the mark" : "Needs work"} (${hint("needsWork")})`} className="data-[state=on]:bg-rem-bg data-[state=on]:text-rem">
           <XIcon data-icon="inline-start" />
           Needs work
+          <KeyHint id="needsWork" />
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

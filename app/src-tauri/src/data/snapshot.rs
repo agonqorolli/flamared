@@ -213,22 +213,31 @@ pub fn known_repos(current: Option<&str>) -> Vec<Value> {
         .collect()
 }
 
+/// Agent work on one branch: how many sessions edited there, which agents, and their latest edit.
+#[derive(Default)]
+struct BranchWork {
+    sessions: u64,
+    agents: std::collections::BTreeSet<&'static str>,
+    last: Option<DateTime<FixedOffset>>,
+}
+
 /// Local branches, then remote ones with no local copy, for the branch picker (newest commit first).
-fn branches(top: &str, current: &str, session_branches: &HashMap<String, u64>) -> Vec<Value> {
-    let mut rows: Vec<(String, String, bool)> = Vec::new();
-    let fmt = "--format=%(refname)%09%(refname:short)%09%(committerdate:iso-strict)%09%(symref)";
+fn branches(top: &str, current: &str, session_branches: &HashMap<String, BranchWork>) -> Vec<Value> {
+    // name, date, remote, and the last commit's subject (last, since it can hold tabs).
+    let mut rows: Vec<(String, String, bool, String)> = Vec::new();
+    let fmt = "--format=%(refname)%09%(refname:short)%09%(committerdate:iso-strict)%09%(symref)%09%(subject)";
     for line in git_or_empty(top, &["for-each-ref", "--sort=-committerdate", fmt, "refs/heads", "refs/remotes"]).lines() {
-        let f: Vec<&str> = line.split('\t').collect();
-        let [r, name, at, sym] = f[..] else { continue };
+        let f: Vec<&str> = line.splitn(5, '\t').collect();
+        let [r, name, at, sym, subject] = f[..] else { continue };
         if !sym.is_empty() || (r.starts_with("refs/remotes/") && r.matches('/').count() < 3) {
             continue; // origin/HEAD and bare remote names
         }
         let remote = r.starts_with("refs/remotes/");
         let local_name = if remote { name.split_once('/').map_or(name, |x| x.1) } else { name };
-        if remote && rows.iter().any(|(n, _, rem)| n == local_name && !rem) {
+        if remote && rows.iter().any(|(n, _, rem, _)| n == local_name && !rem) {
             continue;
         }
-        rows.push((name.to_string(), at.to_string(), remote));
+        rows.push((name.to_string(), at.to_string(), remote, subject.to_string()));
     }
     rows.sort_by_key(|r| r.2); // stable: keeps newest first inside each part
     // Branches checked out in other worktrees, read once (not once per branch: repos can have hundreds).
@@ -237,11 +246,15 @@ fn branches(top: &str, current: &str, session_branches: &HashMap<String, u64>) -
         .filter_map(|l| l.strip_prefix("branch refs/heads/").map(String::from))
         .collect();
     rows.into_iter()
-        .map(|(name, at, remote)| {
+        .map(|(name, at, remote, subject)| {
             let local = if remote { name.split_once('/').map_or(name.as_str(), |x| x.1) } else { name.as_str() };
             let worktree = !remote && name != current && in_worktree.contains(&name);
+            let work = session_branches.get(local);
             json!({"name": name, "at": at, "remote": remote, "current": name == current, "worktree": worktree,
-                   "sessions": session_branches.get(local).copied().unwrap_or(0)})
+                   "sessions": work.map_or(0, |w| w.sessions),
+                   "agents": work.map_or(vec![], |w| w.agents.iter().copied().collect()),
+                   "agent_at": work.and_then(|w| w.last).map(|t| t.to_rfc3339()),
+                   "subject": subject})
         })
         .collect()
 }
@@ -288,16 +301,25 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
     let mut words: HashMap<String, (String, String, String)> = HashMap::new(); // rel path -> (time, text, agent)
     let mut sessions_out = Vec::new();
     let mut skipped: IndexMap<&str, u64> = IndexMap::new();
-    let mut session_branches: HashMap<String, u64> = HashMap::new(); // sessions that edited on each branch, for the picker
+    let mut session_branches: HashMap<String, BranchWork> = HashMap::new(); // agent work on each branch, for the picker
     let mut current: HashMap<(String, String), Option<String>> = HashMap::new(); // (root, rel) -> file text now
     let session_files: Vec<String> =
         sessions::session_files().into_iter().filter(|f| sessions::cwds(f).iter().any(|c| root_of(&realpath(c), &roots).is_some())).collect();
     for f in &session_files {
         let s = sessions::parse(f);
-        let names: HashSet<&str> =
-            s.turns.iter().flat_map(|t| &t.edits).filter_map(|e| e.branch.as_deref()).filter(|b| !b.is_empty() && *b != "HEAD").collect();
-        for b in names {
-            *session_branches.entry(b.to_string()).or_default() += 1;
+        // Each branch this session edited on, with its latest edit there.
+        let mut edited_on: HashMap<&str, Option<DateTime<FixedOffset>>> = HashMap::new();
+        for e in s.turns.iter().flat_map(|t| &t.edits) {
+            let Some(b) = e.branch.as_deref().filter(|b| !b.is_empty() && *b != "HEAD") else { continue };
+            let at = e.at.as_deref().and_then(ts);
+            let latest = edited_on.entry(b).or_default();
+            *latest = (*latest).max(at);
+        }
+        for (b, at) in edited_on {
+            let w = session_branches.entry(b.to_string()).or_default();
+            w.sessions += 1;
+            w.agents.insert(s.agent);
+            w.last = w.last.max(at);
         }
         // A short id per session: Claude Code names files by a UUID; Codex names them "rollout-<time>-<uuid>.jsonl",
         // so its unique part is at the end.
@@ -558,16 +580,63 @@ pub fn view(repo: &str, branch: Option<&str>) -> Result<Value, String> {
     if let Some(folder) = worktree_of(&top, branch) {
         return build(&folder, "HEAD", &At::Work);
     }
-    let tip = git(&top, &["rev-parse", branch])?.trim().to_string();
-    let split = |other: &str| git_or_empty(&top, &["merge-base", other, branch]).trim().to_string();
-    // Where it split off: from the default branch; for the default branch itself (or one already merged into it),
-    // from the checked-out branch instead.
-    let mut base = default_branch(&top).map(|d| split(&d)).unwrap_or_default();
+    let (_, base) = split_off(&top, branch, default_branch(&top).as_deref())?;
+    build(&top, &base, &At::Commit(branch.to_string()))
+}
+
+/// A branch's tip and where it split off: from the default branch; for the default branch itself (or one already
+/// merged into it), from the checked-out branch instead.
+fn split_off(top: &str, branch: &str, default: Option<&str>) -> Result<(String, String), String> {
+    let tip = git(top, &["rev-parse", branch])?.trim().to_string();
+    let split = |other: &str| git_or_empty(top, &["merge-base", other, branch]).trim().to_string();
+    let mut base = default.map(split).unwrap_or_default();
     if base.is_empty() || base == tip {
         base = split("HEAD");
     }
     if base.is_empty() {
         base = tip.clone();
     }
-    build(&top, &base, &At::Commit(branch.to_string()))
+    Ok((tip, base))
+}
+
+/// For the repo picker, run when it opens: a repo's checked-out branch and its uncommitted files (as `git status`
+/// lists them, ignored files left out).
+pub fn repo_status(top: &str) -> Value {
+    let branch = git_or_empty(top, &["branch", "--show-current"]).trim().to_string();
+    let out = git_or_empty(top, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+    let mut changed = Vec::new();
+    let mut entries = out.split('\0');
+    while let Some(e) = entries.next() {
+        if e.len() < 4 {
+            continue;
+        }
+        if e[..2].contains(['R', 'C']) {
+            entries.next(); // a rename or copy is followed by its old path
+        }
+        changed.push(e[3..].to_string());
+    }
+    json!({"full": top, "branch": branch, "changed": changed})
+}
+
+/// For the branch picker, run when it opens: how many files each branch changed, as viewing it would show them
+/// (a worktree's uncommitted files; otherwise the files changed since it split off). The checked-out branch is left
+/// out (the window knows its files), and so is anything past the first 50 branches.
+pub fn branch_files(repo: &str) -> Result<Map<String, Value>, String> {
+    let top = realpath(git(repo, &["rev-parse", "--show-toplevel"])?.trim());
+    let checked_out = git_or_empty(&top, &["branch", "--show-current"]).trim().to_string();
+    let default = default_branch(&top);
+    let mut out = Map::new();
+    let refs = git_or_empty(&top, &["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)%09%(symref)", "refs/heads", "refs/remotes"]);
+    // Like the branch list: pointers such as origin/HEAD (a symref) aren't branches.
+    let names = refs.lines().filter_map(|l| l.split_once('\t')).filter(|(n, sym)| sym.is_empty() && *n != checked_out).map(|(n, _)| n);
+    for name in names.take(50) {
+        let n = if let Some(folder) = worktree_of(&top, name) {
+            repo_status(&folder)["changed"].as_array().map_or(0, |a| a.len())
+        } else {
+            let (tip, base) = split_off(&top, name, default.as_deref())?;
+            if tip == base { 0 } else { git_or_empty(&top, &["diff", "--name-only", &base, &tip]).lines().count() }
+        };
+        out.insert(name.to_string(), json!(n));
+    }
+    Ok(out)
 }

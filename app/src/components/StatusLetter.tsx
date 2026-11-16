@@ -15,7 +15,7 @@ const COLOR: Record<Status, string> = {
 // The git status letter in front of a file name, colored, with what it means on hover.
 export function StatusLetter({ status, title }: { status: Status; title?: string }) {
   return (
-    <span className={cn("w-3 shrink-0 text-center font-mono text-[11px] font-semibold", COLOR[status])} title={title ?? STATUS[status]}>
+    <span className={cn("w-3 shrink-0 text-center font-mono text-mini font-semibold", COLOR[status])} title={title ?? STATUS[status]}>
       {status}
     </span>
   );
@@ -23,7 +23,7 @@ export function StatusLetter({ status, title }: { status: Status; title?: string
 
 export function Counts({ add, rem }: { add: number; rem: number }) {
   return (
-    <span className="shrink-0 font-mono text-[11px] whitespace-nowrap">
+    <span className="shrink-0 font-mono text-mini whitespace-nowrap">
       <span className="text-add">+{add}</span> <span className="text-rem">−{rem}</span>
     </span>
   );

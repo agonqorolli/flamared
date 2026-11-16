@@ -8,6 +8,8 @@ import type { Snapshot } from "@/lib/types";
 import { buildSections } from "./model";
 import { ChangesList } from "./ChangesList";
 import { FileDetail } from "./FileDetail";
+import { hint, useKeys } from "@/lib/keys";
+import { KeyHint } from "@/components/KeyHint";
 
 interface Props {
   snap: Snapshot;
@@ -45,18 +47,14 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
     if (i >= 0) select(i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
-  // j / k step through files (a / x are handled by the file view, which knows which version is on screen).
-  useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [cmdk-root]")) return;
-      if (e.key === "j" || e.key === "k") {
-        e.preventDefault();
-        select(sel + (e.key === "j" ? 1 : -1));
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  // J / K step through files, A shows the agent's messages, T / M jump to the file elsewhere. G / W are handled by
+  // the file view, which knows which version is on screen.
+  useKeys(active, {
+    next: () => select(sel + 1),
+    prev: () => select(sel - 1),
+    agent: hasWords && (() => setShowAgent(!showAgent)),
+    toTimeline: !!row && inTimeline(row.file.path) && (() => onShowInTimeline(row.file.path)),
+    toMap: !!row && (() => onShowInMap(row.file.path)),
   });
 
   if (!rows.length) {
@@ -76,13 +74,14 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Change groups" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
+      <nav aria-label="Change groups" className="flex w-(--list-w) min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="files">Files</ToggleGroupItem>
             {/* Off when no agent message belongs to these changes, so the toggle never silently does nothing. */}
-            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? "Show the agent's latest message on each group" : "No agent messages for these changes"}>
+            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? `Show the agent's latest message on each group (${hint("agent")})` : "No agent messages for these changes"}>
               Files + Agent
+              <KeyHint id="agent" />
             </ToggleGroupItem>
           </ToggleGroup>
           <span className="text-xs text-faint">{plural(snap.stats.files, "file")}</span>

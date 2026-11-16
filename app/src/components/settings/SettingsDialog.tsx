@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PatchDiff } from "@pierre/diffs/react";
-import { CodeIcon, KeyRoundIcon, PaletteIcon, RotateCcwIcon } from "lucide-react";
+import { CodeIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon, RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
@@ -12,11 +12,14 @@ import { DIFF_THEMES, useSettings, type AppearanceSettings, type DiffSettings } 
 import { cn } from "@/lib/utils";
 import { LicenseSettings } from "@/components/license/LicenseSettings";
 import { SectionHead } from "./SectionHead";
+import { KeyboardSettings } from "./KeyboardSettings";
+import { hint } from "@/lib/keys";
 
 // Sections of the settings menu. More come later (files to leave out...).
 const SECTIONS = [
   { id: "appearance", label: "Appearance", icon: PaletteIcon },
   { id: "diff", label: "Diff style", icon: CodeIcon },
+  { id: "keyboard", label: "Keyboard", icon: KeyboardIcon },
   { id: "license", label: "License", icon: KeyRoundIcon },
 ] as const;
 export type Section = (typeof SECTIONS)[number]["id"];
@@ -30,7 +33,11 @@ export function SettingsDialog({ open, start, onOpenChange }: { open: boolean; s
   }, [open, start]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(640px,calc(100vh-4rem))] gap-0 overflow-hidden p-0 sm:max-w-[860px]">
+      <DialogContent
+        className="flex h-[min(640px,calc(100vh-4rem))] gap-0 overflow-hidden p-0 outline-none sm:max-w-[860px]"
+        // Focus the dialog, not its first menu button: opened with ⌘, or ? that button would show a focus ring.
+        onOpenAutoFocus={(e) => (e.preventDefault(), (e.currentTarget as HTMLElement).focus())}
+      >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">Change how the app looks and works.</DialogDescription>
         <nav aria-label="Settings sections" className="flex w-48 shrink-0 flex-col gap-0.5 border-r bg-sidebar p-2">
@@ -52,6 +59,7 @@ export function SettingsDialog({ open, start, onOpenChange }: { open: boolean; s
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {section === "appearance" && <Appearance />}
           {section === "diff" && <DiffStyle />}
+          {section === "keyboard" && <KeyboardSettings />}
           {section === "license" && <LicenseSettings />}
         </div>
       </DialogContent>
@@ -105,7 +113,7 @@ function Appearance() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Defaults</FieldLabel>
-              <FieldDescription>Dark theme, normal density.</FieldDescription>
+              <FieldDescription>Gray theme, normal density.</FieldDescription>
             </FieldContent>
             <Button variant="outline" size="sm" onClick={resetAppearance}>
               <RotateCcwIcon data-icon="inline-start" />
@@ -185,7 +193,7 @@ function DiffStyle() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Layout</FieldLabel>
-              <FieldDescription>One column, or the old and new code side by side.</FieldDescription>
+              <FieldDescription>One column, or the old and new code side by side. {hint("splitDiff")} switches it.</FieldDescription>
             </FieldContent>
             {choice("layout", [["unified", "Unified"], ["split", "Split"]])}
           </Field>

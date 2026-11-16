@@ -3,7 +3,7 @@
 Tauri 2 (Rust) with a React + TypeScript window, Tailwind CSS 4, shadcn/ui (Radix) and @pierre/diffs for diffs.
 
 - `src-tauri/src/data/`: the data layer. Reads git and the agent session files (Claude Code, Codex); never writes to either. `snapshot::build` returns everything a screen load needs.
-- `src/`: the window. `components/changes/` is the Changes screen; Timeline and Map come next.
+- `src/`: the window: `components/changes/`, `components/timeline/` and `components/map/` are the three screens; shared pieces and the design system are described in the `design-system` skill.
 - `src/brand.ts`: the product name.
 
 ```bash

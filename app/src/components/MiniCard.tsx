@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
+import { Eyebrow } from "@/components/Eyebrow";
 
 // A small card for the column beside a diff (Uses, Used by, File history, Same step) and the map's side panel.
 export function MiniCard({ title, empty, children }: { title: React.ReactNode; empty: string; children?: React.ReactNode[] }) {
   const rows = (children ?? []).filter(Boolean);
   return (
     <section className="flex flex-col gap-0.5 rounded-xl border bg-card p-2">
-      <div className="px-1 pb-0.5 text-[10px] font-medium tracking-[.06em] text-faint uppercase">{title}</div>
+      <Eyebrow className="px-1 pb-0.5">{title}</Eyebrow>
       {rows.length ? rows : empty ? <div className="px-1 pb-1 text-xs text-faint">{empty}</div> : null}
     </section>
   );

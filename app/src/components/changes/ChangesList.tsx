@@ -39,8 +39,8 @@ function GroupBlock({ block, selected, showAgent, fresh, reviewOf, onSelect }: {
     <div className={cn("rounded-lg border bg-card p-1.5", block.lonely && "border-warn/30")}>
       {/* The group's name and how many files it has; the longer description is on hover. */}
       <div className="flex items-baseline justify-between gap-2 px-1.5 pt-0.5 pb-1" title={block.sub}>
-        <span className="min-w-0 truncate font-mono text-[13px] font-medium text-foreground">{block.name}</span>
-        <span className="shrink-0 text-[11px] text-faint">{plural(block.rows.length, "file")}</span>
+        <span className="min-w-0 truncate font-mono text-name font-medium text-foreground">{block.name}</span>
+        <span className="shrink-0 text-mini text-faint">{plural(block.rows.length, "file")}</span>
       </div>
       {showAgent && block.words && (
         <div className="px-1.5 py-1">
@@ -50,7 +50,7 @@ function GroupBlock({ block, selected, showAgent, fresh, reviewOf, onSelect }: {
       {block.rows.map((r) => (
         <FileRow key={r.index} row={r} on={r.index === selected} fresh={fresh.has(r.file.path)} review={reviewOf(r.file)} onSelect={onSelect} />
       ))}
-      {block.lonely && <div className="px-1.5 pt-1 text-[11px] text-warn">Not connected to the other changes</div>}
+      {block.lonely && <div className="px-1.5 pt-1 text-mini text-warn">Not connected to the other changes</div>}
     </div>
   );
 }
@@ -82,8 +82,8 @@ function FileRow({ row, on, fresh, review, onSelect }: { row: Row; on: boolean; 
         <StatusLetter status={f.status} title={STATUS[f.status]} />
         <span className="min-w-0 flex-1 truncate font-mono font-medium">{f.path.slice(f.path.lastIndexOf("/") + 1)}</span>
         {fresh && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New or changed since you last looked" />}
-        {row.note && <span className="shrink-0 text-[10px] text-faint">{row.note}</span>}
-        {f.binary ? <span className="shrink-0 text-[11px] text-faint">binary</span> : <Counts add={f.add} rem={f.rem} />}
+        {row.note && <span className="shrink-0 text-micro text-faint">{row.note}</span>}
+        {f.binary ? <span className="shrink-0 text-mini text-faint">binary</span> : <Counts add={f.add} rem={f.rem} />}
       </span>
     </button>
   );

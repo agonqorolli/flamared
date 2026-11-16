@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SideColumn } from "@/components/SideColumn";
 import { ClockIcon, FileDiffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { KeyHint } from "@/components/KeyHint";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { FileCard } from "@/components/FileCard";
@@ -9,6 +11,7 @@ import { base, plural, STATUS, SURVIVAL, type Survival } from "@/lib/format";
 import type { Timeline } from "@/lib/timeline";
 import type { FileInfo, Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { hint, useKeys, type KeyId } from "@/lib/keys";
 import { buildTree, squarify, type TreeNode } from "./treemap";
 import { FlagRules } from "./FlagRules";
 
@@ -30,33 +33,37 @@ const keptShare = (sv: Record<Survival, number>) => {
   const n = sv.kept + sv.partly + sv.gone + sv.undone;
   return n ? (sv.kept + sv.partly / 2) / n : null;
 };
-// Tile colors per lens. Data colors on a dark canvas, so they are set here rather than as theme tokens.
+// Tile colors per lens, from the --lens-* tokens in index.css (each theme has its own). Scales mix a lens's low and
+// high color by how much the file has of it.
+const mix = (lens: "size" | "rework", t: number) => `color-mix(in srgb, var(--lens-${lens}-high) ${Math.round(t * 100)}%, var(--lens-${lens}-low))`;
 const LENS: Record<Lens, { label: string; color: (x: FileStats, M: Info) => string }> = {
-  size: { label: "Change size", color: (x, M) => `hsl(218, 70%, ${20 + (40 * Math.log1p(x.f.add + x.f.rem)) / Math.log1p(M.maxLines)}%)` },
-  rework: { label: "Rework", color: (x, M) => (x.edits ? `hsl(36, 85%, ${20 + (38 * x.edits) / M.maxEdits}%)` : "hsl(220, 10%, 28%)") },
+  size: { label: "Change size", color: (x, M) => mix("size", Math.log1p(x.f.add + x.f.rem) / Math.log1p(M.maxLines)) },
+  rework: { label: "Rework", color: (x, M) => (x.edits ? mix("rework", x.edits / M.maxEdits) : "var(--lens-none)") },
   final: {
     label: "Still in final",
     color: (x) => {
       const s = keptShare(x.sv);
-      return s == null ? "hsl(220, 10%, 26%)" : s >= 0.8 ? "hsl(135, 50%, 34%)" : s >= 0.4 ? "hsl(40, 70%, 38%)" : "#3A3F48";
+      return s == null ? "var(--lens-none)" : s >= 0.8 ? "var(--lens-kept)" : s >= 0.4 ? "var(--lens-partly)" : "var(--lens-gone)";
     },
   },
-  flags: { label: "Flags", color: (x) => (x.flags.length ? "#B4533A" : "hsl(220, 10%, 26%)") },
+  flags: { label: "Flags", color: (x) => (x.flags.length ? "var(--lens-flag)" : "var(--lens-none)") },
 };
+
+const LENS_KEY: Record<Lens, KeyId> = { size: "lensSize", rework: "lensRework", final: "lensFinal", flags: "lensFlags" };
 
 function Legend({ lens }: { lens: Lens }) {
   const sw = (c: string) => <span className="mr-1 ml-2 inline-block size-2.5 rounded-[2px] align-[-1px]" style={{ background: c }} />;
-  if (lens === "size") return <>brighter = more lines changed</>;
-  if (lens === "rework") return <>brighter = more agent edits · gray = no agent edits here</>;
+  if (lens === "size") return <>stronger color = more lines changed</>;
+  if (lens === "rework") return <>stronger color = more agent edits · gray = no agent edits here</>;
   if (lens === "final")
     return (
       <>
-        {sw("hsl(135,50%,34%)")}mostly in final{sw("hsl(40,70%,38%)")}partly{sw("#3A3F48")}mostly gone
+        {sw("var(--lens-kept)")}mostly in final{sw("var(--lens-partly)")}partly{sw("var(--lens-gone)")}mostly gone
       </>
     );
   return (
     <>
-      {sw("#B4533A")}flagged by a rule <FlagRules />
+      {sw("var(--lens-flag)")}flagged by a rule <FlagRules />
     </>
   );
 }
@@ -110,18 +117,28 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
     if (focus && info.files[focus.path]) select(focus.path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+  // 1–4 pick the lens, C / T jump to the selected file, Esc steps back: the overview first, then out of the zoom.
+  const picked = sel && info.files[sel] ? sel : null;
+  useKeys(active, {
+    lensSize: () => setLens("size"),
+    lensRework: () => setLens("rework"),
+    lensFinal: () => setLens("final"),
+    lensFlags: () => setLens("flags"),
+    toChanges: picked && (() => onOpenInChanges(picked)),
+    toTimeline: picked && timeline.paths.has(picked) && (() => onShowInTimeline(picked)),
+    back: (picked || zoom) && (() => (picked ? setSel(null) : setZoom(parts.slice(0, -1).join("/")))),
+  });
 
   return (
-    // Lined up with Changes and Timeline so nothing jumps when switching screens: the same 12px margin on every side,
-    // and the side column where theirs is. Those two have a 300px list (w-75) on the left and give the column 26% of
-    // what is left; the map has no list, so it takes that width off before the 26%.
+    // The same 12px margin and side column as Changes and Timeline, so nothing jumps when switching screens.
     <div className="flex min-h-0 flex-1 gap-3 p-3">
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 pb-2.5">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={lens} onValueChange={(v) => v && setLens(v as Lens)} aria-label="Color by">
             {(Object.keys(LENS) as Lens[]).map((k) => (
-              <ToggleGroupItem key={k} value={k}>
+              <ToggleGroupItem key={k} value={k} title={`Color by ${LENS[k].label.toLowerCase()} (${hint(LENS_KEY[k])})`}>
                 {LENS[k].label}
+                <KeyHint id={LENS_KEY[k]} />
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -139,21 +156,19 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
             ))}
           </nav>
           <span className="flex-1" />
-          <span className="text-[11px] text-faint">
+          <span className="text-mini text-faint">
             <Legend lens={lens} />
           </span>
         </div>
         <Treemap tree={tree} zoom={zoom} info={info} lens={lens} sel={sel} active={active} onSelect={select} onZoom={setZoom} />
       </main>
-      <aside
-        aria-label="Selected file"
-        className="flex w-[clamp(calc(var(--spacing)*50),calc((100%-var(--spacing)*75)*0.26),calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
+      <SideColumn label="Selected file">
         {sel && info.files[sel] ? (
           <Selected x={info.files[sel]} inTimeline={timeline.paths.has(sel)} onBack={() => setSel(null)} onOpenInChanges={onOpenInChanges} onShowInTimeline={onShowInTimeline} />
         ) : (
           <Overview snap={snap} info={info} onSelect={select} />
         )}
-      </aside>
+      </SideColumn>
     </div>
   );
 }
@@ -192,7 +207,7 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
           key={node.path}
           onClick={() => onSelect(node.path)}
           className={cn(
-            "absolute flex items-start overflow-hidden rounded-[2px] border border-map-edge px-1 py-0.5 text-left font-mono text-[10px] text-white hover:brightness-125",
+            "absolute flex items-start overflow-hidden rounded-[2px] border border-map-edge px-1 py-0.5 text-left font-mono text-micro text-lens-text hover:brightness-125",
             sel === node.path && "z-10 outline-2 -outline-offset-2 outline-white",
           )}
           style={{ ...st, background: LENS[lens].color(x2, info) }}
@@ -213,7 +228,7 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
             <button
               onClick={() => onZoom(node.path)}
               title={`Zoom into ${node.path}`}
-              className="pointer-events-auto absolute inset-x-0.5 top-0 h-[15px] truncate px-1 text-left font-mono text-[10px] text-faint hover:text-foreground"
+              className="pointer-events-auto absolute inset-x-0.5 top-0 h-[15px] truncate px-1 text-left font-mono text-micro text-faint hover:text-foreground"
             >
               {node.name}
             </button>
@@ -240,7 +255,7 @@ function Stat({ label, note, children }: { label: string; note?: string; childre
         <span>{label}</span>
         <b className="text-right font-medium text-foreground">{children}</b>
       </div>
-      {note && <span className="text-[11px] text-faint">{note}</span>}
+      {note && <span className="text-mini text-faint">{note}</span>}
     </div>
   );
 }
@@ -316,12 +331,14 @@ function Selected({ x, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: 
         onBack={onBack}
         jump={
           <>
-            <Button variant="outline" size="icon-xs" aria-label="Open in Changes" title="Open in Changes" onClick={() => onOpenInChanges(f.path)}>
+            <Button variant="outline" size="icon-xs" aria-label="Open in Changes" title={`Open in Changes (${hint("toChanges")})`} onClick={() => onOpenInChanges(f.path)}>
               <FileDiffIcon />
+              <KeyHint id="toChanges" />
             </Button>
             {inTimeline && (
-              <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title="Show in Timeline" onClick={() => onShowInTimeline(f.path)}>
+              <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title={`Show in Timeline (${hint("toTimeline")})`} onClick={() => onShowInTimeline(f.path)}>
                 <ClockIcon />
+                <KeyHint id="toTimeline" />
               </Button>
             )}
           </>

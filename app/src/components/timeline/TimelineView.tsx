@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { SideColumn } from "@/components/SideColumn";
 import { FileDiffIcon, MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { KeyHint } from "@/components/KeyHint";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -15,6 +17,7 @@ import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
 import { editKey, editPatch, ms, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
+import { hint, useKeys } from "@/lib/keys";
 import type { Snapshot, TimelineEdit } from "@/lib/types";
 
 interface Props {
@@ -54,26 +57,25 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  useEffect(() => {
-    if (!active) return;
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey || (ev.target as HTMLElement).closest("input, textarea, [cmdk-root]")) return;
-      if (ev.key !== "j" && ev.key !== "k") return;
-      ev.preventDefault();
-      setSelected(sel + (ev.key === "j" ? 1 : -1));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  // J / K step through edits, A shows the agent's messages, C / M jump to the file while it is still changed.
+  const stillChanged = !!e && inChanges(e.path);
+  useKeys(active, {
+    next: () => setSelected(sel + 1),
+    prev: () => setSelected(sel - 1),
+    agent: hasWords && (() => setShowAgent(!showAgent)),
+    toChanges: stillChanged && (() => onShowInChanges(e.path)),
+    toMap: stillChanged && (() => onShowInMap(e.path)),
   });
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Agent edits" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
+      <nav aria-label="Agent edits" className="flex w-(--list-w) min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
-            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? "Show the agent's messages between the edits" : "No agent messages in these turns"}>
+            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? `Show the agent's messages between the edits (${hint("agent")})` : "No agent messages in these turns"}>
               Edits + Agent
+              <KeyHint id="agent" />
             </ToggleGroupItem>
           </ToggleGroup>
           <span className="flex items-center gap-1 text-xs text-faint">
@@ -183,7 +185,7 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
         on && "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] hover:bg-selection-bg",
       )}
     >
-      <span className="w-9 shrink-0 text-[10px] text-faint">{time(e.at)}</span>
+      <span className="w-9 shrink-0 text-micro text-faint">{time(e.at)}</span>
       <StatusLetter status={editStatus(e)} title={editStatusTip(e)} />
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(e.path)}</span>
       {fresh.has(editKey(e)) && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />}
@@ -214,7 +216,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DiffView id={`${index}`} patch={editPatch(e)} empty="No diff recorded for this edit" />
       </div>
-      <aside aria-label="Edit and related edits" className="flex w-[clamp(calc(var(--spacing)*50),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
+      <SideColumn label="Edit and related edits">
         <FileCard
           what="Edit"
           index={index}
@@ -227,11 +229,13 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
           jump={
             inChanges && (
               <>
-                <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title="Show in Changes" onClick={onShowInChanges}>
+                <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title={`Show in Changes (${hint("toChanges")})`} onClick={onShowInChanges}>
                   <FileDiffIcon />
+                  <KeyHint id="toChanges" />
                 </Button>
-                <Button variant="outline" size="icon-xs" aria-label="Show in Map" title="Show in Map" onClick={onShowInMap}>
+                <Button variant="outline" size="icon-xs" aria-label="Show in Map" title={`Show in Map (${hint("toMap")})`} onClick={onShowInMap}>
                   <MapIcon />
+                  <KeyHint id="toMap" />
                 </Button>
               </>
             )
@@ -260,7 +264,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
             </MiniRow>
           ))}
         </MiniCard>
-      </aside>
+      </SideColumn>
     </div>
   );
 }

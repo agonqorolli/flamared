@@ -46,6 +46,16 @@ export interface BranchRow {
   current: boolean;
   worktree: boolean; // checked out in another worktree folder
   sessions: number;
+  agents: string[]; // agents that edited on this branch ("Claude Code", "Codex")
+  agent_at: string | null; // their latest edit here
+  subject: string; // the last commit's subject
+}
+
+// For the repo picker, read when it opens (src-tauri `repo_status`).
+export interface RepoStatus {
+  full: string;
+  branch: string; // checked out
+  changed: string[]; // uncommitted files
 }
 
 export interface TimelineEdit {

@@ -1,11 +1,12 @@
 import { InfoIcon } from "lucide-react";
+import { Eyebrow } from "@/components/Eyebrow";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TIPS, type TipKey } from "@/lib/format";
 
 // Small uppercase label for a section, with an ⓘ that explains it when the section has a tip.
 export function SectionLabel({ children, tip }: { children: React.ReactNode; tip?: TipKey }) {
   return (
-    <div className="flex items-center gap-1.5 px-1.5 pt-4 pb-1.5 text-[10px] leading-4 font-medium tracking-[.06em] text-faint uppercase">
+    <Eyebrow className="flex items-center gap-1.5 px-1.5 pt-4 pb-1.5 leading-4">
       {children}
       {tip && (
         <Tooltip>
@@ -20,6 +21,6 @@ export function SectionLabel({ children, tip }: { children: React.ReactNode; tip
           </TooltipContent>
         </Tooltip>
       )}
-    </div>
+    </Eyebrow>
   );
 }

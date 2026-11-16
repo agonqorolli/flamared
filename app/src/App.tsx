@@ -15,7 +15,9 @@ import { buildTimeline } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/brand";
 import { useLiveRepo } from "@/lib/live";
-import { pickRepoFolder } from "@/lib/api";
+import { canPickFolder, pickRepoFolder } from "@/lib/api";
+import { useKeyHints, useKeys } from "@/lib/keys";
+import { useSettings } from "@/lib/settings";
 import { plural } from "@/lib/format";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 
@@ -64,20 +66,20 @@ function Workspace() {
     document.title = APP_NAME;
   }, []);
 
-  // ⌘R reloads now (also while paused); ⌘, opens settings.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "r") {
-        e.preventDefault();
-        refresh();
-      } else if (e.metaKey && e.key === ",") {
-        e.preventDefault();
-        openSettings();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [refresh]);
+  // Shortcuts that work on every screen (lib/keys.ts lists them all; each screen handles its own).
+  const { settings, setDiff } = useSettings();
+  useKeyHints();
+  useKeys(true, {
+    goChanges: () => setView("changes"),
+    goTimeline: () => setView("timeline"),
+    goMap: () => setView("map"),
+    reload: refresh,
+    settings: () => openSettings(),
+    shortcuts: () => openSettings("keyboard"),
+    openFolder: canPickFolder && openFolder,
+    live: liveAvailable && (() => setLive(!live)),
+    splitDiff: view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
+  });
 
   return (
     <div className="flex h-full flex-col">

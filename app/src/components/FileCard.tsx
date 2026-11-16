@@ -1,7 +1,10 @@
 import { ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { KeyHint } from "@/components/KeyHint";
 import { Separator } from "@/components/ui/separator";
 import { Said } from "@/components/Said";
+import { Eyebrow } from "@/components/Eyebrow";
+import { hint } from "@/lib/keys";
 import { base, dir } from "@/lib/format";
 
 interface Props {
@@ -28,14 +31,16 @@ export function FileCard({ what, index = 0, count = 0, path, binary, agent, word
       <div className="flex items-center gap-1">
         {onStep ? (
           <>
-            <span className="min-w-0 flex-1 truncate text-[10px] font-medium tracking-[.06em] text-faint uppercase" title={`${what} ${index + 1} of ${count}`}>
+            <Eyebrow as="span" className="min-w-0 flex-1 truncate" title={`${what} ${index + 1} of ${count}`}>
               <b className="text-foreground">{index + 1}</b> of {count}
-            </span>
-            <Button variant="outline" size="icon-xs" aria-label={`Previous ${noun}`} title={`Previous ${noun} (K)`} disabled={index <= 0} onClick={() => onStep(-1)}>
+            </Eyebrow>
+            <Button variant="outline" size="icon-xs" aria-label={`Previous ${noun}`} title={`Previous ${noun} (${hint("prev")})`} disabled={index <= 0} onClick={() => onStep(-1)}>
               <ArrowUpIcon />
+              <KeyHint id="prev" />
             </Button>
-            <Button variant="outline" size="icon-xs" aria-label={`Next ${noun}`} title={`Next ${noun} (J)`} disabled={index >= count - 1} onClick={() => onStep(1)}>
+            <Button variant="outline" size="icon-xs" aria-label={`Next ${noun}`} title={`Next ${noun} (${hint("next")})`} disabled={index >= count - 1} onClick={() => onStep(1)}>
               <ArrowDownIcon />
+              <KeyHint id="next" />
             </Button>
           </>
         ) : (
@@ -44,6 +49,7 @@ export function FileCard({ what, index = 0, count = 0, path, binary, agent, word
               <Button variant="outline" size="xs" onClick={onBack}>
                 <ArrowLeftIcon data-icon="inline-start" />
                 Overview
+                <KeyHint id="back" />
               </Button>
             )}
           </span>
@@ -59,7 +65,7 @@ export function FileCard({ what, index = 0, count = 0, path, binary, agent, word
       <div title={path} className="min-w-0">
         <h2 className="font-mono text-sm font-medium [overflow-wrap:anywhere]">{base(path)}</h2>
         {dir(path) && (
-          <div className="truncate text-left font-mono text-[11px] text-faint [direction:rtl]">
+          <div className="truncate text-left font-mono text-mini text-faint [direction:rtl]">
             <bdi>{dir(path)}</bdi>
           </div>
         )}
