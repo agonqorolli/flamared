@@ -228,9 +228,14 @@ fn new_turn(prompt: String, at: Option<String>, branch: Option<String>, cwd: Opt
 }
 
 fn parse_claude(path: &str) -> Session {
-    let recs = load(path);
+    parse_claude_records(&load(path))
+}
+
+fn parse_claude_records(recs: &[Value]) -> Session {
     let mut results: HashMap<String, (&Value, &Value)> = HashMap::new(); // tool_use_id -> (record, tool_result block)
-    for r in &recs {
+    // Only the transcript's own user records: "api-request-blob" records repeat earlier tool results without their
+    // toolUseResult, and would replace the real one (and with it the edit's diff).
+    for r in recs.iter().filter(|r| s(r, "type").as_deref() == Some("user")) {
         if let Some(blocks) = r.get("message").and_then(|m| m.get("content")).and_then(|c| c.as_array()) {
             for b in blocks.iter().filter(|b| s(b, "type").as_deref() == Some("tool_result")) {
                 if let Some(id) = s(b, "tool_use_id") {
@@ -240,7 +245,7 @@ fn parse_claude(path: &str) -> Session {
         }
     }
     let mut session = Session { agent: "Claude Code", title: None, turns: vec![] };
-    for r in &recs {
+    for r in recs {
         if s(r, "type").as_deref() == Some("custom-title") {
             session.title = s(r, "customTitle");
         }
@@ -567,5 +572,34 @@ mod codex_tests {
         let mut records = start();
         records.push(write("file:///repo/sub%20folder"));
         assert_eq!(parse_codex_records(&records, None).turns[0].edits[0].file.as_deref(), Some("/repo/sub folder/src/view.ts"));
+    }
+}
+
+#[cfg(test)]
+mod claude_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn shell_edits_keep_their_diff_when_a_request_blob_repeats_the_result() {
+        let result = |extra: Value| {
+            let mut r = json!({"type":"user", "message":{"role":"user", "content":[{"type":"tool_result", "tool_use_id":"t1", "content":"ok"}]}});
+            r.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            r
+        };
+        let diff = json!({"files":[{"filePath":"/repo/a.ts", "hunks":[{"oldStart":1, "newStart":1, "lines":["-old", "+new"]}]}]});
+        let records = vec![
+            json!({"type":"user", "timestamp":"2026-11-16T19:05:28Z", "cwd":"/repo", "message":{"role":"user", "content":"Redesign the list"}}),
+            json!({"type":"assistant", "timestamp":"2026-11-16T19:05:56Z", "gitBranch":"main",
+                   "message":{"content":[{"type":"tool_use", "id":"t1", "name":"Bash", "input":{"command":"sed -i '' s/old/new/ a.ts"}}]}}),
+            result(json!({"toolUseResult":{"stdout":"", "stderr":"", "bashEditDiff":diff}})),
+            result(json!({"type":"api-request-blob"})),
+        ];
+        let session = parse_claude_records(&records);
+        let turn = &session.turns[0];
+        assert_eq!(session.turns.len(), 1);
+        assert_eq!(turn.edits.len(), 1);
+        assert_eq!(turn.edits[0].file.as_deref(), Some("/repo/a.ts"));
+        assert_eq!((turn.edits[0].add, turn.edits[0].rem), (1, 1));
     }
 }

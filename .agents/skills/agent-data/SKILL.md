@@ -21,6 +21,7 @@ Facts measured on real sessions:
 - Edit/Write results carry `structuredPatch` + `originalFile`. **48% of file changes came through Bash** (`toolUseResult.bashEditDiff`), so shell edits are essential.
 - Only ~22% of edits have agent narration right before them; thinking text is mostly empty. Don't design around reasoning.
 - Harness messages (`<task-notification>`…) look like user messages; filter them out of prompts.
+- Since 2026-11, transcripts also hold `"type":"api-request-blob"` records that repeat earlier tool results without `toolUseResult`. Pair a tool call only with `type: "user"` records, or a later blob replaces the real result and the edit loses its diff (Timeline showed no edits).
 - `userModified` was always 0: "you edited this" must come from git diff minus recorded edits.
 - Test pass/fail is rarely parseable from output.
 - Codex records its branch once per session (mid-session switches aren't seen); Codex session id = last 8 characters of the file stem (all stems start with `rollout-`).
