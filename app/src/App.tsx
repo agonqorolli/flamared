@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Header, type View } from "@/components/Header";
 import { ChangesView } from "@/components/changes/ChangesView";
+import { TimelineView } from "@/components/timeline/TimelineView";
+import { MapView } from "@/components/map/MapView";
+import { buildTimeline } from "@/lib/timeline";
+import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/brand";
 import { lastRepo, loadRepos, loadSnapshot, rememberRepo } from "@/lib/api";
 import type { Snapshot } from "@/lib/types";
@@ -15,6 +19,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("changes");
+  // A jump from one screen to a file in another; `n` makes a repeat jump to the same file count again.
+  const [focus, setFocus] = useState<{ view: View; path: string; n: number } | null>(null);
+  const timeline = useMemo(() => (snap ? buildTimeline(snap) : null), [snap]);
+  const changed = useMemo(() => new Set(snap ? Object.keys(snap.diffs) : []), [snap]);
+  const jump = (to: View) => (path: string) => {
+    setView(to);
+    setFocus((f) => ({ view: to, path, n: (f?.n ?? 0) + 1 }));
+  };
 
   const load = useCallback(async (path: string) => {
     setLoading(true);
@@ -84,15 +96,31 @@ export default function App() {
               </EmptyHeader>
             )}
           </Empty>
-        ) : view === "changes" ? (
-          <ChangesView snap={snap} />
         ) : (
-          <Empty className="flex-1">
-            <EmptyHeader>
-              <EmptyTitle>{view === "timeline" ? "Timeline" : "Map"} comes next</EmptyTitle>
-              <EmptyDescription>The data is already loaded; this screen is coming next.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          // All three screens stay mounted so each keeps its place; only the shown one listens to keys.
+          <>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "changes" && "hidden")}>
+              <ChangesView
+                snap={snap}
+                active={view === "changes"}
+                focus={focus?.view === "changes" ? focus : null}
+                inTimeline={(p) => !!timeline?.paths.has(p)}
+                onShowInTimeline={jump("timeline")}
+              />
+            </div>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
+              <TimelineView
+                timeline={timeline!}
+                active={view === "timeline"}
+                focus={focus?.view === "timeline" ? focus : null}
+                inChanges={(p) => changed.has(p)}
+                onShowInChanges={jump("changes")}
+              />
+            </div>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "map" && "hidden")}>
+              <MapView snap={snap} timeline={timeline!} active={view === "map"} onOpenInChanges={jump("changes")} onShowInTimeline={jump("timeline")} />
+            </div>
+          </>
         )}
       </div>
     </TooltipProvider>

@@ -33,3 +33,15 @@ export const TIPS = {
   support: ["Not code", "Docs, config, data, assets and other non-code files, grouped by kind. New files not added to git yet are included."],
 } as const;
 export type TipKey = keyof typeof TIPS;
+
+export const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "");
+export const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" }) : "");
+
+// Is an edit still in the final file? Gray has one meaning (no longer shows); only the tooltip tells the two reasons apart.
+export const SURVIVAL = {
+  kept: ["in final", "All lines from this edit are still in the file"],
+  partly: ["partly rewritten", "Some lines from this edit were changed again later"],
+  gone: ["no longer in file", "No longer in the file: later edits replaced all of its lines"],
+  undone: ["no longer in file", "No longer in the file: the lines it removed are back"],
+} as const;
+export type Survival = keyof typeof SURVIVAL;

@@ -9,8 +9,16 @@ import { buildSections } from "./model";
 import { ChangesList } from "./ChangesList";
 import { FileDetail } from "./FileDetail";
 
+interface Props {
+  snap: Snapshot;
+  active: boolean;
+  focus: { path: string; n: number } | null; // "Open in Changes" from another screen
+  inTimeline: (path: string) => boolean;
+  onShowInTimeline: (path: string) => void;
+}
+
 // Changes: groups of changed files on the left, the selected file's diff and review on the right.
-export function ChangesView({ snap }: { snap: Snapshot }) {
+export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline }: Props) {
   const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
   const [selected, setSelected] = useState(0);
   const [showAgent, setShowAgent] = useState(false);
@@ -19,8 +27,13 @@ export function ChangesView({ snap }: { snap: Snapshot }) {
   const row = rows[sel];
 
   useEffect(() => setSelected(0), [snap.path, snap.branch]);
+  useEffect(() => {
+    const i = focus ? rows.findIndex((r) => r.file.path === focus.path) : -1;
+    if (i >= 0) setSelected(i);
+  }, [focus, rows]);
   // j / k step through files, a / x approve or reject the selected one.
   useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [cmdk-root]")) return;
       if (e.key === "j" || e.key === "k") {
@@ -33,7 +46,7 @@ export function ChangesView({ snap }: { snap: Snapshot }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows.length, row, review]);
+  }, [active, rows.length, row, review]);
 
   if (!rows.length) {
     return (
@@ -68,6 +81,8 @@ export function ChangesView({ snap }: { snap: Snapshot }) {
           rows={rows}
           diff={snap.diffs[row.file.path] ?? ""}
           review={review.stateOf(row.file)}
+          inTimeline={inTimeline(row.file.path)}
+          onShowInTimeline={() => onShowInTimeline(row.file.path)}
           onReview={(s) => review.toggle(row.file, s)}
           onStep={(d) => setSelected((i) => Math.max(0, Math.min(rows.length - 1, i + d)))}
           onSelect={setSelected}

@@ -99,9 +99,21 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
 }
 
 // A unified patch the diff component can read; our diffs are hunks only, without file headers.
+// Long diffs are cut at 400 lines, so each hunk header's line counts are worked out again from what is left.
 export function toPatch(f: FileInfo, diff: string): { patch: string; more: string | null } {
   const lines = diff.split("\n");
   const more = lines.length && lines[lines.length - 1].startsWith("… ") ? lines.pop()! : null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(lines[i]);
+    if (!m) continue;
+    let old = 0, neu = 0;
+    for (let j = i + 1; j < lines.length && !lines[j].startsWith("@@"); j++) {
+      if (lines[j].startsWith("\\")) continue; // "\ No newline at end of file"
+      if (!lines[j].startsWith("+")) old++;
+      if (!lines[j].startsWith("-")) neu++;
+    }
+    lines[i] = `@@ -${m[1]},${old} +${m[2]},${neu} @@${m[3]}`;
+  }
   const a = f.status === "A" ? "/dev/null" : `a/${f.path}`;
   const b = f.status === "D" ? "/dev/null" : `b/${f.path}`;
   return { patch: `diff --git a/${f.path} b/${f.path}\n--- ${a}\n+++ ${b}\n${lines.join("\n")}\n`, more };
