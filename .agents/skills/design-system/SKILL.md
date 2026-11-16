@@ -72,7 +72,7 @@ Jump buttons to other screens are `variant="outline" size="icon-xs"` with the na
 
 ## Repo and branch pickers (`Header.tsx`)
 
-Repo row: name · **N files** badge (gray; all changed files, the same count the Changes screen shows above its list) / the folder (shortened in the middle). Branch row: name · **N files** (the checked-out branch's changed files; for others, files changed since it split off); its second line is the last commit's subject, bare (no label, no icon, no tooltip), on one truncated line. "Files", not "changes": changes are counted in lines elsewhere. The current one is highlighted like a selected list row.
+Repo row: name · **N changed files** badge (gray; uncommitted files, the same count the Changes screen shows above its list) / the folder (shortened in the middle). Branch row: name · a badge that says what is counted: **N changed files** for uncommitted edits (the checked-out branch, or a branch in another working folder), **N files vs main** for a branch compared since it split off, naming the real branch it is compared with (the default branch, or the checked-out one for the default branch itself; a short commit id when none is checked out). The badge truncates at `max-w-48`, full text in its tooltip. Its second line is the last commit's subject, bare (no label, no icon, no tooltip), on one truncated line. "Files", not "changes": changes are counted in lines elsewhere. The current one is highlighted like a selected list row.
 
 ## Wording
 

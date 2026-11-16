@@ -58,6 +58,11 @@ export interface RepoStatus {
   changed: string[]; // uncommitted files
 }
 
+export interface BranchFiles {
+  n: number;
+  against: string | null; // null: uncommitted changes in a working folder
+}
+
 export interface TimelineEdit {
   k: "edit";
   path: string;

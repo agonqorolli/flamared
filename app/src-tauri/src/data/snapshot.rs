@@ -583,23 +583,25 @@ pub fn view(repo: &str, branch: Option<&str>) -> Result<Value, String> {
     if let Some(folder) = worktree_of(&top, branch) {
         return build(&folder, "HEAD", &At::Work);
     }
-    let (_, base) = split_off(&top, branch, default_branch(&top).as_deref())?;
+    let (_, base, _) = split_off(&top, branch, default_branch(&top).as_deref())?;
     build(&top, &base, &At::Commit(branch.to_string()))
 }
 
 /// A branch's tip and where it split off: from the default branch; for the default branch itself (or one already
 /// merged into it), from the checked-out branch instead.
-fn split_off(top: &str, branch: &str, default: Option<&str>) -> Result<(String, String), String> {
+fn split_off(top: &str, branch: &str, default: Option<&str>) -> Result<(String, String, String), String> {
     let tip = git(top, &["rev-parse", branch])?.trim().to_string();
     let split = |other: &str| git_or_empty(top, &["merge-base", other, branch]).trim().to_string();
     let mut base = default.map(split).unwrap_or_default();
+    let mut against = default.unwrap_or("HEAD").to_string();
     if base.is_empty() || base == tip {
         base = split("HEAD");
+        against = "HEAD".to_string();
     }
     if base.is_empty() {
         base = tip.clone();
     }
-    Ok((tip, base))
+    Ok((tip, base, against))
 }
 
 /// For the repo picker, run when it opens: a repo's checked-out branch and its uncommitted files (as `git status`
@@ -633,13 +635,18 @@ pub fn branch_files(repo: &str) -> Result<Map<String, Value>, String> {
     // Like the branch list: pointers such as origin/HEAD (a symref) aren't branches.
     let names = refs.lines().filter_map(|l| l.split_once('\t')).filter(|(n, sym)| sym.is_empty() && *n != checked_out).map(|(n, _)| n);
     for name in names.take(50) {
-        let n = if let Some(folder) = worktree_of(&top, name) {
-            repo_status(&folder)["changed"].as_array().map_or(0, |a| a.len())
+        let count = if let Some(folder) = worktree_of(&top, name) {
+            let n = repo_status(&folder)["changed"].as_array().map_or(0, |a| a.len());
+            json!({"n": n, "against": null})
         } else {
-            let (tip, base) = split_off(&top, name, default.as_deref())?;
-            if tip == base { 0 } else { git_or_empty(&top, &["diff", "--name-only", &base, &tip]).lines().count() }
+            let (tip, base, against) = split_off(&top, name, default.as_deref())?;
+            let n = if tip == base { 0 } else { git_or_empty(&top, &["diff", "--name-only", &base, &tip]).lines().count() };
+            let against = if against == "HEAD" {
+                if checked_out.is_empty() { git_or_empty(&top, &["rev-parse", "--short", "HEAD"]).trim().to_string() } else { checked_out.clone() }
+            } else { against };
+            json!({"n": n, "against": against})
         };
-        out.insert(name.to_string(), json!(n));
+        out.insert(name.to_string(), count);
     }
     Ok(out)
 }

@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { canPickFolder, loadBranchFiles, loadRepoStatus, recentRepos } from "@/lib/api";
 import { base, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { BranchRow, RepoRow, RepoStatus, Snapshot } from "@/lib/types";
+import type { BranchFiles, BranchRow, RepoRow, RepoStatus, Snapshot } from "@/lib/types";
 import type { Opening } from "@/lib/live";
 import type { Waiting } from "@/lib/waiting";
 import { shortDate, useLicense } from "@/lib/license";
@@ -78,14 +78,14 @@ export function Header({ snap, view, loading, opening, live, onView, onOpenRepo,
   );
 }
 
-// One row of the repo or branch list: the name, its changed files as a badge ("63 files", the count the Changes
-// screen shows above its list; none when there are none), and an optional faint line under it. The one on screen
+// One row of the repo or branch list: the name, a badge describing its file count
+// (hidden when zero), and an optional faint line under it. The one on screen
 // (`on`) is highlighted like the selected row in the Changes and Timeline lists (blue, with a bar on the left).
 function PickerItem({ value, on, title, files, sub, onSelect }: {
   value: string;
   on: boolean;
   title: string;
-  files?: { n: number; title: string };
+  files?: { n: number; label: string; title: string };
   sub?: React.ReactNode;
   onSelect: () => void;
 }) {
@@ -102,8 +102,8 @@ function PickerItem({ value, on, title, files, sub, onSelect }: {
       <span className="truncate font-medium">{title}</span>
       <span className="col-start-2">
         {!!files?.n && (
-          <span title={files.title} className="rounded-full bg-foreground/10 px-1.5 text-micro text-muted-foreground">
-            {plural(files.n, "file")}
+          <span title={files.title} className="inline-block max-w-48 truncate rounded-full bg-foreground/10 px-1.5 align-middle text-micro text-muted-foreground">
+            {files.label}
           </span>
         )}
       </span>
@@ -162,7 +162,7 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
                     value={rowValue(r)!}
                     on={r.current}
                     title={r.name}
-                    files={{ n: count, title: "Uncommitted changed files, as the Changes screen lists them" }}
+                    files={{ n: count, label: plural(count, "changed file"), title: "Uncommitted changed files, as the Changes screen lists them" }}
                     sub={<MiddlePath path={r.path} />}
                     onSelect={() => {
                       setOpen(false);
@@ -198,7 +198,7 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
 // (as viewing it would show them), and the checked-out branch's files to check.
 function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snapshot; onViewBranch: (branch: string | null) => void; disabled: boolean; switching: boolean }) {
   const [open, setOpen] = useState(false);
-  const [files, setFiles] = useState<Record<string, number>>({});
+  const [files, setFiles] = useState<Record<string, BranchFiles>>({});
   const [own, setOwn] = useState<RepoStatus | null>(null); // the checked-out branch, while another is viewed
   const local = snap.branches.filter((b) => !b.remote);
   const remote = snap.branches.filter((b) => b.remote);
@@ -238,18 +238,24 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
                   className={pickerGroup}
                 >
                   {xs.map((b) => {
-                    const n = files[b.name] ?? 0;
+                    const count = files[b.name];
+                    const n = b.current ? ownCount : (count?.n ?? 0);
+                    const against = b.current ? null : count?.against;
                     return (
                       <PickerItem
                         key={b.name}
                         value={b.name}
                         on={b.name === viewing}
                         title={b.name}
-                        files={
-                          b.current
-                            ? { n: ownCount, title: "Uncommitted changed files, as the Changes screen lists them" }
-                            : { n, title: `Files changed ${b.worktree ? "in its working folder" : "since it split off"}, as the preview shows them` }
-                        }
+                        files={{
+                          n,
+                          label: against ? `${plural(n, "file")} vs ${against}` : plural(n, "changed file"),
+                          title: against
+                            ? `Files changed since this branch split from ${against}, as the preview shows them`
+                            : b.current
+                              ? "Uncommitted changed files, as the Changes screen lists them"
+                              : "Uncommitted changed files in its other working folder",
+                        }}
                         sub={<LastCommit branch={b} />}
                         onSelect={() => {
                           setOpen(false);
