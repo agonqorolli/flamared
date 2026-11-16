@@ -1,0 +1,197 @@
+import { useState } from "react";
+import { CheckIcon, ChevronDownIcon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Spinner } from "@/components/ui/spinner";
+import { AgentAvatar } from "@/components/AgentAvatar";
+import { ago, plural } from "@/lib/format";
+import type { Snapshot } from "@/lib/types";
+
+export type View = "changes" | "timeline" | "map";
+
+interface Props {
+  snap: Snapshot | null;
+  view: View;
+  loading: boolean;
+  onView: (v: View) => void;
+  onOpenRepo: (path: string) => void;
+  onRefresh: () => void;
+}
+
+export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh }: Props) {
+  return (
+    <header className="flex items-center gap-3.5 border-b bg-panel px-4 py-1.5">
+      <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
+        {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} />}
+        {snap && <BranchPicker snap={snap} />}
+        {snap && <SessionsChip snap={snap} />}
+      </div>
+      <Tabs value={view} onValueChange={(v) => onView(v as View)}>
+        <TabsList>
+          <TabsTrigger value="changes">Changes</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="map">Map</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <div className="flex flex-1 basis-0 justify-end">
+        <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title="Refresh (⌘R)">
+          {loading ? <Spinner /> : <RefreshCwIcon />}
+        </Button>
+      </div>
+    </header>
+  );
+}
+
+// Repos agents have worked in on this machine. Picking one loads it.
+function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="-ml-2 text-sm font-semibold" title="Switch repository">
+          {snap.repo}
+          <ChevronDownIcon data-icon="inline-end" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[340px] p-0">
+        <Command>
+          {snap.repos.length > 6 && <CommandInput placeholder="Find a repository" />}
+          <CommandList>
+            <CommandEmpty>No repository matches</CommandEmpty>
+            <CommandGroup heading="Repositories with agent sessions">
+              {snap.repos.map((r) => (
+                <CommandItem
+                  key={r.full}
+                  value={`${r.name} ${r.path}`}
+                  onSelect={() => {
+                    setOpen(false);
+                    if (!r.current) onOpenRepo(r.full);
+                  }}
+                  className="flex-col items-stretch gap-0.5"
+                >
+                  <span className="flex items-center gap-2">
+                    <CheckIcon className={r.current ? "text-selection" : "invisible"} />
+                    <span className="flex-1 truncate font-medium">{r.name}</span>
+                    <span className="text-xs text-faint">{ago(r.last)}</span>
+                  </span>
+                  <span className="truncate pl-6 text-xs text-faint">
+                    {plural(r.sessions, "session")} · {r.path}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup>
+              <CommandItem disabled title="Coming with the folder picker">
+                <FolderPlusIcon />
+                Open folder…
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Branches of this repo. Viewing is read-only; for now only the checked-out branch can be shown.
+function BranchPicker({ snap }: { snap: Snapshot }) {
+  const local = snap.branches.filter((b) => !b.remote);
+  const remote = snap.branches.filter((b) => b.remote);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="font-mono text-xs" title="Branches">
+          <GitBranchIcon data-icon="inline-start" />
+          {snap.branch}
+          <ChevronDownIcon data-icon="inline-end" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[340px] p-0">
+        <Command>
+          {snap.branches.length > 6 && <CommandInput placeholder="Find a branch" />}
+          <CommandList>
+            <CommandEmpty>No branch matches</CommandEmpty>
+            {[["Local", local] as const, ["Remote", remote] as const]
+              .filter(([, xs]) => xs.length)
+              .map(([label, xs]) => (
+                <CommandGroup key={label} heading={remote.length ? label : undefined}>
+                  {xs.map((b) => (
+                    <CommandItem key={b.name} value={b.name} disabled={!b.current} className="flex-col items-stretch gap-0.5">
+                      <span className="flex items-center gap-2">
+                        <CheckIcon className={b.current ? "text-selection" : "invisible"} />
+                        <span className="flex-1 truncate font-mono text-xs">{b.name}</span>
+                        {b.current && <span className="rounded-full bg-selection-bg px-1.5 text-[10px] text-selection">checked out</span>}
+                      </span>
+                      <span className="truncate pl-6 text-xs text-faint">
+                        {[`last commit ${ago(b.at)}`, b.sessions ? plural(b.sessions, "session") : "", b.current ? "" : "viewing other branches comes next"]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+          </CommandList>
+          <p className="border-t px-3 py-2 text-xs leading-relaxed text-faint">
+            Read-only: viewing a branch never switches your checkout. Other branches will show their commits since they split off.
+          </p>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// How many agent sessions matched this branch; the tooltip says how they were found (or why none were).
+function SessionsChip({ snap }: { snap: Snapshot }) {
+  const L = snap.timeline.link;
+  const S = snap.timeline.sessions;
+  const where = `${L.branch || "this checkout"} since ${L.base}`;
+  const left = Object.entries(L.skipped);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          className={
+            S.length
+              ? "inline-flex items-center gap-1.5 rounded-full bg-ai-bg px-2 py-0.5 text-xs text-ai-foreground"
+              : "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+          }
+        >
+          <AgentAvatar agent={S[0]?.agent ?? null} className="size-3.5 text-[8px]" />
+          {plural(S.length, "session")}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="max-w-80 flex-col items-start gap-1.5">
+        {S.length ? (
+          <>
+            <span>
+              {plural(S.length, "agent session")} matched {where}:
+            </span>
+            {S.map((s) => (
+              <span key={s.id}>
+                · {s.title} ({s.agent}, {plural(s.turns.length, "turn")})
+              </span>
+            ))}
+          </>
+        ) : L.sessions_in_repo ? (
+          <span>
+            No agent session matched {where}. {plural(L.sessions_in_repo, "session")} worked in this repo, but none edited files on this branch that are still in
+            the diff. Changes still works; the agent's words are just missing.
+          </span>
+        ) : (
+          <span>No coding agent session (Claude Code, Codex) has worked in this repo on this machine. Changes still works from git alone.</span>
+        )}
+        <span className="text-muted-foreground">
+          An agent turn counts when it ran in this repo (or a worktree of it), its edits were made on this branch, after the branch point, and they touch files
+          still in this diff.
+        </span>
+        {left.length > 0 && <span className="text-muted-foreground">Left out: {left.map(([k, n]) => `${n} ${k}`).join(", ")}</span>}
+      </TooltipContent>
+    </Tooltip>
+  );
+}

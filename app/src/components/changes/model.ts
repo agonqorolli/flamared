@@ -1,0 +1,108 @@
+import { plural, type TipKey } from "@/lib/format";
+import type { FileInfo, GroupItem, Snapshot } from "@/lib/types";
+
+export interface Row {
+  file: FileInfo;
+  note: string; // "used by 4", "uses 5": why a file sits in a shared or wiring block
+  group: string;
+  index: number; // position in the flat list (j/k and "File N of M")
+}
+export interface Block {
+  key: string;
+  name: string;
+  sub: string;
+  add: number;
+  rem: number;
+  words: string | null;
+  words_agent: string | null;
+  rows: Row[];
+  lonely: boolean; // a loose file that uses nothing changed
+}
+export interface Section {
+  label: string;
+  tip: TipKey;
+  blocks: Block[];
+}
+
+const sum = (fs: FileInfo[], k: "add" | "rem") => fs.reduce((a, f) => a + f[k], 0);
+
+// The Changes list: logic groups, shared, wiring, loose files by folder, lone tests, then non-code files.
+export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[] } {
+  const S = snap.story;
+  const rows: Row[] = [];
+  const block = (key: string, name: string, sub: string, files: (FileInfo & { note?: string })[], tests: FileInfo[], extra: Partial<Block> = {}): Block => ({
+    key,
+    name,
+    sub,
+    add: sum([...files, ...tests], "add"),
+    rem: sum([...files, ...tests], "rem"),
+    words: null,
+    words_agent: null,
+    lonely: false,
+    ...extra,
+    rows: [...files, ...tests].map((f) => {
+      const row = { file: f, note: (f as { note?: string }).note ?? "", group: name, index: rows.length };
+      rows.push(row);
+      return row;
+    }),
+  });
+  // Several one-file groups shown as one block (shared files, loose files in a folder).
+  const merge = (key: string, name: string, sub: string, list: GroupItem[], extra: Partial<Block> = {}) =>
+    block(
+      key,
+      name,
+      sub,
+      list.flatMap((g) => g.files.map((f) => ({ ...f, note: g.used_by ? `used by ${g.used_by}` : g.imports ? `uses ${g.imports}` : "" }))),
+      list.flatMap((g) => g.tests),
+      extra,
+    );
+
+  const sections: Section[] = [];
+  if (S.logic.length)
+    sections.push({
+      label: "Logic groups",
+      tip: "logic",
+      blocks: S.logic.map((g, i) =>
+        block(`logic-${i}`, g.name, plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""), g.files, g.tests, {
+          words: g.words,
+          words_agent: g.words_agent,
+        }),
+      ),
+    });
+  if (S.shared.length)
+    sections.push({ label: "Shared building blocks", tip: "shared", blocks: [merge("shared", "shared", `${S.shared.length} files used by 3+ changed files`, S.shared)] });
+  if (S.wiring.length)
+    sections.push({ label: "Wiring", tip: "wiring", blocks: [merge("wiring", "wiring", `${S.wiring.length} files using 4+ changed files`, S.wiring)] });
+  if (S.loose.length)
+    sections.push({
+      label: "Other changes, by folder",
+      tip: "loose",
+      blocks: S.loose.map((L, i) => {
+        const b = merge(`loose-${i}`, L.folder.split("/").slice(-2).join("/"), plural(L.files.length, "file"), L.files);
+        return { ...b, lonely: L.files.every((g) => !g.uses.length) };
+      }),
+    });
+  // Tests whose source file didn't change and that use nothing changed would otherwise be lost.
+  if (S.loose_tests.length)
+    sections.push({
+      label: "Tests on their own",
+      tip: "tests",
+      blocks: [block("tests", "tests", `${plural(S.loose_tests.length, "test file")} whose source didn't change`, [], S.loose_tests)],
+    });
+  if (S.support.length)
+    sections.push({
+      label: "Supporting changes",
+      tip: "support",
+      blocks: S.support.map((s) => block(`support-${s.kind}`, s.kind, plural(s.files.length, "file"), s.files, [])),
+    });
+  return { sections, rows };
+}
+
+// A unified patch the diff component can read; our diffs are hunks only, without file headers.
+export function toPatch(f: FileInfo, diff: string): { patch: string; more: string | null } {
+  const lines = diff.split("\n");
+  const more = lines.length && lines[lines.length - 1].startsWith("… ") ? lines.pop()! : null;
+  const a = f.status === "A" ? "/dev/null" : `a/${f.path}`;
+  const b = f.status === "D" ? "/dev/null" : `b/${f.path}`;
+  return { patch: `diff --git a/${f.path} b/${f.path}\n--- ${a}\n+++ ${b}\n${lines.join("\n")}\n`, more };
+}

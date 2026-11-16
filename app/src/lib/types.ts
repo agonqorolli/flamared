@@ -1,0 +1,107 @@
+// The shape of src-tauri/src/data/snapshot.rs `build` output.
+
+export type Status = "A" | "M" | "D" | "R" | "T" | "U" | "C";
+
+export interface FileInfo {
+  path: string;
+  status: Status;
+  add: number;
+  rem: number;
+  words: string | null;
+  words_agent: string | null;
+  links_out: string[];
+  links_in: string[];
+  binary: boolean;
+}
+
+export interface GroupItem {
+  name: string;
+  files: FileInfo[];
+  tests: FileInfo[];
+  symbols: [string, string, string][];
+  more: number;
+  add: number;
+  rem: number;
+  uses: string[];
+  used_by: number;
+  imports: number;
+  words: string | null;
+  words_agent: string | null;
+}
+
+export interface RepoRow {
+  name: string;
+  path: string;
+  full: string;
+  sessions: number;
+  last: string | null;
+  current: boolean;
+}
+
+export interface BranchRow {
+  name: string;
+  at: string;
+  remote: boolean;
+  current: boolean;
+  sessions: number;
+}
+
+export interface TimelineEdit {
+  k: "edit";
+  path: string;
+  add: number;
+  rem: number;
+  at: string | null;
+  via: string | null;
+  agent: string;
+  step: string;
+  survives: "kept" | "partly" | "gone" | "undone" | null;
+  tool: string;
+  new: boolean;
+  del: boolean;
+  from: string | null;
+  say: string | null;
+  hunks: { o: number | null; n: number | null; lines: string[] }[];
+}
+export type TimelineEvent =
+  | { k: "say"; t: string }
+  | { k: "run"; cmd: string; desc: string | null; test: boolean; passed: number | null; failed: boolean }
+  | TimelineEdit;
+
+export interface SessionLink {
+  branch: string;
+  base: string;
+  worktrees: number;
+  sessions_in_repo: number;
+  turns_kept: number;
+  skipped: Record<string, number>;
+  agents: Record<string, number>;
+}
+
+export interface Snapshot {
+  repo: string;
+  path: string;
+  branch: string;
+  base: string;
+  base_label: string;
+  head: string;
+  generated: string;
+  repos: RepoRow[];
+  branches: BranchRow[];
+  stats: { files: number; add: number; rem: number };
+  story: {
+    logic: GroupItem[];
+    shared: GroupItem[];
+    wiring: GroupItem[];
+    loose: { folder: string; files: GroupItem[] }[];
+    support: { kind: string; files: FileInfo[] }[];
+    loose_tests: FileInfo[];
+  };
+  diffs: Record<string, string>;
+  timeline: {
+    sessions: { id: string; title: string; agent: string; turns: { at: string | null; prompt: string; branch: string | null; events: TimelineEvent[] }[] }[];
+    commits: { sha: string; at: string; subject: string }[];
+    link: SessionLink;
+  };
+  map: { files: [string, number][]; flags: Record<string, string[]>; groups: Record<string, string> };
+}

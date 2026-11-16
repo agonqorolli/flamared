@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd app && SNAPSHOT_FILE=/private/tmp/claude-501/flamared-cmp/rust.json exec pnpm exec vite --port ${PORT:-1430} --strictPort --host 127.0.0.1"
+      ],
+      "port": 1430
+    }
+  ]
+}
