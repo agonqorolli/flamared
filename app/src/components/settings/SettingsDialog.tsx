@@ -79,15 +79,9 @@ function DiffStyle() {
   );
   return (
     <>
-      <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 border-b px-6 py-4 pr-14">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-base font-semibold">Diff style</h2>
-          <p className="text-xs text-muted-foreground">How changes look in Changes and Timeline.</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={resetDiff}>
-          <RotateCcwIcon data-icon="inline-start" />
-          Reset
-        </Button>
+      <DialogHeader className="shrink-0 gap-0.5 border-b px-6 py-4 pr-14">
+        <h2 className="text-base font-semibold">Diff style</h2>
+        <p className="text-xs text-muted-foreground">How changes look in Changes and Timeline.</p>
       </DialogHeader>
       {/* The preview stays in view; only the settings below it scroll. */}
       <div className="shrink-0 border-b px-6 py-4">
@@ -165,6 +159,17 @@ function DiffStyle() {
               <FieldLabel htmlFor="diff-numbers">Line numbers</FieldLabel>
             </FieldContent>
             <Switch id="diff-numbers" checked={d.lineNumbers} onCheckedChange={(v) => setDiff({ lineNumbers: v })} />
+          </Field>
+          <FieldSeparator />
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel>Defaults</FieldLabel>
+              <FieldDescription>Put every diff setting back the way it started.</FieldDescription>
+            </FieldContent>
+            <Button variant="outline" size="sm" onClick={resetDiff}>
+              <RotateCcwIcon data-icon="inline-start" />
+              Reset to defaults
+            </Button>
           </Field>
         </FieldGroup>
       </div>
