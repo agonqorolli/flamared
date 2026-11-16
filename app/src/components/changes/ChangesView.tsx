@@ -102,7 +102,13 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
           inTimeline={inTimeline(row.file.path)}
           onShowInTimeline={() => onShowInTimeline(row.file.path)}
           onShowInMap={() => onShowInMap(row.file.path)}
-          onReview={(s, shown) => review.toggle(row.file, s, shown)}
+          // Marking a file moves on to the next one not checked yet (wrapping round); clearing a mark stays put.
+          onReview={(s, shown) => {
+            review.toggle(row.file, s, shown);
+            if (!s) return;
+            const next = rows.map((_, k) => (sel + 1 + k) % rows.length).find((i) => i !== sel && !review.stateOf(rows[i].file));
+            if (next !== undefined) select(next);
+          }}
           onStep={(d) => select(sel + d)}
           onSelect={select}
           onShowLatest={() => onSeen(row.file.path)}

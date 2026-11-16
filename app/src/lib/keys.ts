@@ -53,8 +53,8 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
     scope: "Changes",
     rows: [
       { ids: ["next", "prev"], does: "Next / previous file" },
-      { ids: ["looksGood"], does: "Mark Looks good", note: "again to clear" },
-      { ids: ["needsWork"], does: "Mark Needs work", note: "again to clear" },
+      { ids: ["looksGood"], does: "Mark Looks good", note: "then opens the next unchecked file" },
+      { ids: ["needsWork"], does: "Mark Needs work", note: "then opens the next unchecked file" },
       { ids: ["agent"], does: "Show or hide the agent's messages" },
       { ids: ["toTimeline", "toMap"], does: "Show the file in Timeline / Map" },
       { ids: ["splitDiff"], does: "Diff side by side or in one column" },
