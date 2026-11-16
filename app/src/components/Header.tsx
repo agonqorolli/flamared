@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckIcon, ChevronDownIcon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,9 +19,10 @@ interface Props {
   onView: (v: View) => void;
   onOpenRepo: (path: string) => void;
   onRefresh: () => void;
+  onSettings: () => void;
 }
 
-export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh }: Props) {
+export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh, onSettings }: Props) {
   return (
     <header className="flex items-center gap-3.5 border-b bg-panel px-4 py-1.5">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
@@ -36,9 +37,12 @@ export function Header({ snap, view, loading, onView, onOpenRepo, onRefresh }: P
           <TabsTrigger value="map">Map</TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="flex flex-1 basis-0 justify-end">
+      <div className="flex flex-1 basis-0 justify-end gap-1.5">
         <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title="Refresh (⌘R)">
           {loading ? <Spinner /> : <RefreshCwIcon />}
+        </Button>
+        <Button variant="outline" size="icon-sm" onClick={onSettings} aria-label="Settings" title="Settings (⌘,)">
+          <SettingsIcon />
         </Button>
       </div>
     </header>
