@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { CheckIcon, ChevronDownIcon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, FolderGit2Icon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Spinner } from "@/components/ui/spinner";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { ago, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Snapshot } from "@/lib/types";
@@ -62,8 +61,9 @@ function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: s
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="-ml-2 text-sm font-semibold" title="Switch repository">
-          {snap.repo}
+        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={`Repository: ${snap.path}`}>
+          <FolderGit2Icon data-icon="inline-start" />
+          <span className="truncate">{snap.repo}</span>
           <ChevronDownIcon data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
@@ -115,9 +115,9 @@ function BranchPicker({ snap }: { snap: Snapshot }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="font-mono text-xs" title="Branches">
+        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={`Branch: ${snap.branch}`}>
           <GitBranchIcon data-icon="inline-start" />
-          {snap.branch}
+          <span className="truncate">{snap.branch}</span>
           <ChevronDownIcon data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
@@ -134,7 +134,7 @@ function BranchPicker({ snap }: { snap: Snapshot }) {
                     <CommandItem key={b.name} value={b.name} disabled={!b.current} className="flex-col items-stretch gap-0.5">
                       <span className="flex items-center gap-2">
                         <CheckIcon className={b.current ? "text-selection" : "invisible"} />
-                        <span className="flex-1 truncate font-mono text-xs">{b.name}</span>
+                        <span className="flex-1 truncate font-medium">{b.name}</span>
                         {b.current && <span className="rounded-full bg-selection-bg px-1.5 text-[10px] text-selection">checked out</span>}
                       </span>
                       <span className="truncate pl-6 text-xs text-faint">
@@ -173,7 +173,6 @@ function SessionsChip({ snap }: { snap: Snapshot }) {
               : "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
           }
         >
-          <AgentAvatar agent={S[0]?.agent ?? null} className="size-3.5 text-[8px]" />
           {plural(S.length, "session")}
         </span>
       </TooltipTrigger>

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Said } from "@/components/Said";
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { Counts } from "@/components/StatusLetter";
 import { base, plural, STATUS, SURVIVAL, type Survival } from "@/lib/format";
@@ -10,6 +10,7 @@ import type { Timeline } from "@/lib/timeline";
 import type { FileInfo, Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { buildTree, squarify, type TreeNode } from "./treemap";
+import { FlagRules } from "./FlagRules";
 
 type Lens = "size" | "rework" | "final" | "flags";
 interface FileStats {
@@ -53,7 +54,11 @@ function Legend({ lens }: { lens: Lens }) {
         {sw("hsl(135,50%,34%)")}mostly in final{sw("hsl(40,70%,38%)")}partly{sw("#3A3F48")}mostly gone
       </>
     );
-  return <>{sw("#B4533A")}flagged by a rule</>;
+  return (
+    <>
+      {sw("#B4533A")}flagged by a rule <FlagRules />
+    </>
+  );
 }
 
 interface Props {
@@ -132,7 +137,7 @@ export function MapView({ snap, timeline, active, onOpenInChanges, onShowInTimel
         </div>
         <Treemap tree={tree} zoom={zoom} info={info} lens={lens} sel={sel} active={active} onSelect={select} onZoom={setZoom} />
       </main>
-      <aside aria-label="Selected file" className="flex w-[300px] shrink-0 flex-col gap-3.5 overflow-y-auto border-l bg-sidebar px-4 py-4">
+      <aside aria-label="Selected file" className="flex w-75 shrink-0 flex-col gap-3.5 overflow-y-auto border-l bg-sidebar px-4 py-4">
         {sel && info.files[sel] ? (
           <Selected x={info.files[sel]} inTimeline={timeline.paths.has(sel)} onBack={() => setSel(null)} onOpenInChanges={onOpenInChanges} onShowInTimeline={onShowInTimeline} />
         ) : (
@@ -171,13 +176,13 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
     const st = { left: x, top: y, width: w, height: h };
     if (node.leaf) {
       const x2 = info.files[node.path];
-      if (!x2) return void out.push(<div key={node.path} className="absolute rounded-[2px] border border-[#0B0C0F] bg-[#16181D]" style={st} title={`${node.path} · unchanged`} />);
+      if (!x2) return void out.push(<div key={node.path} className="absolute rounded-[2px] border border-map-edge bg-map-tile" style={st} title={`${node.path} · unchanged`} />);
       out.push(
         <button
           key={node.path}
           onClick={() => onSelect(node.path)}
           className={cn(
-            "absolute flex items-start overflow-hidden rounded-[2px] border border-[#0B0C0F] px-1 py-0.5 text-left font-mono text-[10px] text-white hover:brightness-125",
+            "absolute flex items-start overflow-hidden rounded-[2px] border border-map-edge px-1 py-0.5 text-left font-mono text-[10px] text-white hover:brightness-125",
             sel === node.path && "z-10 outline-2 -outline-offset-2 outline-white",
           )}
           style={{ ...st, background: LENS[lens].color(x2, info) }}
@@ -193,7 +198,7 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
     const pad = depth > 0 ? 2 : 0;
     if (depth > 0)
       out.push(
-        <div key={`d:${node.path}`} className="pointer-events-none absolute rounded border border-[#262A31]" style={st}>
+        <div key={`d:${node.path}`} className="pointer-events-none absolute rounded border border-map-folder" style={st}>
           {labelled && (
             <button
               onClick={() => onZoom(node.path)}
@@ -211,7 +216,7 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
   };
   if (size.w && size.h) draw(root, 0, 0, size.w, size.h, 0);
   return (
-    <div ref={ref} role="img" aria-label="Treemap of the repository; changed files are lit up" className="relative min-h-80 flex-1 overflow-hidden rounded-xl border bg-[#0B0C0F]">
+    <div ref={ref} role="img" aria-label="Treemap of the repository; changed files are lit up" className="relative min-h-80 flex-1 overflow-hidden rounded-xl border bg-map-bg">
       {out}
     </div>
   );
@@ -253,7 +258,14 @@ function Overview({ snap, info, onSelect }: { snap: Snapshot; info: Info; onSele
       <MiniCard title="Most reworked by agents" empty="No agent edits in this range">
         {top((x) => x.edits, 5).map((x) => row(x, plural(x.edits, "edit")))}
       </MiniCard>
-      <MiniCard title="Flagged" empty="Nothing flagged">
+      <MiniCard
+        title={
+          <span className="flex items-center gap-1">
+            Flagged <FlagRules />
+          </span>
+        }
+        empty="Nothing flagged"
+      >
         {list.filter((x) => x.flags.length).map((x) => row(x, <span className="text-warn">{x.flags[0]}</span>))}
       </MiniCard>
     </>
@@ -303,10 +315,7 @@ function Selected({ x, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: 
         </Stat>
       )}
       {f.words && (
-        <div className="flex items-start gap-2 text-xs leading-snug text-muted-foreground">
-          <AgentAvatar agent={f.words_agent} className="mt-0.5" />
-          <q>{f.words}</q>
-        </div>
+        <Said who={f.words_agent ?? "Agent"} text={f.words} lines={4} />
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="xs" onClick={() => onOpenInChanges(f.path)}>

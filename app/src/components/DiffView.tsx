@@ -1,12 +1,12 @@
 import { PatchDiff } from "@pierre/diffs/react";
-import { useSettings, type DiffSettings } from "@/lib/settings";
+import { LIGHT_THEME, useSettings, type AppearanceSettings, type DiffSettings } from "@/lib/settings";
 
-// The diff component's options and font size from the Diff style settings.
-export function diffOptions(d: DiffSettings) {
+// The diff component's options and font size from the Diff style settings; in Light mode the theme's light twin.
+export function diffOptions(d: DiffSettings, a: AppearanceSettings) {
   return {
     options: {
-      theme: d.theme,
-      themeType: "dark" as const,
+      theme: { dark: d.theme, light: LIGHT_THEME[d.theme] },
+      themeType: a.theme === "light" ? ("light" as const) : ("dark" as const),
       diffStyle: d.layout,
       overflow: d.longLines,
       lineDiffType: d.inline,
@@ -25,7 +25,7 @@ export function DiffView({ id, patch, more, empty }: { id: string; patch: string
   if (!patch) {
     return <div className="flex h-24 shrink-0 items-center rounded-xl border bg-card px-6 text-sm text-faint">{empty}</div>;
   }
-  const { options, style } = diffOptions(settings.diff);
+  const { options, style } = diffOptions(settings.diff, settings.appearance);
   return (
     <div className="min-h-0 shrink overflow-auto rounded-xl border bg-card">
       <PatchDiff key={id} patch={patch} options={options} style={style} />

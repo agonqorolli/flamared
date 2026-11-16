@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
+import { Said } from "@/components/Said";
 import { cn } from "@/lib/utils";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
-import { AgentAvatar } from "@/components/AgentAvatar";
-import { STATUS } from "@/lib/format";
+import { plural, STATUS } from "@/lib/format";
 import type { ReviewState } from "@/lib/review";
 import type { FileInfo } from "@/lib/types";
 import type { Block, Row, Section } from "./model";
@@ -37,15 +37,14 @@ export function ChangesList({ sections, selected, showAgent, fresh, reviewOf, on
 function GroupBlock({ block, selected, showAgent, fresh, reviewOf, onSelect }: { block: Block } & Omit<Props, "sections">) {
   return (
     <div className={cn("rounded-lg border bg-card p-1.5", block.lonely && "border-warn/30")}>
-      <div className="flex items-baseline gap-2 px-1.5 pt-0.5 pb-1 text-[11px] text-muted-foreground">
-        <span className="font-mono text-[13px] font-medium text-foreground">{block.name}</span>
-        <span className="min-w-0 flex-1 truncate">{block.sub}</span>
-        <Counts add={block.add} rem={block.rem} />
+      {/* The group's name and how many files it has; the longer description is on hover. */}
+      <div className="flex items-baseline justify-between gap-2 px-1.5 pt-0.5 pb-1" title={block.sub}>
+        <span className="min-w-0 truncate font-mono text-[13px] font-medium text-foreground">{block.name}</span>
+        <span className="shrink-0 text-[11px] text-faint">{plural(block.rows.length, "file")}</span>
       </div>
       {showAgent && block.words && (
-        <div className="flex items-start gap-2 px-1.5 py-1 text-xs leading-snug text-muted-foreground">
-          <AgentAvatar agent={block.words_agent} className="mt-0.5" />
-          <span className="line-clamp-2">{block.words}</span>
+        <div className="px-1.5 py-1">
+          <Said who={block.words_agent ?? "Agent"} text={block.words} />
         </div>
       )}
       {block.rows.map((r) => (

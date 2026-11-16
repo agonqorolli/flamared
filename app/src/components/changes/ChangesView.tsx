@@ -70,7 +70,7 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Change groups" className="flex w-[300px] min-w-[240px] shrink-0 flex-col border-r bg-sidebar">
+      <nav aria-label="Change groups" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="files">Files</ToggleGroupItem>

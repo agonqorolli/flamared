@@ -129,8 +129,113 @@ fn chunk_path(chunk: &[&str]) -> Option<String> {
     (header.get(n..n + 3) == Some(" b/") && header[..n] == header[n + 3..]).then(|| header[..n].to_string())
 }
 
+/// The changed file a path means, trying the usual extensions and index files; None when it isn't a changed file.
+fn pick(cand: &str, known: &BTreeSet<String>) -> Option<String> {
+    let mut cands = vec![cand.to_string()];
+    cands.extend(CODE_EXT.iter().map(|e| format!("{cand}{e}")));
+    cands.extend(CODE_EXT.iter().map(|e| format!("{cand}/index{e}")));
+    cands.push(format!("{cand}/__init__.py"));
+    if let Some(c) = cands.into_iter().find(|c| known.contains(c)) {
+        return Some(c);
+    }
+    // strip a .js extension written for a .ts source
+    let (stem, _) = splitext(cand);
+    CODE_EXT.iter().map(|e| format!("{stem}{e}")).find(|c| known.contains(c))
+}
+
+/// Import aliases from a tsconfig.json / jsconfig.json, like "@/*" -> "./src/*". Paths are repo-relative.
+#[derive(Default, Clone)]
+pub struct Aliases {
+    base_url: Option<String>,                   // folder bare imports may be relative to ("baseUrl")
+    paths: Vec<(String, String, Vec<String>)>, // (prefix before *, suffix after *, targets with * in them)
+}
+
+static TRAILING_COMMA: LazyLock<Regex> = LazyLock::new(|| Regex::new(r",(\s*[}\]])").unwrap());
+
+/// tsconfig files allow comments and trailing commas; strip both so it parses as JSON.
+fn strip_jsonc(text: &str) -> String {
+    let (mut out, mut chars, mut in_str) = (String::new(), text.chars().peekable(), false);
+    while let Some(c) = chars.next() {
+        if in_str {
+            out.push(c);
+            if c == '\\' {
+                out.extend(chars.next());
+            } else if c == '"' {
+                in_str = false;
+            }
+        } else if c == '"' {
+            in_str = true;
+            out.push(c);
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            for c in chars.by_ref() {
+                if c == '\n' {
+                    out.push('\n');
+                    break;
+                }
+            }
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            let mut prev = ' ';
+            for c in chars.by_ref() {
+                if prev == '*' && c == '/' {
+                    break;
+                }
+                prev = c;
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    TRAILING_COMMA.replace_all(&out, "$1").into_owned()
+}
+
+/// Aliases from one config file (repo-relative path), following "references" when it has none of its own.
+fn read_aliases(repo: &str, config: &str, depth: u8) -> Option<Aliases> {
+    let json: serde_json::Value = serde_json::from_str(&strip_jsonc(&read_text(repo, config)?)).ok()?;
+    let dir = dirname(config);
+    let opts = json.get("compilerOptions");
+    let base_url = opts.and_then(|o| o.get("baseUrl")).and_then(|b| b.as_str()).map(|b| normpath(&join(dir, b)));
+    let root = base_url.clone().unwrap_or_else(|| if dir.is_empty() { ".".into() } else { dir.to_string() });
+    let mut paths = Vec::new();
+    for (pattern, targets) in opts.and_then(|o| o.get("paths")).and_then(|p| p.as_object()).into_iter().flatten() {
+        let (prefix, suffix) = pattern.split_once('*').unwrap_or((pattern.as_str(), ""));
+        let targets: Vec<String> = targets.as_array().into_iter().flatten().filter_map(|t| t.as_str()).map(|t| normpath(&join(&root, t))).collect();
+        paths.push((prefix.to_string(), suffix.to_string(), targets));
+    }
+    if base_url.is_some() || !paths.is_empty() || depth > 2 {
+        return Some(Aliases { base_url, paths });
+    }
+    // Vite-style setups keep the aliases in a referenced tsconfig.app.json.
+    let refs = json.get("references").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    refs.iter()
+        .filter_map(|r| r.get("path").and_then(|p| p.as_str()))
+        .map(|p| normpath(&join(dir, p)))
+        .map(|p| if p.ends_with(".json") { p } else { join(&p, "tsconfig.json") })
+        .find_map(|p| read_aliases(repo, &p, depth + 1).filter(|a| a.base_url.is_some() || !a.paths.is_empty()))
+        .or(Some(Aliases::default()))
+}
+
+/// The aliases that apply to a file: from the nearest tsconfig.json or jsconfig.json above it. Cached per folder.
+fn aliases_for<'a>(repo: &str, file: &str, cache: &'a mut HashMap<String, Aliases>) -> &'a Aliases {
+    let start = dirname(file).to_string();
+    if !cache.contains_key(&start) {
+        let mut dir = start.clone();
+        let found = loop {
+            if let Some(a) = ["tsconfig.json", "jsconfig.json"].iter().find_map(|n| read_aliases(repo, &join(&dir, n), 0)) {
+                break a;
+            }
+            if dir.is_empty() {
+                break Aliases::default();
+            }
+            dir = dirname(&dir).to_string();
+        };
+        cache.insert(start.clone(), found);
+    }
+    &cache[&start]
+}
+
 /// Map an import specifier to a changed file path, if it is one.
-fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>) -> Option<String> {
+fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>, aliases: &Aliases) -> Option<String> {
     let py = importer.ends_with(".py");
     let cand = if spec.starts_with('.') {
         if py {
@@ -147,19 +252,18 @@ fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>) -> Option<Strin
     } else if py {
         spec.replace('.', "/")
     } else {
-        return None; // bare package import
+        // Not relative: an alias from tsconfig/jsconfig ("@/components/x"), a path from its baseUrl, or a package.
+        for (prefix, suffix, targets) in &aliases.paths {
+            if let Some(mid) = spec.strip_prefix(prefix.as_str()).and_then(|r| r.strip_suffix(suffix.as_str())) {
+                if let Some(hit) = targets.iter().find_map(|t| pick(&normpath(&t.replacen('*', mid, 1)), known)) {
+                    return Some(hit);
+                }
+            }
+        }
+        return aliases.base_url.as_ref().and_then(|b| pick(&normpath(&join(b, spec)), known));
     };
-    let mut cands = vec![cand.clone()];
-    cands.extend(CODE_EXT.iter().map(|e| format!("{cand}{e}")));
-    cands.extend(CODE_EXT.iter().map(|e| format!("{cand}/index{e}")));
-    cands.push(format!("{cand}/__init__.py"));
-    if let Some(c) = cands.into_iter().find(|c| known.contains(c)) {
-        return Some(c);
-    }
-    // strip a .js extension written for a .ts source
-    let (stem, _) = splitext(&cand);
-    if let Some(c) = CODE_EXT.iter().map(|e| format!("{stem}{e}")).find(|c| known.contains(c)) {
-        return Some(c);
+    if let Some(hit) = pick(&cand, known) {
+        return Some(hit);
     }
     // python absolute imports may be relative to any parent dir
     if py {
@@ -258,6 +362,7 @@ pub fn group(repo: &str, base: &str) -> Result<Grouping, String> {
     let untracked: HashSet<String> = git(repo, &["ls-files", "--others", "--exclude-standard"])?.lines().map(String::from).collect();
     let u0 = diff_by_file(repo, &["diff", "-U0", base]);
     let mut texts: HashMap<String, String> = HashMap::new(); // each changed code file's text, read once
+    let mut alias_cache: HashMap<String, Aliases> = HashMap::new(); // tsconfig/jsconfig aliases per folder
     let code: Vec<String> = files.keys().filter(|p| CODE_EXT.contains(&splitext(p).1)).cloned().collect();
     let known: BTreeSet<String> = code.iter().cloned().collect();
     let tests: BTreeSet<String> = code.iter().filter(|p| TEST_RE.is_match(basename(p))).cloned().collect();
@@ -271,9 +376,10 @@ pub fn group(repo: &str, base: &str) -> Result<Grouping, String> {
             stats.insert(p.clone(), (text.lines().count() as u64, 0)); // untracked: numstat doesn't see it
         }
         let rx = if p.ends_with(".py") { &*PY_IMPORT } else { &*JS_IMPORT };
+        let aliases = if p.ends_with(".py") { Aliases::default() } else { aliases_for(repo, p, &mut alias_cache).clone() };
         for caps in rx.captures_iter(&text) {
             for s in caps.iter().skip(1).flatten() {
-                if let Some(t) = resolve(s.as_str(), p, &known) {
+                if let Some(t) = resolve(s.as_str(), p, &known, &aliases) {
                     if &t != p {
                         adj.entry(p.clone()).or_default().insert(t.clone());
                         adj.entry(t.clone()).or_default().insert(p.clone());
@@ -416,6 +522,23 @@ mod tests {
         assert_eq!(stem("tests/test_parser.py"), "parser");
         assert_eq!(stem("parser_test.py"), "parser");
         assert_eq!(stem("x/index.ts"), "index");
+    }
+    #[test]
+    fn aliases() {
+        let known: BTreeSet<String> = ["app/src/components/Said.tsx", "app/src/lib/utils.ts", "app/src/lib/index.ts"].iter().map(|s| s.to_string()).collect();
+        let a = Aliases { base_url: None, paths: vec![("@/".into(), "".into(), vec!["app/src/*".into()])] };
+        assert_eq!(resolve("@/components/Said", "app/src/App.tsx", &known, &a).as_deref(), Some("app/src/components/Said.tsx"));
+        assert_eq!(resolve("@/lib", "app/src/App.tsx", &known, &a).as_deref(), Some("app/src/lib/index.ts"));
+        assert_eq!(resolve("react", "app/src/App.tsx", &known, &a), None);
+        let b = Aliases { base_url: Some("app/src".into()), paths: vec![] };
+        assert_eq!(resolve("lib/utils", "app/src/App.tsx", &known, &b).as_deref(), Some("app/src/lib/utils.ts"));
+    }
+    #[test]
+    fn jsonc() {
+        let t = "{\n // c\n \"a\": \"//not a comment\", /* b */ \"x\": [1,],\n}";
+        let v: serde_json::Value = serde_json::from_str(&strip_jsonc(t)).unwrap();
+        assert_eq!(v["a"], "//not a comment");
+        assert_eq!(v["x"][0], 1);
     }
     #[test]
     fn renames() {

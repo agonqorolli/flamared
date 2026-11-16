@@ -27,6 +27,10 @@
     --color-ai: var(--ai);
     --color-ai-foreground: var(--ai-foreground);
     --color-ai-bg: var(--ai-bg);
+    --color-map-bg: var(--map-bg);
+    --color-map-tile: var(--map-tile);
+    --color-map-edge: var(--map-edge);
+    --color-map-folder: var(--map-folder);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -67,42 +71,63 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Light. Same roles as the dark tokens below, tuned for a white window. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --background: #FFFFFF;
+    --foreground: #1F2328;
+    --card: #FFFFFF;
+    --card-foreground: #1F2328;
+    --popover: #FFFFFF;
+    --popover-foreground: #1F2328;
+    --primary: #1F2328;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F3F4F6;
+    --secondary-foreground: #31363D;
+    --muted: #E6E9ED;
+    --muted-foreground: #59636E;
+    --accent: #EBEEF2;
+    --accent-foreground: #1F2328;
+    --destructive: #CF222E;
+    --border: #E1E4E8;
+    --input: #D0D7DE;
+    --ring: #8DB2F8;
+    --chart-1: #2F6FEB;
+    --chart-2: #1A7F37;
+    --chart-3: #9A6700;
+    --chart-4: #8250DF;
+    --chart-5: #CF222E;
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: #F6F8FA;
+    --sidebar-foreground: #31363D;
+    --sidebar-primary: #2F6FEB;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #EBEEF2;
+    --sidebar-accent-foreground: #1F2328;
+    --sidebar-border: #E1E4E8;
+    --sidebar-ring: #8DB2F8;
+    --panel: #F6F8FA;
+    --raised: #EEF1F4;
+    --faint: #6E7781;
+    --subtle: #31363D;
+    --selection: #2F6FEB;
+    --selection-bg: #E3ECFD;
+    --add: #1A7F37;
+    --add-bg: #DAFBE1;
+    --rem: #CF222E;
+    --rem-bg: #FFEBE9;
+    --warn: #9A6700;
+    --renamed: #0969DA;
+    --conflict: #BC4C00;
+    --ai: #8250DF;
+    --ai-foreground: #6639BA;
+    --ai-bg: #F3EEFF;
+    --map-bg: #F3F4F6;
+    --map-tile: #E4E7EB;
+    --map-edge: #FFFFFF;
+    --map-folder: #CDD3DA;
 }
 
-/* Dark-first: the app always runs dark for now. */
+/* Dark, the default. */
 .dark {
     --background: #0D0E11;
     --foreground: #E7E9ED;
@@ -151,7 +176,42 @@
     --ai: #A78BFA;
     --ai-foreground: #C4B5FD;
     --ai-bg: #211C33;
+    --map-bg: #0B0C0F;
+    --map-tile: #16181D;
+    --map-edge: #0B0C0F;
+    --map-folder: #262A31;
 }
+
+/* Gray: the dark theme lifted to soft charcoal, for less contrast. Only the surfaces change. */
+.dark.gray {
+    --background: #1E2024;
+    --card: #26292E;
+    --popover: #2B2E34;
+    --secondary: #2B2E34;
+    --muted: #3B3F47;
+    --accent: #3F444D;
+    --border: #353941;
+    --input: #444952;
+    --sidebar: #222428;
+    --sidebar-accent: #2B2E34;
+    --sidebar-border: #353941;
+    --panel: #222428;
+    --raised: #2E3137;
+    --faint: #8E96A3;
+    --selection-bg: #24344F;
+    --add-bg: #17301F;
+    --rem-bg: #351B1D;
+    --ai-bg: #2A2440;
+    --map-bg: #1A1C20;
+    --map-tile: #2A2D33;
+    --map-edge: #1A1C20;
+    --map-folder: #3A3E46;
+}
+
+/* Density: Tailwind sizes padding, gaps and heights from one spacing unit, so changing it makes the whole window
+   tighter or roomier while text stays the same size. */
+:root[data-density="compact"] { --spacing: 0.2rem; }
+:root[data-density="spacious"] { --spacing: 0.3rem; }
 
 @layer base {
   * {
@@ -166,5 +226,14 @@
   html, body, #root {
     height: 100%;
     overflow: hidden;
+    }
+  /* Tailwind 4 resets buttons to the arrow cursor; everything clickable gets the hand back. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]):not([data-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  label[for] {
+    cursor: pointer;
     }
 }

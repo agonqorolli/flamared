@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PatchDiff } from "@pierre/diffs/react";
-import { CodeIcon, RotateCcwIcon } from "lucide-react";
+import { CodeIcon, PaletteIcon, RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
@@ -8,16 +8,19 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { diffOptions } from "@/components/DiffView";
-import { DIFF_THEMES, useSettings, type DiffSettings } from "@/lib/settings";
+import { DIFF_THEMES, useSettings, type AppearanceSettings, type DiffSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
 // Sections of the settings menu. More come later (files to leave out, license...).
-const SECTIONS = [{ id: "diff", label: "Diff style", icon: CodeIcon }] as const;
+const SECTIONS = [
+  { id: "appearance", label: "Appearance", icon: PaletteIcon },
+  { id: "diff", label: "Diff style", icon: CodeIcon },
+] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 
 // Settings: the menu on the left, the chosen section's settings on the right.
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [section, setSection] = useState<Section>("diff");
+  const [section, setSection] = useState<Section>("appearance");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(640px,calc(100vh-4rem))] gap-0 overflow-hidden p-0 sm:max-w-[860px]">
@@ -39,9 +42,81 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </Button>
           ))}
         </nav>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{section === "diff" && <DiffStyle />}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {section === "appearance" && <Appearance />}
+          {section === "diff" && <DiffStyle />}
+        </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// The heading of a settings section.
+function SectionHead({ title, text }: { title: string; text: string }) {
+  return (
+    <DialogHeader className="shrink-0 gap-0.5 border-b px-6 py-4 pr-14">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <p className="text-xs text-muted-foreground">{text}</p>
+    </DialogHeader>
+  );
+}
+
+// Each theme's look in two swatches: the window and a card on it (theme colors shown as data).
+const THEMES: [AppearanceSettings["theme"], string, string, string][] = [
+  ["dark", "Dark", "#0D0E11", "#1A1D23"],
+  ["gray", "Gray", "#1E2024", "#2E3137"],
+  ["light", "Light", "#FFFFFF", "#E6E9ED"],
+];
+
+function Appearance() {
+  const { settings, setAppearance, resetAppearance } = useSettings();
+  const a = settings.appearance;
+  return (
+    <>
+      <SectionHead title="Appearance" text="How the app looks. Changes show right away." />
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <FieldGroup>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel>Theme</FieldLabel>
+              <FieldDescription>Gray is the dark theme with softer contrast. Diffs switch to a light code theme in Light.</FieldDescription>
+            </FieldContent>
+            <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={a.theme} onValueChange={(v) => v && setAppearance({ theme: v as AppearanceSettings["theme"] })}>
+              {THEMES.map(([id, label, back, card]) => (
+                <ToggleGroupItem key={id} value={id}>
+                  <span className="relative size-3.5 shrink-0 overflow-hidden rounded-[4px] border border-foreground/20" style={{ background: back }} aria-hidden>
+                    <span className="absolute right-0 bottom-0 size-2 rounded-tl-[3px]" style={{ background: card }} />
+                  </span>
+                  {label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel>Density</FieldLabel>
+              <FieldDescription>Space between rows and around panels. Text stays the same size.</FieldDescription>
+            </FieldContent>
+            <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={a.density} onValueChange={(v) => v && setAppearance({ density: v as AppearanceSettings["density"] })}>
+              <ToggleGroupItem value="compact">Compact</ToggleGroupItem>
+              <ToggleGroupItem value="normal">Normal</ToggleGroupItem>
+              <ToggleGroupItem value="spacious">Spacious</ToggleGroupItem>
+            </ToggleGroup>
+          </Field>
+          <FieldSeparator />
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel>Defaults</FieldLabel>
+              <FieldDescription>Dark theme, normal density.</FieldDescription>
+            </FieldContent>
+            <Button variant="outline" size="sm" onClick={resetAppearance}>
+              <RotateCcwIcon data-icon="inline-start" />
+              Reset to defaults
+            </Button>
+          </Field>
+        </FieldGroup>
+      </div>
+    </>
   );
 }
 
@@ -67,7 +142,7 @@ const PREVIEW = [
 function DiffStyle() {
   const { settings, setDiff, resetDiff } = useSettings();
   const d = settings.diff;
-  const { options, style } = diffOptions(d);
+  const { options, style } = diffOptions(d, settings.appearance);
   const choice = <K extends keyof DiffSettings>(key: K, items: [DiffSettings[K], string][]) => (
     <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={String(d[key])} onValueChange={(v) => v && setDiff({ [key]: items.find(([x]) => String(x) === v)![0] } as Partial<DiffSettings>)}>
       {items.map(([v, label]) => (
@@ -79,10 +154,7 @@ function DiffStyle() {
   );
   return (
     <>
-      <DialogHeader className="shrink-0 gap-0.5 border-b px-6 py-4 pr-14">
-        <h2 className="text-base font-semibold">Diff style</h2>
-        <p className="text-xs text-muted-foreground">How changes look in Changes and Timeline.</p>
-      </DialogHeader>
+      <SectionHead title="Diff style" text="How changes look in Changes and Timeline." />
       {/* The preview stays in view; only the settings below it scroll. */}
       <div className="shrink-0 border-b px-6 py-4">
         <div className="max-h-56 overflow-auto rounded-xl border bg-card" aria-label="Preview">

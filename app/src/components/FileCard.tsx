@@ -1,10 +1,8 @@
-import { useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { AgentAvatar } from "@/components/AgentAvatar";
+import { Said } from "@/components/Said";
 import { base, dir } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 interface Props {
   what: "File" | "Edit";
@@ -22,7 +20,6 @@ interface Props {
 // The head of the column beside a diff: which item of how many, ↑↓, a jump to the other screen, the file,
 // and the agent's last message before the change (four lines, click for all). Line counts stay in the left list.
 export function FileCard({ what, index, count, path, binary, agent, words, wordsLabel, jump, onStep }: Props) {
-  const [open, setOpen] = useState(false);
   const noun = what.toLowerCase();
   return (
     <section aria-label={what} className="flex flex-col gap-2.5 rounded-xl border bg-card p-3">
@@ -38,7 +35,7 @@ export function FileCard({ what, index, count, path, binary, agent, words, words
         </Button>
         {jump && (
           <>
-            <Separator orientation="vertical" className="mx-0.5 h-4" />
+            <Separator orientation="vertical" className="mx-0.5 data-vertical:h-4 data-vertical:self-center" />
             {jump}
           </>
         )}
@@ -52,17 +49,7 @@ export function FileCard({ what, index, count, path, binary, agent, words, words
         )}
       </div>
       {binary && <div className="text-xs text-faint">Binary file</div>}
-      {words && (
-        <button className="flex flex-col gap-1 text-left" title="Click to show the whole message" onClick={() => setOpen(!open)}>
-          <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ai-foreground">
-            <AgentAvatar agent={agent} />
-            <span className="truncate">
-              {agent ?? "Agent"} <em className="text-faint not-italic">· {wordsLabel}</em>
-            </span>
-          </span>
-          <q className={cn("text-xs leading-snug text-muted-foreground", !open && "line-clamp-4")}>{words}</q>
-        </button>
-      )}
+      {words && <Said who={agent ?? "Agent"} text={words} lines={4} title={`${agent ?? "The agent"}'s last message ${wordsLabel}. Click to show all of it.`} />}
     </section>
   );
 }

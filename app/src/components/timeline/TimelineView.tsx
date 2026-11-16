@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { DiffView } from "@/components/DiffView";
 import { FileCard } from "@/components/FileCard";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
+import { Said } from "@/components/Said";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
-import { editKey, editPatch, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
+import { editKey, editPatch, ms, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import type { TimelineEdit } from "@/lib/types";
 
@@ -64,7 +64,7 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Agent edits" className="flex w-[300px] min-w-[240px] shrink-0 flex-col border-r bg-sidebar">
+      <nav aria-label="Agent edits" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
@@ -113,24 +113,21 @@ function Item({ item, selected, showAgent, fresh, onSelect }: { item: TimelineIt
         <span className="text-faint">{time(item.at)}</span>
       </div>
     );
-  // Edits only by default; with the agent, its messages and test runs (plain lookups stay hidden).
-  const rows = item.rows.filter((r) => r.kind === "edit" || (showAgent && (r.kind === "say" || r.test)));
+  // Edits only by default; with the agent, its messages too.
+  const rows = item.rows.filter((r) => r.kind === "edit" || showAgent);
+  const start = time(item.at);
   return (
-    <div className="rounded-lg border bg-card p-1.5">
-      {rows.map((r, k) => (
-        <TurnRow key={k} row={r} agent={item.agent} selected={selected} fresh={fresh} onSelect={onSelect} />
-      ))}
-      <div className={cn("flex flex-col gap-1 px-1.5 pt-2 pb-0.5", rows.length && "mt-1.5 border-t")}>
-        <div className="flex items-baseline gap-1.5 text-[11px] text-muted-foreground">
-          <span>{time(item.at)}</span>·<span className="text-ai-foreground">{item.agent}</span>·<span className="min-w-0 flex-1 truncate">{item.title}</span>
-          <span>{plural(item.edits, "edit")}</span>
-        </div>
-        <div className="flex items-start gap-2 text-[13px] leading-snug">
-          <span className="mt-0.5 shrink-0 rounded-[3px] bg-subtle px-1 text-[9px] font-semibold text-background">YOU</span>
-          <span className="line-clamp-3">{item.prompt}</span>
-        </div>
+    <article className="overflow-hidden rounded-lg border bg-card" aria-label={`${item.agent}: ${item.prompt}`}>
+      {/* Newest first, like the whole list: the edits on top, and at the bottom your prompt that started the turn. */}
+      <div className="flex flex-col p-1.5">
+        {rows.map((r, k) => (
+          <TurnRow key={k} row={r} agent={item.agent} selected={selected} fresh={fresh} onSelect={onSelect} />
+        ))}
       </div>
-    </div>
+      <footer className="border-t bg-raised/40 px-3 py-2">
+        <Said who="You" when={start} text={item.prompt} />
+      </footer>
+    </article>
   );
 }
 
@@ -142,18 +139,8 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
   }, [on]);
   if (row.kind === "say")
     return (
-      <div className="flex items-start gap-2 px-1.5 py-1 text-xs leading-snug text-muted-foreground">
-        <AgentAvatar agent={agent} className="mt-0.5" />
-        <span className="line-clamp-2">{row.text}</span>
-      </div>
-    );
-  if (row.kind === "run")
-    return (
-      <div className="flex items-center gap-2 px-1.5 py-1 font-mono text-xs text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">$ {row.cmd}</span>
-        <span className={cn("shrink-0 font-sans text-[11px]", row.failed ? "text-rem" : "text-add")}>
-          {row.failed ? "failed" : row.passed != null ? `${row.passed} passed` : "test"}
-        </span>
+      <div className="px-1.5 py-1">
+        <Said who={agent} when="" text={row.text} />
       </div>
     );
   const e = row.edit;
@@ -186,7 +173,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
   onShowInChanges: () => void;
 }) {
   // This file's edits (latest first), and other files edited in the same step (between the same two agent messages).
-  const history = edits.map((x, j) => [x, j] as const).filter(([x]) => x.path === e.path).sort(([a], [b]) => (b.at || "").localeCompare(a.at || ""));
+  const history = edits.map((x, j) => [x, j] as const).filter(([x]) => x.path === e.path).sort(([a], [b]) => ms(b.at) - ms(a.at));
   const together = edits
     .map((x, j) => [x, j] as const)
     .filter(([x], j) => j !== index && x.step === e.step && x.path !== e.path)
@@ -197,9 +184,8 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 px-6 pt-2.5 pb-4">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DiffView id={`${index}`} patch={editPatch(e)} empty="No diff recorded for this edit" />
-        {e.via && <p className="mt-2 truncate font-mono text-xs text-faint" title={e.via}>made by $ {e.via}</p>}
       </div>
-      <aside aria-label="Edit and related edits" className="flex w-[clamp(180px,26%,220px)] shrink-0 flex-col gap-3 overflow-y-auto">
+      <aside aria-label="Edit and related edits" className="flex w-[clamp(calc(var(--spacing)*45),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
         <FileCard
           what="Edit"
           index={index}

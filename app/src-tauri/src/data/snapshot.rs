@@ -79,6 +79,7 @@ static DEBUG_LOG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bconsole\.log
 static CLI_DIRS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(^|/)(scripts|bin|tools|cli)/").unwrap());
 
 /// Flags for one file from its full diff. Never returns the matched text itself (it could be a secret).
+/// The window explains each rule in app/src/components/map/FlagRules.tsx; keep the two in step.
 fn diff_flags(path: &str, diff: &[String]) -> Vec<String> {
     let added: Vec<&str> = diff.iter().filter(|l| l.starts_with('+')).map(|l| &l[1..]).collect();
     let removed: Vec<&str> = diff.iter().filter(|l| l.starts_with('-')).map(|l| &l[1..]).collect();
@@ -268,7 +269,10 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         for b in names {
             *session_branches.entry(b.to_string()).or_default() += 1;
         }
-        let sid = take(basename(f), 8);
+        // A short id per session: Claude Code names files by a UUID; Codex names them "rollout-<time>-<uuid>.jsonl",
+        // so its unique part is at the end.
+        let stem = basename(f).trim_end_matches(".jsonl");
+        let sid = if sessions::is_codex(f) { stem.chars().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect() } else { take(stem, 8) };
         let mut turns = Vec::new();
         for (ti, tn) in s.turns.iter().enumerate() {
             if root_of(&realpath(tn.cwd.as_deref().unwrap_or("/")), &roots).is_none() {

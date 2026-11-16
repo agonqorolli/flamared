@@ -67,7 +67,7 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
         <DiffView id={`${f.path}:${stale ? "held" : "latest"}`} patch={patch} more={more} empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"} />
         <ReviewBar review={review} onReview={reviewShown} />
       </div>
-      <aside aria-label="File and connected files" className="flex w-[clamp(180px,26%,220px)] shrink-0 flex-col gap-3 overflow-y-auto">
+      <aside aria-label="File and connected files" className="flex w-[clamp(calc(var(--spacing)*45),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
         <FileCard
           what="File"
           index={row.index}

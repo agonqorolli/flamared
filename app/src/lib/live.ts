@@ -32,7 +32,7 @@ function visible(s: Snapshot): string {
     s.branch,
     s.diffs,
     s.timeline.commits.map((c) => c.sha),
-    s.timeline.sessions.map((x) => [x.id, x.title, x.turns.map((t) => [t.prompt, t.events.length])]),
+    s.timeline.sessions.map((x) => [x.id, x.title, x.turns.map((t) => [t.prompt, t.events.filter((e) => e.k !== "run").length])]), // commands are not shown
   ]);
 }
 

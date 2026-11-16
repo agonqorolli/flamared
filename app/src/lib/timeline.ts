@@ -3,7 +3,6 @@ import type { Snapshot, TimelineEdit, TimelineEvent } from "./types";
 
 export type TimelineRow =
   | { kind: "say"; text: string }
-  | { kind: "run"; cmd: string; test: boolean; failed: boolean; passed: number | null }
   | { kind: "edit"; edit: TimelineEdit; index: number };
 
 export type TimelineItem =
@@ -12,7 +11,8 @@ export type TimelineItem =
   | {
       kind: "turn";
       key: string;
-      at: string | null;
+      at: string | null; // when you sent the prompt
+      latest: string | null; // the turn's last edit (or the prompt, without edits)
       agent: string;
       title: string;
       prompt: string;
@@ -26,39 +26,53 @@ export interface Timeline {
   paths: Set<string>; // files with at least one agent edit
 }
 
-// Agent turns and commits, latest first, with a day label whenever the day changes.
-// Inside a turn the latest event comes first too; the prompt (the oldest) closes the turn.
+// Milliseconds since 1970: times come in different forms (agents write UTC, git writes your local offset), so they
+// are compared as times, never as text.
+export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
+
+// Agent turns and commits, latest first, with a day label whenever the day changes. A turn sits where its latest
+// activity is, so the turn an agent is working in now stays on top. Inside a turn the latest event comes first too.
 export function buildTimeline(snap: Snapshot): Timeline {
-  type Raw = { at: string | null; turn?: Snapshot["timeline"]["sessions"][number]["turns"][number]; session?: Snapshot["timeline"]["sessions"][number]; commit?: Snapshot["timeline"]["commits"][number] };
+  type Session = Snapshot["timeline"]["sessions"][number];
+  type Raw = { at: number; turn?: Session["turns"][number]; ti?: number; session?: Session; commit?: Snapshot["timeline"]["commits"][number] };
   const raw: Raw[] = [];
-  for (const s of snap.timeline.sessions) for (const t of s.turns) raw.push({ at: t.at, turn: t, session: s });
-  for (const c of snap.timeline.commits) raw.push({ at: c.at, commit: c });
-  raw.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  for (const s of snap.timeline.sessions)
+    s.turns.forEach((t, ti) => {
+      const latest = Math.max(ms(t.at), ...t.events.map((e) => (e.k === "edit" ? ms(e.at) : 0)));
+      raw.push({ at: latest, turn: t, ti, session: s });
+    });
+  for (const c of snap.timeline.commits) raw.push({ at: ms(c.at), commit: c });
+  raw.sort((a, b) => b.at - a.at);
 
   const items: TimelineItem[] = [];
   const edits: TimelineEdit[] = [];
   let lastDay = "";
-  raw.forEach((it, n) => {
-    const d = day(it.at);
+  for (const it of raw) {
+    const d = it.at ? day(new Date(it.at).toISOString()) : "";
     if (d !== lastDay) items.push({ kind: "day", label: d || "Unknown day" }), (lastDay = d);
-    if (it.commit) return void items.push({ kind: "commit", sha: it.commit.sha, subject: it.commit.subject, at: it.commit.at });
+    if (it.commit) {
+      items.push({ kind: "commit", sha: it.commit.sha, subject: it.commit.subject, at: it.commit.at });
+      continue;
+    }
     const t = it.turn!;
-    const rows = [...t.events].reverse().map((e: TimelineEvent): TimelineRow => {
-      if (e.k === "say") return { kind: "say", text: e.t };
-      if (e.k === "run") return { kind: "run", cmd: e.cmd.split("\n")[0], test: e.test, failed: e.failed, passed: e.passed };
-      return { kind: "edit", edit: e, index: edits.push(e) - 1 };
+    // Edits and the agent's messages; the commands it ran (tests, lookups) are left out of the list.
+    const rows = [...t.events].reverse().flatMap((e: TimelineEvent): TimelineRow[] => {
+      if (e.k === "say") return [{ kind: "say", text: e.t }];
+      if (e.k === "run") return [];
+      return [{ kind: "edit", edit: e, index: edits.push(e) - 1 }];
     });
     items.push({
       kind: "turn",
-      key: `${it.session!.id}-${n}`,
+      key: `${it.session!.id}-${it.ti}`,
       at: t.at,
+      latest: it.at ? new Date(it.at).toISOString() : null,
       agent: it.session!.agent,
       title: it.session!.title,
       prompt: t.prompt,
       edits: t.events.filter((e) => e.k === "edit").length,
       rows,
     });
-  });
+  }
   return { items, edits, paths: new Set(edits.map((e) => e.path)) };
 }
 
