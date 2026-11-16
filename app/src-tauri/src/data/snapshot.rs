@@ -383,7 +383,7 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         out.sort();
         let ins: Vec<&String> = imported_by.get(p).into_iter().flatten().filter(|x| keep.contains_key(*x)).collect();
         json!({"path": p, "status": keep.get(p).map_or("M", |s| s.as_str()), "add": a, "rem": d,
-               "words": w.map(|w| &w.1), "words_agent": w.map(|w| &w.2), "links_out": out, "links_in": ins, "binary": binary.contains(p)})
+               "words": w.map(|w| &w.1), "words_agent": w.map(|w| &w.2), "words_at": w.map(|w| &w.0), "links_out": out, "links_in": ins, "binary": binary.contains(p)})
     };
     let latest_words = |paths: &[&String]| paths.iter().filter_map(|p| words.get(*p)).max().cloned();
     let item = |g: &Group| -> Value {

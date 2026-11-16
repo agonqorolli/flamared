@@ -22,6 +22,7 @@ interface Props {
 // Changes: groups of changed files on the left, the selected file's diff and review on the right.
 export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline, fresh, onSeen }: Props) {
   const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
+  const hasWords = sections.some((s) => s.blocks.some((b) => b.words));
   // The selection follows the file, so a reload that adds or removes files above it doesn't move you.
   // When the file itself leaves the change, the row now at its old position takes over.
   const [selected, setSelectedState] = useState<{ path: string | null; index: number }>({ path: null, index: 0 });
@@ -72,15 +73,18 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
     <div className="flex min-h-0 flex-1">
       <nav aria-label="Change groups" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
-          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
+          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="files">Files</ToggleGroupItem>
-            <ToggleGroupItem value="agent">Files + Agent</ToggleGroupItem>
+            {/* Off when no agent message belongs to these changes, so the toggle never silently does nothing. */}
+            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? "Show the agent's latest message on each group" : "No agent messages for these changes"}>
+              Files + Agent
+            </ToggleGroupItem>
           </ToggleGroup>
           <span className="text-xs text-faint">{plural(snap.stats.files, "file")}</span>
         </div>
         {/* Radix sizes the content as a table, which lets long text push past the edge; keep it a block. */}
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
-          <ChangesList sections={sections} selected={sel} showAgent={showAgent} fresh={fresh} reviewOf={review.stateOf} onSelect={select} />
+          <ChangesList sections={sections} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} reviewOf={review.stateOf} onSelect={select} />
         </ScrollArea>
       </nav>
       {row && (

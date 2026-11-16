@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LayersIcon } from "lucide-react";
+import { FileDiffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -10,13 +10,15 @@ import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { Said } from "@/components/Said";
+import { SessionsInfo } from "./SessionsInfo";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
 import { editKey, editPatch, ms, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
-import type { TimelineEdit } from "@/lib/types";
+import type { Snapshot, TimelineEdit } from "@/lib/types";
 
 interface Props {
+  snap: Snapshot;
   timeline: Timeline;
   active: boolean;
   focus: { path: string; n: number } | null; // "Show in Timeline" from another screen: the file's latest edit
@@ -27,8 +29,9 @@ interface Props {
 }
 
 // Timeline: every agent edit in order (latest first) with the agent's words, commands and your prompts around it.
-export function TimelineView({ timeline, active, focus, inChanges, onShowInChanges, fresh, onSeen }: Props) {
+export function TimelineView({ snap, timeline, active, focus, inChanges, onShowInChanges, fresh, onSeen }: Props) {
   const { items, edits } = timeline;
+  const hasWords = items.some((it) => it.kind === "turn" && it.rows.some((r) => r.kind === "say"));
   // The selection follows the edit, so new edits arriving at the top don't move you.
   const [selected, setSelectedState] = useState<{ key: string | null; index: number }>({ key: null, index: 0 });
   const [showAgent, setShowAgent] = useState(false);
@@ -66,17 +69,22 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
     <div className="flex min-h-0 flex-1">
       <nav aria-label="Agent edits" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
-          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
+          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
-            <ToggleGroupItem value="agent">Edits + Agent</ToggleGroupItem>
+            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? "Show the agent's messages between the edits" : "No agent messages in these turns"}>
+              Edits + Agent
+            </ToggleGroupItem>
           </ToggleGroup>
-          <span className="text-xs text-faint">{plural(edits.length, "edit")}</span>
+          <span className="flex items-center gap-1 text-xs text-faint">
+            {plural(edits.length, "edit")}
+            <SessionsInfo snap={snap} />
+          </span>
         </div>
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
           {!edits.length && <p className="px-1.5 pt-4 text-xs text-faint">No matching agent turns. Showing commits only.</p>}
           <div className="flex flex-col gap-2 pb-10">
             {items.map((it, k) => (
-              <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent} fresh={fresh} onSelect={setSelected} />
+              <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} onSelect={setSelected} />
             ))}
           </div>
         </ScrollArea>
@@ -198,7 +206,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
           jump={
             inChanges && (
               <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title="Show in Changes" onClick={onShowInChanges}>
-                <LayersIcon />
+                <FileDiffIcon />
               </Button>
             )
           }

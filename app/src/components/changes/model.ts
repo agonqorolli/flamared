@@ -1,4 +1,5 @@
 import { plural, type TipKey } from "@/lib/format";
+import { ms } from "@/lib/timeline";
 import type { FileInfo, GroupItem, Snapshot } from "@/lib/types";
 
 export interface Row {
@@ -30,14 +31,16 @@ const sum = (fs: FileInfo[], k: "add" | "rem") => fs.reduce((a, f) => a + f[k], 
 export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[] } {
   const S = snap.story;
   const rows: Row[] = [];
+  // The agent's latest message about any file in the block, whatever the section.
+  const latestWords = (fs: FileInfo[]) => fs.filter((f) => f.words).sort((x, y) => ms(y.words_at) - ms(x.words_at))[0];
   const block = (key: string, name: string, sub: string, files: (FileInfo & { note?: string })[], tests: FileInfo[], extra: Partial<Block> = {}): Block => ({
     key,
     name,
     sub,
     add: sum([...files, ...tests], "add"),
     rem: sum([...files, ...tests], "rem"),
-    words: null,
-    words_agent: null,
+    words: latestWords([...files, ...tests])?.words ?? null,
+    words_agent: latestWords([...files, ...tests])?.words_agent ?? null,
     lonely: false,
     ...extra,
     rows: [...files, ...tests].map((f) => {
@@ -63,10 +66,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       label: "Logic groups",
       tip: "logic",
       blocks: S.logic.map((g, i) =>
-        block(`logic-${i}`, g.name, plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""), g.files, g.tests, {
-          words: g.words,
-          words_agent: g.words_agent,
-        }),
+        block(`logic-${i}`, g.name, plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""), g.files, g.tests),
       ),
     });
   if (S.shared.length)

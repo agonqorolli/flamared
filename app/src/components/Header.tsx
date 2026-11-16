@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckIcon, ChevronDownIcon, FolderGit2Icon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ClockIcon, FolderGit2Icon, FileDiffIcon, MapIcon, FolderPlusIcon, GitBranchIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,17 +26,27 @@ interface Props {
 
 export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefresh, onSettings }: Props) {
   return (
-    <header className="flex items-center gap-3.5 border-b bg-panel px-4 py-1.5">
+    <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-4">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
         {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} />}
         {snap && <BranchPicker snap={snap} />}
-        {snap && <SessionsChip snap={snap} />}
       </div>
-      <Tabs value={view} onValueChange={(v) => onView(v as View)}>
-        <TabsList>
-          <TabsTrigger value="changes">Changes</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="map">Map</TabsTrigger>
+      {/* Main navigation: plain tabs with an underline (shadcn's line variant), not boxed buttons. The header has
+          no vertical padding here so the underline sits on its bottom border. */}
+      <Tabs value={view} onValueChange={(v) => onView(v as View)} className="self-stretch">
+        <TabsList variant="line" className="gap-3 p-0 group-data-horizontal/tabs:h-full">
+          <TabsTrigger value="changes" className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+            <FileDiffIcon data-icon="inline-start" />
+            Changes
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+            <ClockIcon data-icon="inline-start" />
+            Timeline
+          </TabsTrigger>
+          <TabsTrigger value="map" className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+            <MapIcon data-icon="inline-start" />
+            Map
+          </TabsTrigger>
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
@@ -153,56 +163,6 @@ function BranchPicker({ snap }: { snap: Snapshot }) {
         </Command>
       </PopoverContent>
     </Popover>
-  );
-}
-
-// How many agent sessions matched this branch; the tooltip says how they were found (or why none were).
-function SessionsChip({ snap }: { snap: Snapshot }) {
-  const L = snap.timeline.link;
-  const S = snap.timeline.sessions;
-  const where = `${L.branch || "this checkout"} since ${L.base}`;
-  const left = Object.entries(L.skipped);
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          tabIndex={0}
-          className={
-            S.length
-              ? "inline-flex items-center gap-1.5 rounded-full bg-ai-bg px-2 py-0.5 text-xs text-ai-foreground"
-              : "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
-          }
-        >
-          {plural(S.length, "session")}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="start" className="max-w-80 flex-col items-start gap-1.5">
-        {S.length ? (
-          <>
-            <span>
-              {plural(S.length, "agent session")} matched {where}:
-            </span>
-            {S.map((s) => (
-              <span key={s.id}>
-                · {s.title} ({s.agent}, {plural(s.turns.length, "turn")})
-              </span>
-            ))}
-          </>
-        ) : L.sessions_in_repo ? (
-          <span>
-            No agent session matched {where}. {plural(L.sessions_in_repo, "session")} worked in this repo, but none edited files on this branch that are still in
-            the diff. Changes still works; the agent's words are just missing.
-          </span>
-        ) : (
-          <span>No coding agent session (Claude Code, Codex) has worked in this repo on this machine. Changes still works from git alone.</span>
-        )}
-        <span className="text-muted-foreground">
-          An agent turn counts when it ran in this repo (or a worktree of it), its edits were made on this branch, after the branch point, and they touch files
-          still in this diff.
-        </span>
-        {left.length > 0 && <span className="text-muted-foreground">Left out: {left.map(([k, n]) => `${n} ${k}`).join(", ")}</span>}
-      </TooltipContent>
-    </Tooltip>
   );
 }
 

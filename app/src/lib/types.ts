@@ -9,6 +9,7 @@ export interface FileInfo {
   rem: number;
   words: string | null;
   words_agent: string | null;
+  words_at: string | null; // when the agent wrote `words`
   links_out: string[];
   links_in: string[];
   binary: boolean;
