@@ -59,6 +59,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `StatusLetter`, `Counts` | A/M/D… letter and +n −n |
 | `SurvivalTag` | kept / partly rewritten / gone / undone |
 | `KeyHint` | a button's shortcut badge, shown while ⌘ is held (see the `keyboard-shortcuts` skill) |
+| `BranchEmpty` | the centered no-changes placeholder for every branch, whether read from a working folder or a preview |
 | `settings/SectionHead` | title + one line under it, for a Settings section |
 
 Jump buttons to other screens are `variant="outline" size="icon-xs"` with the nav icons: Changes `FileDiffIcon`, Timeline `ClockIcon`, Map `MapIcon`, in that order, top right of the card.

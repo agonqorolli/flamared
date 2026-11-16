@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { BranchEmpty } from "@/components/BranchEmpty";
 import { plural } from "@/lib/format";
 import { useReview } from "@/lib/review";
 import type { Snapshot } from "@/lib/types";
@@ -58,18 +58,7 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
   });
 
   if (!rows.length) {
-    return (
-      <Empty className="flex-1">
-        <EmptyHeader>
-          <EmptyTitle>No changes</EmptyTitle>
-          <EmptyDescription>
-            {snap.viewing.checked_out
-              ? `Nothing uncommitted in ${snap.repo} right now. Changes appear here as soon as an agent (or you) edits a file.`
-              : `${snap.viewing.branch} has no commits since it split off.`}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
+    return <BranchEmpty branch={snap.viewing.branch} />;
   }
 
   return (

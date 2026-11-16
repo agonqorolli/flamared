@@ -4,6 +4,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Header, type View } from "@/components/Header";
+import { BranchEmpty } from "@/components/BranchEmpty";
 import { ChangesView } from "@/components/changes/ChangesView";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import { MapView } from "@/components/map/MapView";
@@ -130,13 +131,8 @@ function Workspace() {
             </EmptyHeader>
           )}
         </Empty>
-      ) : !snap.viewing.checked_out && changed.size === 0 ? (
-        <Empty className="flex-1">
-          <EmptyHeader>
-            <EmptyTitle>No changes on {snap.viewing.branch}</EmptyTitle>
-            <EmptyDescription>This branch has no file changes to show.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      ) : changed.size === 0 ? (
+        <BranchEmpty branch={snap.viewing.branch} />
       ) : (
         // All three screens stay mounted so each keeps its place; only the shown one listens to keys.
         <>
