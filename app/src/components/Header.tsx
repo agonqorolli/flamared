@@ -12,6 +12,7 @@ import { canPickFolder, loadBranchFiles, loadRepoStatus, recentRepos } from "@/l
 import { base, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BranchRow, RepoRow, RepoStatus, Snapshot } from "@/lib/types";
+import type { Opening } from "@/lib/live";
 import type { Waiting } from "@/lib/waiting";
 import { shortDate, useLicense } from "@/lib/license";
 import { hint } from "@/lib/keys";
@@ -23,6 +24,7 @@ interface Props {
   snap: Snapshot | null;
   view: View;
   loading: boolean;
+  opening: Opening | null;
   onView: (v: View) => void;
   onOpenRepo: (path: string) => void;
   onOpenFolder: () => void;
@@ -32,12 +34,12 @@ interface Props {
   live: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
-export function Header({ snap, view, loading, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
+export function Header({ snap, view, loading, opening, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
-        {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} />}
-        {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} />}
+        {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} switching={!!opening} />}
+        {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} disabled={!!opening?.repoChanged} switching={!!opening} />}
       </div>
       {/* Main navigation: plain tabs with an underline (shadcn's line variant), not boxed buttons. The header has
           no vertical padding here so the underline sits on its bottom border. */}
@@ -61,14 +63,11 @@ export function Header({ snap, view, loading, live, onView, onOpenRepo, onOpenFo
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
-        {live && snap && <LiveToggle {...live} updating={live.updating || loading} />}
-        {/* Live reloads by itself; the button is there while paused, or when there is no watcher. ⌘R always works. */}
-        {(!live || !live.on) && (
-          <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title={`Reload now (${hint("reload")})`}>
-            {loading ? <Spinner /> : <RefreshCwIcon />}
-            <KeyHint id="reload" />
-          </Button>
-        )}
+        {live && snap && <LiveToggle {...live} updating={live.updating} />}
+        <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading || !snap} aria-label={loading ? "Loading" : "Reload"} title={loading ? "Loading…" : `Reload now (${hint("reload")})`}>
+          {loading ? <Spinner /> : <RefreshCwIcon />}
+          <KeyHint id="reload" />
+        </Button>
         <TrialNote onOpen={() => onSettings("license")} />
         <Button variant="outline" size="icon-sm" onClick={() => onSettings()} aria-label="Settings" title={`Settings (${hint("settings")})`}>
           <SettingsIcon />
@@ -121,7 +120,7 @@ const rowValue = (r?: RepoRow) => r && `${r.name} ${r.path}`;
 
 // Repos agents have worked in on this machine. Picking one loads it. When the list opens, each repo's checked-out
 // branch and uncommitted files are read (one quick git status each), for "on <branch>" and "N to check".
-function RepoPicker({ snap, onOpenRepo, onOpenFolder }: { snap: Snapshot; onOpenRepo: (path: string) => void; onOpenFolder: () => void }) {
+function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snapshot; onOpenRepo: (path: string) => void; onOpenFolder: () => void; switching: boolean }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Record<string, RepoStatus>>({});
   // Repos agents worked in, plus ones you opened yourself (Open folder…) that no agent session points to.
@@ -167,7 +166,7 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder }: { snap: Snapshot; onOpen
                     sub={<MiddlePath path={r.path} />}
                     onSelect={() => {
                       setOpen(false);
-                      if (!r.current) onOpenRepo(r.full);
+                      if (!r.current || switching) onOpenRepo(r.full);
                     }}
                   />
                 );
@@ -197,7 +196,7 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder }: { snap: Snapshot; onOpen
 
 // Branches of this repo. Viewing is read-only. When the list opens, each other branch's changed files are counted
 // (as viewing it would show them), and the checked-out branch's files to check.
-function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (branch: string | null) => void }) {
+function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snapshot; onViewBranch: (branch: string | null) => void; disabled: boolean; switching: boolean }) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<Record<string, number>>({});
   const [own, setOwn] = useState<RepoStatus | null>(null); // the checked-out branch, while another is viewed
@@ -212,9 +211,9 @@ function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (b
   };
   const ownCount = snap.viewing.checked_out ? snap.stats.files : (own?.changed.length ?? 0);
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Popover open={open && !disabled} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={snap.viewing.checked_out ? `Working folder: ${viewing}` : `Previewing ${viewing}`}>
+        <Button variant="outline" size="sm" disabled={disabled} className="max-w-56 font-medium" title={snap.viewing.checked_out ? `Working folder: ${viewing}` : `Previewing ${viewing}`}>
           <GitBranchIcon data-icon="inline-start" />
           <span className="truncate">{viewing}</span>
           <ChevronDownIcon data-icon="inline-end" />
@@ -254,7 +253,7 @@ function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (b
                         sub={<LastCommit branch={b} />}
                         onSelect={() => {
                           setOpen(false);
-                          if (b.name !== viewing) onViewBranch(b.current ? null : b.name);
+                          if (b.name !== viewing || switching) onViewBranch(b.current ? null : b.name);
                         }}
                       />
                     );

@@ -19,6 +19,10 @@ const readLive = () => {
   }
 };
 
+export interface Opening {
+  repoChanged: boolean;
+}
+
 export interface Fresh {
   paths: Set<string>; // changed files that are new or changed again since you last selected them
   edits: Set<string>; // agent edits that arrived since you last selected them (see editKey)
@@ -49,25 +53,42 @@ export function useLiveRepo() {
   const [repo, setRepo] = useState<string | null>(null);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true); // opening a repo or a manual refresh: the refresh button spins
+  const [opening, setOpening] = useState<Opening | null>(null);
   const [updating, setUpdating] = useState(false); // a reload after a change: only the Live dot shows it
   const [error, setError] = useState<string | null>(null);
   const [live, setLiveState] = useState(readLive);
   const [pending, setPending] = useState<Waiting | null>(null); // what a reload would change, while paused
   const [fresh, setFresh] = useState<Fresh>(NONE);
   const current = useRef<{ repo: string | null; branch: string | null; snap: Snapshot | null }>({ repo: null, branch: null, snap: null });
-  const branchRef = useRef<string | null>(null); // the branch being viewed, when it isn't the checked-out one
+  const generation = useRef(0);
   const busy = useRef(false);
+  const foreground = useRef(false);
+  const failed = useRef<{ path: string; branch: string | null } | null>(null);
   const again = useRef(false);
 
   // Fetch the repo's data. A reload of the same repo adds what is new to `fresh`; another repo starts over.
-  const pull = useCallback(async (path: string, quiet: boolean) => {
-    if (busy.current) return void (again.current = true); // one reload at a time; one more after it if needed
+  const pull = useCallback(async (path: string, branch: string | null, quiet: boolean) => {
+    // Coalesce automatic updates. A selection starts immediately and supersedes older results.
+    if (quiet && busy.current) return void (again.current = true);
+    const id = ++generation.current;
     busy.current = true;
-    (quiet ? setUpdating : setLoading)(true);
-    if (!quiet) setError(null);
+    foreground.current = !quiet;
+    setUpdating(quiet);
+    setLoading(!quiet);
+    const prev = current.current;
+    const switching = prev.repo !== path || prev.branch !== branch;
+    const label = prev.repo !== path
+      ? path.split("/").filter(Boolean).pop() || path
+      : branch || prev.snap?.branches.find((b) => b.current)?.name || "working folder";
+    if (!quiet) {
+      failed.current = null;
+      setError(null);
+      setPending(null);
+      setOpening(switching ? { repoChanged: prev.repo !== path } : null);
+    }
     try {
-      const branch = branchRef.current;
       const s = await loadSnapshot(path, branch);
+      if (id !== generation.current) return;
       const prev = current.current;
       const same = prev.repo === path && prev.branch === branch;
       if (quiet && same && prev.snap && visible(prev.snap) === visible(s)) return; // nothing new to show
@@ -84,21 +105,29 @@ export function useLiveRepo() {
       setRepo(path);
       rememberRepo(path);
     } catch (e) {
-      if (!quiet) setError(String(e)); // a failed reload keeps what is on screen
+      if (id === generation.current && !quiet) {
+        failed.current = { path, branch };
+        setError(`${switching ? `Couldn't open ${label}` : "Couldn't reload"}. ${String(e)}`);
+      }
     } finally {
-      busy.current = false;
-      (quiet ? setUpdating : setLoading)(false);
-      if (again.current) {
-        again.current = false;
-        pull(path, true);
+      if (id === generation.current) {
+        busy.current = false;
+        foreground.current = false;
+        setLoading(false);
+        setUpdating(false);
+        setOpening(null);
+        if (again.current) {
+          again.current = false;
+          const shown = current.current;
+          if (shown.repo) void pull(shown.repo, shown.branch, true);
+        }
       }
     }
   }, []);
 
   const open = useCallback(
     (path: string) => {
-      branchRef.current = null; // another repo opens on its checked-out branch
-      return pull(path, false);
+      return pull(path, null, false);
     },
     [pull],
   );
@@ -107,16 +136,19 @@ export function useLiveRepo() {
     (branch: string | null) => {
       const r = current.current.repo;
       if (!r) return;
-      branchRef.current = branch;
-      setPending(null);
-      pull(r, false);
+      pull(r, branch, false);
     },
     [pull],
   );
   const refresh = useCallback(() => {
-    const r = current.current.repo;
-    if (r) pull(r, false), setPending(null);
+    const shown = current.current;
+    if (shown.repo && !foreground.current) pull(shown.repo, shown.branch, false);
   }, [pull]);
+  const retry = useCallback(() => {
+    const target = failed.current;
+    if (target) void pull(target.path, target.branch, false);
+  }, [pull]);
+  const dismissError = useCallback(() => setError(null), []);
 
   // Open the last repo, or the one an agent worked in most recently.
   useEffect(() => {
@@ -136,17 +168,19 @@ export function useLiveRepo() {
   const check = useCallback(async (path: string) => {
     if (checking.current) return void (checkAgain.current = true);
     checking.current = true;
+    const id = generation.current;
+    const branch = current.current.branch;
     try {
-      const s = await loadSnapshot(path, branchRef.current);
+      const s = await loadSnapshot(path, branch);
       const shown = current.current.snap;
-      if (current.current.repo === path && current.current.branch === branchRef.current && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
+      if (!busy.current && id === generation.current && current.current.repo === path && current.current.branch === branch && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
     } catch {
       /* the next change report checks again */
     } finally {
       checking.current = false;
       if (checkAgain.current) {
         checkAgain.current = false;
-        check(path);
+        if (current.current.repo && !busy.current) check(current.current.repo);
       }
     }
   }, []);
@@ -159,7 +193,7 @@ export function useLiveRepo() {
     const off = listen<string>("repo-changed", () => {
       const r = current.current.repo;
       if (!r) return;
-      if (liveRef.current) pull(r, true);
+      if (liveRef.current) pull(r, current.current.branch, true);
       else check(r);
     });
     off.catch((e) => console.warn("Live updates unavailable:", e));
@@ -177,7 +211,7 @@ export function useLiveRepo() {
       if (on && pending) {
         setPending(null);
         const r = current.current.repo;
-        if (r) pull(r, true);
+        if (r) pull(r, current.current.branch, true);
       }
     },
     [pending, pull],
@@ -193,5 +227,5 @@ export function useLiveRepo() {
     });
   }, []);
 
-  return { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable: inTauri };
+  return { repo, snap, loading, opening, updating, error, retry, dismissError, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable: inTauri };
 }

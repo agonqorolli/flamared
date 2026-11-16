@@ -43,6 +43,7 @@ pub fn repo_roots(top: &str) -> Vec<String> {
 /// Is an edit still in the current file? Compares its added (or removed) lines with the file as it is now.
 /// kept: all its lines are there · partly · gone: rewritten later · undone: removed lines came back.
 fn survival(hunks: &[Hunk], text: Option<&String>) -> Option<&'static str> {
+    if hunks.is_empty() { return None; }
     let Some(text) = text else { return Some("gone") };
     let now: HashSet<&str> = text.lines().map(str::trim).collect();
     let sig = |sign: char| -> Vec<&str> {
@@ -359,8 +360,10 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
                         let absf = realpath(e.file.as_deref().unwrap_or("/"));
                         let Some(root) = root_of(&absf, &roots) else { continue };
                         let rel = relpath(&absf, root);
+                        // Shell evidence has no historical diff: only link targets still changed in git.
+                        if e.inferred && !keep.contains_key(&rel) { continue; }
                         let mut via = Value::Null;
-                        if e.tool == "Bash" {
+                        if e.tool == "Bash" || e.tool == "Codex shell" {
                             if let Some(lr) = last_run {
                                 // The command that made this edit is shown on the edit, not as its own row.
                                 events[lr]["absorbed"] = json!(true);
@@ -374,7 +377,7 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
                         events.push(json!({
                             "k": "edit", "path": rel, "add": e.add, "rem": e.rem, "at": e.at, "via": via, "agent": s.agent,
                             "step": format!("{sid}:{ti}:{step}"), "survives": survival(&e.hunks, text.as_ref()),
-                            "tool": e.tool, "new": e.new_file, "del": e.deleted,
+                            "tool": e.tool, "new": e.new_file, "del": e.deleted, "inferred": e.inferred,
                             "from": e.moved_from.as_deref().map(|m| relpath(&realpath(m), root)), "say": last_say,
                             "hunks": e.hunks.iter().take(6).map(|h| json!({"o": h.old_start, "n": h.new_start, "lines": h.lines.iter().take(120).collect::<Vec<_>>()})).collect::<Vec<_>>(),
                         }));

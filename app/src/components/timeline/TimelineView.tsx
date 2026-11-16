@@ -189,7 +189,7 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
       <StatusLetter status={editStatus(e)} title={editStatusTip(e)} />
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(e.path)}</span>
       {fresh.has(editKey(e)) && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />}
-      <Counts add={e.add} rem={e.rem} />
+      {!e.inferred && <Counts add={e.add} rem={e.rem} />}
     </button>
   );
 }
@@ -214,7 +214,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <DiffView id={`${index}`} patch={editPatch(e)} empty="No diff recorded for this edit" />
+        <DiffView id={`${index}`} patch={editPatch(e)} empty={e.inferred ? "The agent's command writes this file, but Codex didn't record a diff. See Changes for the current diff." : "No diff recorded for this edit"} />
       </div>
       <SideColumn label="Edit and related edits">
         <FileCard
@@ -247,7 +247,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
               key={j}
               on={j === index}
               onClick={() => onSelect(j)}
-              title={`${day(x.at)} ${time(x.at)}${x.survives ? ` · ${SURVIVAL[x.survives][0]}` : ""} · +${x.add} −${x.rem}\n${x.say ? `“${x.say}”` : "No message"}`}
+              title={`${day(x.at)} ${time(x.at)}${x.survives ? ` · ${SURVIVAL[x.survives][0]}` : ""}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}\n${x.say ? `“${x.say}”` : "No message"}`}
             >
               <span className="min-w-0 flex-1 truncate text-faint">
                 {multiDay ? `${day(x.at)} ` : ""}
@@ -259,7 +259,7 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
         </MiniCard>
         <MiniCard title={`Same step · ${together.length}`} empty="No other files in this step">
           {together.map(([x, j]) => (
-            <MiniRow key={j} onClick={() => onSelect(j)} title={`${x.path} · +${x.add} −${x.rem}`}>
+            <MiniRow key={j} onClick={() => onSelect(j)} title={`${x.path}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}`}>
               <span className="truncate font-mono font-medium">{base(x.path)}</span>
             </MiniRow>
           ))}

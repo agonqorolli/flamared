@@ -35,6 +35,7 @@ pub struct Edit {
     pub deleted: bool,
     pub moved_from: Option<String>,
     pub hunks: Vec<Hunk>,
+    pub inferred: bool, // a literal shell write target; Codex did not record the file's diff
 }
 
 pub struct Run {
@@ -292,6 +293,7 @@ fn parse_claude(path: &str) -> Session {
                             deleted: false,
                             moved_from: None,
                             hunks,
+                            inferred: false,
                         });
                         turn.events.push(Event::Edit(turn.edits.len() - 1));
                     } else if name == "Bash" {
@@ -314,6 +316,7 @@ fn parse_claude(path: &str) -> Session {
                                 deleted: false,
                                 moved_from: None,
                                 hunks,
+                                inferred: false,
                             });
                             turn.events.push(Event::Edit(turn.edits.len() - 1));
                         }
@@ -362,14 +365,43 @@ fn hunks_from_unified(diff: &str) -> Vec<Hunk> {
 
 fn parse_codex(path: &str) -> Session {
     let recs = load(path);
+    let id = recs.iter().find(|r| s(r, "type").as_deref() == Some("session_meta")).and_then(|r| r.get("payload")).and_then(|p| s(p, "id"));
+    let title = id.and_then(|id| codex_titles().remove(&id));
+    parse_codex_records(&recs, title)
+}
+
+fn codex_cwd(value: Option<String>) -> Option<String> {
+    value.and_then(|v| {
+        if v.starts_with("file:") {
+            tauri::Url::parse(&v).ok()?.to_file_path().ok().map(|p| p.to_string_lossy().into_owned())
+        } else { Some(v) }
+    })
+}
+
+/// Follow a successful, directly recorded branch switch. Never take branch-looking text in a
+/// read command's output as evidence, and never assign a switch in another folder to this session.
+fn switched_branch(cmd: &str, output: &str, exit: Option<i64>) -> Option<String> {
+    static SWITCH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^git\s+(?:switch(?:\s+-[cC])?|checkout(?:\s+-[bB])?)\s+([^\s;&|]+)\s*$").unwrap());
+    if exit != Some(0) { return None; }
+    let m = SWITCH.captures(cmd.trim())?;
+    let branch = m[1].trim_matches(['\'', '"']);
+    if branch.starts_with('-') { return None; }
+    output.lines().any(|l| l == format!("Switched to branch '{branch}'") || l == format!("Switched to a new branch '{branch}'"))
+        .then(|| branch.to_string())
+}
+
+fn parse_codex_records(recs: &[Value], title: Option<String>) -> Session {
     let meta = recs.iter().find(|r| s(r, "type").as_deref() == Some("session_meta")).and_then(|r| r.get("payload")).cloned().unwrap_or_default();
-    let branch = meta.get("git").and_then(|g| s(g, "branch")); // Codex records the branch once, at session start
-    let mut cwd = s(&meta, "cwd");
-    let mut session = Session { agent: "Codex", title: s(&meta, "id").and_then(|id| codex_titles().remove(&id)), turns: vec![] };
-    for r in &recs {
+    let mut branch = meta.get("git").and_then(|g| s(g, "branch"));
+    let mut cwd = codex_cwd(s(&meta, "cwd"));
+    let mut session = Session { agent: "Codex", title, turns: vec![] };
+    for r in recs {
         let Some(p) = r.get("payload") else { continue };
         if s(r, "type").as_deref() == Some("turn_context") {
-            cwd = s(p, "cwd").or(cwd);
+            let next = codex_cwd(s(p, "cwd")).or_else(|| cwd.clone());
+            if next != cwd { branch = None; }
+            if let Some(b) = p.get("git").and_then(|g| s(g, "branch")) { branch = Some(b); }
+            cwd = next;
             continue;
         }
         if s(r, "type").as_deref() != Some("event_msg") || s(p, "type").as_deref() != Some("item_completed") {
@@ -400,11 +432,30 @@ fn parse_codex(path: &str) -> Session {
                             _ => String::new(),
                         };
                         let out = s(it, "aggregated_output").unwrap_or_default();
+                        let exit = it.get("exit_code").and_then(|c| c.as_i64());
+                        let command_cwd = codex_cwd(s(it, "cwd")).or_else(|| cwd.clone());
+                        let same_folder = command_cwd.as_ref().zip(cwd.as_ref())
+                            .is_some_and(|(c, root)| c == root || c.starts_with(&format!("{root}/")));
+                        if same_folder {
+                            if let Some(b) = switched_branch(&cmd, &out, exit) { branch = Some(b); }
+                        }
+                        let targets = super::codex_shell::written_paths(&cmd, &out, exit);
                         let failed = it.get("exit_code").is_some_and(|c| !c.is_null() && c.as_i64() != Some(0));
                         let mut run = Run { is_test: TEST_CMD.is_match(&cmd), cmd, desc: None, failed, passed: None, failed_tests: None };
                         test_result(&mut run, &out);
                         turn.runs.push(run);
                         turn.events.push(Event::Run(turn.runs.len() - 1));
+                        if let Some(base) = command_cwd {
+                            for path in targets {
+                                turn.edits.push(Edit {
+                                    tool: "Codex shell".into(), file: Some(join(&base, &path)), at: at.clone(),
+                                    branch: if same_folder { branch.clone() } else { None },
+                                    add: 0, rem: 0, new_file: false, deleted: false, moved_from: None,
+                                    hunks: vec![], inferred: true,
+                                });
+                                turn.events.push(Event::Edit(turn.edits.len() - 1));
+                            }
+                        }
                     }
                     Some("FileChange") => {
                         let Some(changes) = it.get("changes").and_then(|c| c.as_object()) else { continue };
@@ -432,6 +483,7 @@ fn parse_codex(path: &str) -> Session {
                                 deleted: kind.as_deref() == Some("delete"),
                                 moved_from: moved.map(|_| absf),
                                 hunks,
+                                inferred: false,
                             });
                             turn.events.push(Event::Edit(turn.edits.len() - 1));
                         }
@@ -445,4 +497,75 @@ fn parse_codex(path: &str) -> Session {
         session.title = session.turns.first().map(|t| take(t.prompt.lines().next().unwrap_or(""), 80));
     }
     session
+}
+
+#[cfg(test)]
+mod codex_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn item(it: Value) -> Value {
+        json!({"type":"event_msg", "timestamp":"2026-11-16T19:00:00Z", "payload":{"type":"item_completed", "item":it}})
+    }
+    fn start() -> Vec<Value> {
+        vec![
+            json!({"type":"session_meta", "payload":{"cwd":"/repo", "git":{"branch":"old"}}}),
+            item(json!({"type":"UserMessage", "content":[{"text":"Fix loading"}]})),
+            item(json!({"type":"AgentMessage", "content":[{"text":"I will update the loading state."}]})),
+        ]
+    }
+    fn command(cmd: &str, cwd: &str, out: &str, exit: Option<i64>) -> Value {
+        item(json!({"type":"CommandExecution", "command":["/bin/zsh","-lc",cmd], "cwd":cwd, "aggregated_output":out, "exit_code":exit}))
+    }
+    fn write(cwd: &str) -> Value {
+        command("python3 - <<'PY'\np='src/view.ts';s=open(p).read();open(p,'w').write(s)\nPY", cwd, "", Some(0))
+    }
+
+    #[test]
+    fn shell_writes_follow_a_branch_switch_in_the_same_turn() {
+        let mut records = start();
+        records.push(write("file:///repo"));
+        records.push(command("git switch -c feature", "file:///repo/app", "Switched to a new branch 'feature'\n", Some(0)));
+        records.push(write("file:///repo"));
+        let session = parse_codex_records(&records, None);
+        let turn = &session.turns[0];
+        assert_eq!(turn.edits.len(), 2);
+        assert_eq!(turn.edits[0].branch.as_deref(), Some("old"));
+        let edit = &turn.edits[1];
+        assert_eq!(edit.branch.as_deref(), Some("feature"));
+        assert_eq!(edit.file.as_deref(), Some("/repo/src/view.ts"));
+        assert!(edit.inferred && edit.hunks.is_empty());
+        assert_eq!((edit.add, edit.rem), (0, 0));
+        assert!(matches!(&turn.events[0], Event::Say(s) if s == "I will update the loading state."));
+    }
+
+    #[test]
+    fn failed_switches_other_repositories_and_read_output_do_not_reassign_edits() {
+        let mut records = start();
+        records.push(command("git switch -c failed", "file:///repo", "fatal: failed", Some(1)));
+        records.push(command("git switch other", "file:///elsewhere", "Switched to branch 'other'", Some(0)));
+        records.push(command("cat log.txt", "file:///repo", "Switched to branch 'printed'", Some(0)));
+        records.push(write("file:///repo"));
+        assert_eq!(parse_codex_records(&records, None).turns[0].edits[0].branch.as_deref(), Some("old"));
+    }
+
+    #[test]
+    fn file_changes_keep_their_diff_and_use_the_updated_branch() {
+        let mut records = start();
+        records.push(command("git checkout -b next", "file:///repo", "Switched to a new branch 'next'", Some(0)));
+        records.push(item(json!({"type":"UserMessage", "content":[{"text":"Now edit"}]})));
+        records.push(item(json!({"type":"FileChange", "changes":{"src/a.ts":{"type":"update", "unified_diff":"@@ -1 +1 @@\n-old\n+new\n"}}})));
+        let session = parse_codex_records(&records, None);
+        let edit = &session.turns[1].edits[0];
+        assert_eq!(edit.branch.as_deref(), Some("next"));
+        assert_eq!((edit.add, edit.rem), (1, 1));
+        assert!(!edit.inferred);
+    }
+
+    #[test]
+    fn command_working_directory_is_used_and_uri_paths_are_decoded() {
+        let mut records = start();
+        records.push(write("file:///repo/sub%20folder"));
+        assert_eq!(parse_codex_records(&records, None).turns[0].edits[0].file.as_deref(), Some("/repo/sub folder/src/view.ts"));
+    }
 }

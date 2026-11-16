@@ -93,7 +93,7 @@ export function editPatch(e: TimelineEdit): string | null {
 // The status letter of one edit: deleted, moved, created or changed the file.
 export const editStatus = (e: TimelineEdit) => (e.del ? "D" : e.from ? "R" : e.new ? "A" : "M") as "D" | "R" | "A" | "M";
 export const editStatusTip = (e: TimelineEdit) =>
-  ({ A: "Created the file", D: "Deleted the file", R: `Moved from ${e.from}`, M: "Changed the file" })[editStatus(e)];
+  e.inferred ? "Write found in the agent's command; no diff recorded" : ({ A: "Created the file", D: "Deleted the file", R: `Moved from ${e.from}`, M: "Changed the file" })[editStatus(e)];
 
 // A stable name for one edit across reloads (the list position changes as new edits arrive).
 export const editKey = (e: TimelineEdit) => `${e.step}|${e.at}|${e.path}`;

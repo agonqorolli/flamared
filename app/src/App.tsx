@@ -39,7 +39,7 @@ function Gate() {
 }
 
 function Workspace() {
-  const { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable } = useLiveRepo();
+  const { snap, loading, opening, updating, error, retry, dismissError, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable } = useLiveRepo();
   const [view, setView] = useState<View>("changes");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsAt, setSettingsAt] = useState<Section | undefined>();
@@ -73,12 +73,12 @@ function Workspace() {
     goChanges: () => setView("changes"),
     goTimeline: () => setView("timeline"),
     goMap: () => setView("map"),
-    reload: refresh,
+    reload: !loading && refresh,
     settings: () => openSettings(),
     shortcuts: () => openSettings("keyboard"),
     openFolder: canPickFolder && openFolder,
     live: liveAvailable && (() => setLive(!live)),
-    splitDiff: view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
+    splitDiff: !opening && view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
   });
 
   return (
@@ -87,6 +87,7 @@ function Workspace() {
         snap={snap}
         view={view}
         loading={loading}
+        opening={opening}
         live={liveAvailable ? { on: live, updating, pending, set: setLive } : null}
         onView={setView}
         onOpenRepo={open}
@@ -106,73 +107,80 @@ function Workspace() {
           </AlertAction>
         </Alert>
       )}
-      {error ? (
-        <Empty className="flex-1">
-          <EmptyHeader>
-            <EmptyTitle>Couldn't read this repository</EmptyTitle>
-            <EmptyDescription>{error}</EmptyDescription>
-          </EmptyHeader>
-          {repo && (
-            <EmptyContent>
-              <Button variant="outline" onClick={() => open(repo)}>
-                Try again
-              </Button>
-            </EmptyContent>
-          )}
-        </Empty>
-      ) : !snap ? (
-        <Empty className="flex-1">
-          {loading ? (
-            <Spinner />
-          ) : (
-            <EmptyHeader>
-              <EmptyTitle>No repository yet</EmptyTitle>
-              <EmptyDescription>No coding agent session was found on this machine. Opening any folder comes with the folder picker.</EmptyDescription>
-            </EmptyHeader>
-          )}
-        </Empty>
-      ) : changed.size === 0 ? (
-        <BranchEmpty branch={snap.viewing.branch} />
-      ) : (
-        // All three screens stay mounted so each keeps its place; only the shown one listens to keys.
-        <>
-          <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "changes" && "hidden")}>
-            <ChangesView
-              snap={snap}
-              active={view === "changes"}
-              focus={focus?.view === "changes" ? focus : null}
-              inTimeline={(p) => !!timeline?.paths.has(p)}
-              onShowInTimeline={jump("timeline")}
-              onShowInMap={jump("map")}
-              fresh={fresh.paths}
-              onSeen={(p) => seen("paths", p)}
-            />
-          </div>
-          <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
-            <TimelineView
-              snap={snap}
-              timeline={timeline!}
-              active={view === "timeline"}
-              focus={focus?.view === "timeline" ? focus : null}
-              inChanges={(p) => changed.has(p)}
-              onShowInChanges={jump("changes")}
-              onShowInMap={jump("map")}
-              fresh={fresh.edits}
-              onSeen={(k) => seen("edits", k)}
-            />
-          </div>
-          <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "map" && "hidden")}>
-            <MapView
-              snap={snap}
-              timeline={timeline!}
-              active={view === "map"}
-              focus={focus?.view === "map" ? focus : null}
-              onOpenInChanges={jump("changes")}
-              onShowInTimeline={jump("timeline")}
-            />
-          </div>
-        </>
+      {error && snap && (
+        <Alert variant="destructive" className="mx-3 mt-3 w-auto pr-32">
+          <AlertDescription>{error}</AlertDescription>
+          <AlertAction className="flex gap-1">
+            <Button variant="ghost" size="xs" onClick={retry}>Retry</Button>
+            <Button variant="ghost" size="xs" onClick={dismissError}>Dismiss</Button>
+          </AlertAction>
+        </Alert>
       )}
+      <div inert={!!opening && !!snap} aria-busy={!!opening} className={cn("flex min-h-0 flex-1 flex-col", opening && snap && "opacity-50")}>
+        {error && !snap ? (
+          <Empty className="flex-1">
+            <EmptyHeader>
+              <EmptyTitle>Couldn't read this repository</EmptyTitle>
+              <EmptyDescription>{error}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button variant="outline" onClick={retry}>Retry</Button>
+            </EmptyContent>
+          </Empty>
+        ) : !snap ? (
+          <Empty className="flex-1">
+            {loading ? (
+              <Spinner />
+            ) : (
+              <EmptyHeader>
+                <EmptyTitle>No repository yet</EmptyTitle>
+                <EmptyDescription>No coding agent session was found on this machine. Opening any folder comes with the folder picker.</EmptyDescription>
+              </EmptyHeader>
+            )}
+          </Empty>
+        ) : changed.size === 0 ? (
+          <BranchEmpty branch={snap.viewing.branch} />
+        ) : (
+          // All three screens stay mounted so each keeps its place; only the shown one listens to keys.
+          <>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "changes" && "hidden")}>
+              <ChangesView
+                snap={snap}
+                active={!opening && view === "changes"}
+                focus={focus?.view === "changes" ? focus : null}
+                inTimeline={(p) => !!timeline?.paths.has(p)}
+                onShowInTimeline={jump("timeline")}
+                onShowInMap={jump("map")}
+                fresh={fresh.paths}
+                onSeen={(p) => seen("paths", p)}
+              />
+            </div>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
+              <TimelineView
+                snap={snap}
+                timeline={timeline!}
+                active={!opening && view === "timeline"}
+                focus={focus?.view === "timeline" ? focus : null}
+                inChanges={(p) => changed.has(p)}
+                onShowInChanges={jump("changes")}
+                onShowInMap={jump("map")}
+                fresh={fresh.edits}
+                onSeen={(k) => seen("edits", k)}
+              />
+            </div>
+            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "map" && "hidden")}>
+              <MapView
+                snap={snap}
+                timeline={timeline!}
+                active={!opening && view === "map"}
+                focus={focus?.view === "map" ? focus : null}
+                onOpenInChanges={jump("changes")}
+                onShowInTimeline={jump("timeline")}
+              />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

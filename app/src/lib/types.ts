@@ -69,6 +69,7 @@ export interface TimelineEdit {
   step: string;
   survives: "kept" | "partly" | "gone" | "undone" | null;
   tool: string;
+  inferred?: boolean; // a literal shell write target; no historical diff was recorded
   new: boolean;
   del: boolean;
   from: string | null;
