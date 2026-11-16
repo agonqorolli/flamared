@@ -1,4 +1,5 @@
 pub mod data;
+pub mod license;
 mod state;
 pub mod watch;
 
@@ -34,7 +35,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::Watching::default())
         .manage(state::State::default())
-        .invoke_handler(tauri::generate_handler![snapshot, repos, repo_root, watch::watch, state::state_load, state::state_save])
+        .invoke_handler(tauri::generate_handler![snapshot, repos, repo_root, watch::watch, state::state_load, state::state_save, license::license_status, license::license_activate, license::license_remove])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

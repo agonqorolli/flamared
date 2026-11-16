@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PatchDiff } from "@pierre/diffs/react";
-import { CodeIcon, PaletteIcon, RotateCcwIcon } from "lucide-react";
+import { CodeIcon, KeyRoundIcon, PaletteIcon, RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -10,17 +10,24 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { diffOptions } from "@/components/DiffView";
 import { DIFF_THEMES, useSettings, type AppearanceSettings, type DiffSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { LicenseSettings } from "@/components/license/LicenseSettings";
+import { SectionHead } from "./SectionHead";
 
-// Sections of the settings menu. More come later (files to leave out, license...).
+// Sections of the settings menu. More come later (files to leave out...).
 const SECTIONS = [
   { id: "appearance", label: "Appearance", icon: PaletteIcon },
   { id: "diff", label: "Diff style", icon: CodeIcon },
+  { id: "license", label: "License", icon: KeyRoundIcon },
 ] as const;
-type Section = (typeof SECTIONS)[number]["id"];
+export type Section = (typeof SECTIONS)[number]["id"];
 
-// Settings: the menu on the left, the chosen section's settings on the right.
-export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+// Settings: the menu on the left, the chosen section's settings on the right. `start` picks the section it opens
+// on (the trial note in the header opens License); otherwise it opens where it was left.
+export function SettingsDialog({ open, start, onOpenChange }: { open: boolean; start?: Section; onOpenChange: (open: boolean) => void }) {
   const [section, setSection] = useState<Section>("appearance");
+  useEffect(() => {
+    if (open && start) setSection(start);
+  }, [open, start]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(640px,calc(100vh-4rem))] gap-0 overflow-hidden p-0 sm:max-w-[860px]">
@@ -45,19 +52,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {section === "appearance" && <Appearance />}
           {section === "diff" && <DiffStyle />}
+          {section === "license" && <LicenseSettings />}
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// The heading of a settings section.
-function SectionHead({ title, text }: { title: string; text: string }) {
-  return (
-    <DialogHeader className="shrink-0 gap-0.5 border-b px-6 py-4 pr-14">
-      <h2 className="text-base font-semibold">{title}</h2>
-      <p className="text-xs text-muted-foreground">{text}</p>
-    </DialogHeader>
   );
 }
 

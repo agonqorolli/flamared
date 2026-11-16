@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FileDiffIcon } from "lucide-react";
+import { FileDiffIcon, MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -24,12 +24,13 @@ interface Props {
   focus: { path: string; n: number } | null; // "Show in Timeline" from another screen: the file's latest edit
   inChanges: (path: string) => boolean;
   onShowInChanges: (path: string) => void;
+  onShowInMap: (path: string) => void;
   fresh: Set<string>; // edits that arrived since you last selected them (editKey)
   onSeen: (key: string) => void;
 }
 
 // Timeline: every agent edit in order (latest first) with the agent's words, commands and your prompts around it.
-export function TimelineView({ snap, timeline, active, focus, inChanges, onShowInChanges, fresh, onSeen }: Props) {
+export function TimelineView({ snap, timeline, active, focus, inChanges, onShowInChanges, onShowInMap, fresh, onSeen }: Props) {
   const { items, edits } = timeline;
   const hasWords = items.some((it) => it.kind === "turn" && it.rows.some((r) => r.kind === "say"));
   // The selection follows the edit, so new edits arriving at the top don't move you.
@@ -68,7 +69,7 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
   return (
     <div className="flex min-h-0 flex-1">
       <nav aria-label="Agent edits" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
+        <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
             <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? "Show the agent's messages between the edits" : "No agent messages in these turns"}>
@@ -82,9 +83,17 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
         </div>
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
           {!edits.length && <p className="px-1.5 pt-4 text-xs text-faint">No matching agent turns. Showing commits only.</p>}
-          <div className="flex flex-col gap-2 pb-10">
-            {items.map((it, k) => (
-              <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} onSelect={setSelected} />
+          {/* One section per day, laid out like the groups in Changes: the day's label, then its cards 8px apart. */}
+          <div className="flex flex-col pb-10">
+            {byDay(items).map(({ label, items: day }, d) => (
+              <section key={label ?? d} aria-label={label ?? undefined}>
+                {label && <SectionLabel>{label}</SectionLabel>}
+                <div className="flex flex-col gap-2">
+                  {day.map((it, k) => (
+                    <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} onSelect={setSelected} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </ScrollArea>
@@ -98,6 +107,7 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
           inChanges={inChanges(e.path)}
           onSelect={setSelected}
           onShowInChanges={() => onShowInChanges(e.path)}
+          onShowInMap={() => onShowInMap(e.path)}
         />
       ) : (
         <Empty className="flex-1">
@@ -111,8 +121,18 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
   );
 }
 
+// The list split at each day label: the turns and commits under it.
+function byDay(items: TimelineItem[]) {
+  const days: { label: string | null; items: TimelineItem[] }[] = [];
+  for (const it of items) {
+    if (it.kind === "day" || !days.length) days.push({ label: it.kind === "day" ? it.label : null, items: [] });
+    if (it.kind !== "day") days[days.length - 1].items.push(it);
+  }
+  return days;
+}
+
 function Item({ item, selected, showAgent, fresh, onSelect }: { item: TimelineItem; selected: number; showAgent: boolean; fresh: Set<string>; onSelect: (i: number) => void }) {
-  if (item.kind === "day") return <SectionLabel>{item.label}</SectionLabel>;
+  if (item.kind === "day") return null;
   if (item.kind === "commit")
     return (
       <div className="flex items-center gap-2 rounded-lg border border-dashed border-input px-2.5 py-2 text-xs text-muted-foreground">
@@ -172,13 +192,14 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
   );
 }
 
-function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChanges }: {
+function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChanges, onShowInMap }: {
   edit: TimelineEdit;
   index: number;
   edits: TimelineEdit[];
-  inChanges: boolean;
+  inChanges: boolean; // still changed: Changes and the Map have it
   onSelect: (i: number) => void;
   onShowInChanges: () => void;
+  onShowInMap: () => void;
 }) {
   // This file's edits (latest first), and other files edited in the same step (between the same two agent messages).
   const history = edits.map((x, j) => [x, j] as const).filter(([x]) => x.path === e.path).sort(([a], [b]) => ms(b.at) - ms(a.at));
@@ -189,11 +210,11 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
   // The date only shows when the entries span several days.
   const multiDay = new Set(history.map(([x]) => day(x.at))).size > 1;
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 gap-3 px-6 pt-2.5 pb-4">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DiffView id={`${index}`} patch={editPatch(e)} empty="No diff recorded for this edit" />
       </div>
-      <aside aria-label="Edit and related edits" className="flex w-[clamp(calc(var(--spacing)*45),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
+      <aside aria-label="Edit and related edits" className="flex w-[clamp(calc(var(--spacing)*50),26%,calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
         <FileCard
           what="Edit"
           index={index}
@@ -205,9 +226,14 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
           onStep={(d) => onSelect(Math.max(0, Math.min(edits.length - 1, index + d)))}
           jump={
             inChanges && (
-              <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title="Show in Changes" onClick={onShowInChanges}>
-                <FileDiffIcon />
-              </Button>
+              <>
+                <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title="Show in Changes" onClick={onShowInChanges}>
+                  <FileDiffIcon />
+                </Button>
+                <Button variant="outline" size="icon-xs" aria-label="Show in Map" title="Show in Map" onClick={onShowInMap}>
+                  <MapIcon />
+                </Button>
+              </>
             )
           }
         />

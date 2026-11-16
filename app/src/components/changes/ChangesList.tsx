@@ -70,7 +70,7 @@ function FileRow({ row, on, fresh, review, onSelect }: { row: Row; on: boolean; 
       onClick={() => onSelect(row.index)}
       className={cn(
         "group/row flex min-h-7 w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs text-subtle hover:bg-raised",
-        // Review marks: approved rows dim green, rejected rows dim red.
+        // Marks: "Looks good" rows dim green, "Needs work" rows dim red.
         review === "approved" && "bg-add/[.07] hover:bg-add/[.12]",
         review === "rejected" && "bg-rem/[.07] hover:bg-rem/[.12]",
         on && "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] hover:bg-selection-bg",

@@ -1,6 +1,6 @@
-// Review: approve or reject each changed file, kept per repo, branch and base.
+// Marks on each changed file, "Looks good" (saved as approved) or "Needs work" (rejected), kept per repo, branch and base.
 // A mark stores a fingerprint of the file's change; when the agent changes the file again the fingerprint
-// no longer matches, so the file is back to not reviewed.
+// no longer matches, so the file is back to not checked.
 // Saved in the app's data folder (see store.ts).
 import { useCallback, useState } from "react";
 import type { FileInfo, Snapshot } from "./types";
@@ -39,7 +39,7 @@ export function useReview(snap: Snapshot) {
   );
 
   // Setting the active state again clears it. `shown` is the diff you were looking at, when it is older than the
-  // file's latest: the mark then holds for what you saw, and the newer change still shows as not reviewed.
+  // file's latest: the mark then holds for what you saw, and the newer change still shows as not checked.
   const toggle = useCallback(
     (f: FileInfo, state: ReviewState | null, shown?: string) => {
       const next = { ...current };

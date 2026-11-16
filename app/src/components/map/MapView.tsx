@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Said } from "@/components/Said";
-import { ArrowLeftIcon } from "lucide-react";
+import { ClockIcon, FileDiffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
+import { FileCard } from "@/components/FileCard";
 import { Counts } from "@/components/StatusLetter";
 import { base, plural, STATUS, SURVIVAL, type Survival } from "@/lib/format";
 import type { Timeline } from "@/lib/timeline";
@@ -65,13 +65,14 @@ interface Props {
   snap: Snapshot;
   timeline: Timeline;
   active: boolean;
+  focus: { path: string; n: number } | null; // "Show in Map" from another screen
   onOpenInChanges: (path: string) => void;
   onShowInTimeline: (path: string) => void;
 }
 
 // Map: the whole repo as a treemap. The layout follows the folder tree (sized by file length), so it stays put
 // day to day; changed files light up, colored by the chosen lens.
-export function MapView({ snap, timeline, active, onOpenInChanges, onShowInTimeline }: Props) {
+export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShowInTimeline }: Props) {
   const [lens, setLens] = useState<Lens>("size");
   const [zoom, setZoom] = useState("");
   const [sel, setSel] = useState<string | null>(null);
@@ -105,10 +106,17 @@ export function MapView({ snap, timeline, active, onOpenInChanges, onShowInTimel
     if (zoom && !p.startsWith(zoom + "/")) setZoom(""); // keep the selected tile on screen
   };
   const parts = zoom ? zoom.split("/") : [];
+  useEffect(() => {
+    if (focus && info.files[focus.path]) select(focus.path);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <main className="flex min-w-0 flex-1 flex-col px-4 pt-3.5 pb-4">
+    // Lined up with Changes and Timeline so nothing jumps when switching screens: the same 12px margin on every side,
+    // and the side column where theirs is. Those two have a 300px list (w-75) on the left and give the column 26% of
+    // what is left; the map has no list, so it takes that width off before the 26%.
+    <div className="flex min-h-0 flex-1 gap-3 p-3">
+      <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 pb-2.5">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={lens} onValueChange={(v) => v && setLens(v as Lens)} aria-label="Color by">
             {(Object.keys(LENS) as Lens[]).map((k) => (
@@ -137,7 +145,9 @@ export function MapView({ snap, timeline, active, onOpenInChanges, onShowInTimel
         </div>
         <Treemap tree={tree} zoom={zoom} info={info} lens={lens} sel={sel} active={active} onSelect={select} onZoom={setZoom} />
       </main>
-      <aside aria-label="Selected file" className="flex w-75 shrink-0 flex-col gap-3.5 overflow-y-auto border-l bg-sidebar px-4 py-4">
+      <aside
+        aria-label="Selected file"
+        className="flex w-[clamp(calc(var(--spacing)*50),calc((100%-var(--spacing)*75)*0.26),calc(var(--spacing)*55))] shrink-0 flex-col gap-3 overflow-y-auto">
         {sel && info.files[sel] ? (
           <Selected x={info.files[sel]} inTimeline={timeline.paths.has(sel)} onBack={() => setSel(null)} onOpenInChanges={onOpenInChanges} onShowInTimeline={onShowInTimeline} />
         ) : (
@@ -222,11 +232,15 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
   );
 }
 
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+// A label and its value: one row of a card in the side panel, with an optional faint note under it.
+function Stat({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-2.5 text-xs text-muted-foreground">
-      <span>{label}</span>
-      <b className="text-right font-medium text-foreground">{children}</b>
+    <div className="flex flex-col gap-0.5 px-1 py-1">
+      <div className="flex justify-between gap-2.5 text-xs text-muted-foreground">
+        <span>{label}</span>
+        <b className="text-right font-medium text-foreground">{children}</b>
+      </div>
+      {note && <span className="text-[11px] text-faint">{note}</span>}
     </div>
   );
 }
@@ -244,14 +258,19 @@ function Overview({ snap, info, onSelect }: { snap: Snapshot; info: Info; onSele
   );
   return (
     <>
-      <div className="text-[10px] font-medium tracking-[.06em] text-faint uppercase">Overview</div>
-      <Stat label="Changed files">
-        {list.length} of {snap.map.files.length}
-      </Stat>
-      <Stat label="Folders touched">{folders.size}</Stat>
-      <Stat label="Lines">
-        <Counts add={snap.stats.add} rem={snap.stats.rem} />
-      </Stat>
+      <MiniCard title="Overview" empty="">
+        {[
+          <Stat key="files" label="Changed files">
+            {list.length} of {snap.map.files.length}
+          </Stat>,
+          <Stat key="folders" label="Folders touched">
+            {folders.size}
+          </Stat>,
+          <Stat key="lines" label="Lines">
+            <Counts add={snap.stats.add} rem={snap.stats.rem} />
+          </Stat>,
+        ]}
+      </MiniCard>
       <MiniCard title="Most changed" empty="">
         {top((x) => x.f.add + x.f.rem, 5).map((x) => row(x, <Counts add={x.f.add} rem={x.f.rem} />))}
       </MiniCard>
@@ -287,46 +306,55 @@ function Selected({ x, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: 
     .join(" · ");
   return (
     <>
-      <Button variant="outline" size="xs" className="self-start" onClick={onBack}>
-        <ArrowLeftIcon data-icon="inline-start" />
-        Overview
-      </Button>
-      <div>
-        <h3 className="font-mono text-[15px] font-semibold [overflow-wrap:anywhere]">{base(f.path)}</h3>
-        <span className="font-mono text-[11px] break-all text-faint">{f.path}</span>
-      </div>
-      <Stat label="Status">{STATUS[f.status]}</Stat>
-      <Stat label="Lines">{f.binary ? "binary" : <Counts add={f.add} rem={f.rem} />}</Stat>
-      {x.group && (
-        <Stat label="Group">
-          <span className="font-mono">{x.group}</span>
-        </Stat>
-      )}
-      <Stat label="Agent edits">{x.edits}</Stat>
-      {x.edits > 0 && (
-        <>
-          <Stat label="Still in final">{s == null ? "—" : `${Math.round(s * 100)}%`}</Stat>
-          <span className="-mt-2 text-[11px] text-faint">{svText}</span>
-        </>
-      )}
-      {x.flags.length > 0 && (
-        <Stat label="Flags">
-          <span className="text-warn">{x.flags.join(", ")}</span>
-        </Stat>
-      )}
-      {f.words && (
-        <Said who={f.words_agent ?? "Agent"} text={f.words} lines={4} />
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="xs" onClick={() => onOpenInChanges(f.path)}>
-          Open in Changes
-        </Button>
-        {inTimeline && (
-          <Button variant="outline" size="xs" onClick={() => onShowInTimeline(f.path)}>
-            Show in Timeline
-          </Button>
-        )}
-      </div>
+      <FileCard
+        what="File"
+        path={f.path}
+        binary={f.binary}
+        agent={f.words_agent}
+        words={f.words}
+        wordsLabel="before changing it"
+        onBack={onBack}
+        jump={
+          <>
+            <Button variant="outline" size="icon-xs" aria-label="Open in Changes" title="Open in Changes" onClick={() => onOpenInChanges(f.path)}>
+              <FileDiffIcon />
+            </Button>
+            {inTimeline && (
+              <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title="Show in Timeline" onClick={() => onShowInTimeline(f.path)}>
+                <ClockIcon />
+              </Button>
+            )}
+          </>
+        }
+      />
+      <MiniCard title="Details" empty="">
+        {[
+          <Stat key="status" label="Status">
+            {STATUS[f.status]}
+          </Stat>,
+          <Stat key="lines" label="Lines">
+            {f.binary ? "binary" : <Counts add={f.add} rem={f.rem} />}
+          </Stat>,
+          x.group && (
+            <Stat key="group" label="Group">
+              <span className="font-mono">{x.group}</span>
+            </Stat>
+          ),
+          <Stat key="edits" label="Agent edits">
+            {x.edits}
+          </Stat>,
+          x.edits > 0 && (
+            <Stat key="kept" label="Still in final" note={svText}>
+              {s == null ? "—" : `${Math.round(s * 100)}%`}
+            </Stat>
+          ),
+          x.flags.length > 0 && (
+            <Stat key="flags" label="Flags">
+              <span className="text-warn">{x.flags.join(", ")}</span>
+            </Stat>
+          ),
+        ]}
+      </MiniCard>
     </>
   );
 }

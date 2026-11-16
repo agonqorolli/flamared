@@ -15,12 +15,13 @@ interface Props {
   focus: { path: string; n: number } | null; // "Open in Changes" from another screen
   inTimeline: (path: string) => boolean;
   onShowInTimeline: (path: string) => void;
+  onShowInMap: (path: string) => void;
   fresh: Set<string>; // files new or changed since last selected (marked in the list)
   onSeen: (path: string) => void;
 }
 
 // Changes: groups of changed files on the left, the selected file's diff and review on the right.
-export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline, fresh, onSeen }: Props) {
+export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline, onShowInMap, fresh, onSeen }: Props) {
   const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
   const hasWords = sections.some((s) => s.blocks.some((b) => b.words));
   // The selection follows the file, so a reload that adds or removes files above it doesn't move you.
@@ -76,7 +77,7 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
   return (
     <div className="flex min-h-0 flex-1">
       <nav aria-label="Change groups" className="flex w-75 min-w-60 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex items-center justify-between gap-2 px-3 pt-3.5">
+        <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="files">Files</ToggleGroupItem>
             {/* Off when no agent message belongs to these changes, so the toggle never silently does nothing. */}
@@ -101,6 +102,7 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
           reviewOf={(d) => review.stateOf(row.file, d)}
           inTimeline={inTimeline(row.file.path)}
           onShowInTimeline={() => onShowInTimeline(row.file.path)}
+          onShowInMap={() => onShowInMap(row.file.path)}
           onReview={(s, shown) => review.toggle(row.file, s, shown)}
           onStep={(d) => select(sel + d)}
           onSelect={select}

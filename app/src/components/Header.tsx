@@ -11,6 +11,8 @@ import { ago, base, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { RepoRow, Snapshot } from "@/lib/types";
 import type { Waiting } from "@/lib/waiting";
+import { shortDate, useLicense } from "@/lib/license";
+import type { Section } from "@/components/settings/SettingsDialog";
 
 export type View = "changes" | "timeline" | "map";
 
@@ -23,13 +25,13 @@ interface Props {
   onOpenFolder: () => void;
   onViewBranch: (branch: string | null) => void;
   onRefresh: () => void;
-  onSettings: () => void;
+  onSettings: (at?: Section) => void;
   live: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
 export function Header({ snap, view, loading, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
   return (
-    <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-4">
+    <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
         {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} />}
         {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} />}
@@ -60,7 +62,8 @@ export function Header({ snap, view, loading, live, onView, onOpenRepo, onOpenFo
             {loading ? <Spinner /> : <RefreshCwIcon />}
           </Button>
         )}
-        <Button variant="outline" size="icon-sm" onClick={onSettings} aria-label="Settings" title="Settings (⌘,)">
+        <TrialNote onOpen={() => onSettings("license")} />
+        <Button variant="outline" size="icon-sm" onClick={() => onSettings()} aria-label="Settings" title="Settings (⌘,)">
           <SettingsIcon />
         </Button>
       </div>
@@ -223,5 +226,16 @@ function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boo
         )}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+// "9 days left in trial" during the trial, opening Settings → License; nothing once licensed.
+function TrialNote({ onOpen }: { onOpen: () => void }) {
+  const { status } = useLicense();
+  if (status.state !== "trial") return null;
+  return (
+    <Button variant="ghost" size="sm" onClick={onOpen} className="text-faint" title={`The trial ends ${shortDate(status.ends)}. Enter a license key`}>
+      {plural(status.days_left, "day")} left in trial
+    </Button>
   );
 }
