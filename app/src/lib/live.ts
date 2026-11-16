@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { lastRepo, loadRepos, loadSnapshot, rememberRepo } from "./api";
 import { buildTimeline, editKey } from "./timeline";
+import { whatChanged, type Waiting } from "./waiting";
 import type { Snapshot } from "./types";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
@@ -50,7 +51,7 @@ export function useLiveRepo() {
   const [updating, setUpdating] = useState(false); // a reload after a change: only the Live dot shows it
   const [error, setError] = useState<string | null>(null);
   const [live, setLiveState] = useState(readLive);
-  const [pending, setPending] = useState(false); // changes arrived while paused
+  const [pending, setPending] = useState<Waiting | null>(null); // what a reload would change, while paused
   const [fresh, setFresh] = useState<Fresh>(NONE);
   const current = useRef<{ repo: string | null; snap: Snapshot | null }>({ repo: null, snap: null });
   const busy = useRef(false);
@@ -92,7 +93,7 @@ export function useLiveRepo() {
   const open = useCallback((path: string) => pull(path, false), [pull]);
   const refresh = useCallback(() => {
     const r = current.current.repo;
-    if (r) pull(r, false), setPending(false);
+    if (r) pull(r, false), setPending(null);
   }, [pull]);
 
   // Open the last repo, or the one an agent worked in most recently.
@@ -116,7 +117,7 @@ export function useLiveRepo() {
     try {
       const s = await loadSnapshot(path);
       const shown = current.current.snap;
-      if (current.current.repo === path && shown && visible(shown) !== visible(s)) setPending(true);
+      if (current.current.repo === path && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
     } catch {
       /* the next change report checks again */
     } finally {
@@ -152,7 +153,7 @@ export function useLiveRepo() {
         /* remembered for this session only */
       }
       if (on && pending) {
-        setPending(false);
+        setPending(null);
         const r = current.current.repo;
         if (r) pull(r, true);
       }

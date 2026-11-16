@@ -10,6 +10,7 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { ago, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Snapshot } from "@/lib/types";
+import type { Waiting } from "@/lib/waiting";
 
 export type View = "changes" | "timeline" | "map";
 
@@ -21,7 +22,7 @@ interface Props {
   onOpenRepo: (path: string) => void;
   onRefresh: () => void;
   onSettings: () => void;
-  live: { on: boolean; updating: boolean; pending: boolean; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
+  live: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
 export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefresh, onSettings }: Props) {
@@ -208,7 +209,7 @@ function SessionsChip({ snap }: { snap: Snapshot }) {
 
 // Live: the screens update by themselves when files or agent sessions change. Paused holds them still and says
 // when changes are waiting.
-function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boolean; pending: boolean; set: (on: boolean) => void }) {
+function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -217,15 +218,23 @@ function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boo
             {on && updating && <span className="absolute inline-flex size-full animate-ping rounded-full bg-add opacity-75" />}
             <span className={cn("relative inline-flex size-2 rounded-full", on ? "bg-add" : pending ? "bg-warn" : "bg-faint")} />
           </span>
-          {on ? "Live" : pending ? "Paused · changes waiting" : "Paused"}
+          {on ? "Live" : pending ? `Paused · ${pending.label}` : "Paused"}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-64">
-        {on
-          ? "Updates by itself when files change or an agent works in this repo. Click to pause. ⌘R reloads now."
-          : pending
-            ? "Changes arrived while paused. Click to go live and load them."
-            : "Not updating by itself. Click to go live, or reload once with the button next to this (⌘R)."}
+      <TooltipContent side="bottom" className="max-w-64 flex-col items-start gap-1">
+        {on ? (
+          "Updates by itself when files change or an agent works in this repo. Click to pause. ⌘R reloads now."
+        ) : pending ? (
+          <>
+            <span>Waiting while paused:</span>
+            {pending.details.map((d) => (
+              <span key={d}>· {d}</span>
+            ))}
+            <span className="text-muted-foreground">Click to go live and load them, or reload once with the button next to this (⌘R).</span>
+          </>
+        ) : (
+          "Not updating by itself. Click to go live, or reload once with the button next to this (⌘R)."
+        )}
       </TooltipContent>
     </Tooltip>
   );
