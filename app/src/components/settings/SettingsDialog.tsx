@@ -39,7 +39,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </Button>
           ))}
         </nav>
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">{section === "diff" && <DiffStyle />}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{section === "diff" && <DiffStyle />}</div>
       </DialogContent>
     </Dialog>
   );
@@ -79,7 +79,7 @@ function DiffStyle() {
   );
   return (
     <>
-      <DialogHeader className="sticky top-0 z-10 flex-row items-center justify-between gap-3 border-b bg-popover px-6 py-4 pr-14">
+      <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 border-b px-6 py-4 pr-14">
         <div className="flex flex-col gap-0.5">
           <h2 className="text-base font-semibold">Diff style</h2>
           <p className="text-xs text-muted-foreground">How changes look in Changes and Timeline.</p>
@@ -89,10 +89,13 @@ function DiffStyle() {
           Reset
         </Button>
       </DialogHeader>
-      <div className="flex flex-col gap-6 px-6 py-5">
-        <div className="overflow-hidden rounded-xl border bg-card" aria-label="Preview">
+      {/* The preview stays in view; only the settings below it scroll. */}
+      <div className="shrink-0 border-b px-6 py-4">
+        <div className="max-h-56 overflow-auto rounded-xl border bg-card" aria-label="Preview">
           <PatchDiff patch={PREVIEW} options={options} style={style} />
         </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         <FieldGroup>
           <Field orientation="horizontal">
             <FieldContent>
