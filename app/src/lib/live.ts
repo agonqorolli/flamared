@@ -7,12 +7,13 @@ import { lastRepo, loadRepos, loadSnapshot, rememberRepo } from "./api";
 import { buildTimeline, editKey } from "./timeline";
 import { whatChanged, type Waiting } from "./waiting";
 import type { Snapshot } from "./types";
+import { getItem, setItem } from "./store";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
 const LIVE_KEY = "live";
 const readLive = () => {
   try {
-    return localStorage.getItem(LIVE_KEY) !== "off";
+    return getItem(LIVE_KEY) !== "off";
   } catch {
     return true;
   }
@@ -53,7 +54,8 @@ export function useLiveRepo() {
   const [live, setLiveState] = useState(readLive);
   const [pending, setPending] = useState<Waiting | null>(null); // what a reload would change, while paused
   const [fresh, setFresh] = useState<Fresh>(NONE);
-  const current = useRef<{ repo: string | null; snap: Snapshot | null }>({ repo: null, snap: null });
+  const current = useRef<{ repo: string | null; branch: string | null; snap: Snapshot | null }>({ repo: null, branch: null, snap: null });
+  const branchRef = useRef<string | null>(null); // the branch being viewed, when it isn't the checked-out one
   const busy = useRef(false);
   const again = useRef(false);
 
@@ -64,17 +66,20 @@ export function useLiveRepo() {
     (quiet ? setUpdating : setLoading)(true);
     if (!quiet) setError(null);
     try {
-      const s = await loadSnapshot(path);
+      const branch = branchRef.current;
+      const s = await loadSnapshot(path, branch);
       const prev = current.current;
-      if (quiet && prev.repo === path && prev.snap && visible(prev.snap) === visible(s)) return; // nothing new to show
-      if (prev.repo === path && prev.snap) {
+      const same = prev.repo === path && prev.branch === branch;
+      if (quiet && same && prev.snap && visible(prev.snap) === visible(s)) return; // nothing new to show
+      if (same && prev.snap) {
         const n = newSince(prev.snap, s);
         setFresh((f) => ({ paths: new Set([...f.paths, ...n.paths]), edits: new Set([...f.edits, ...n.edits]) }));
       } else {
         setFresh(NONE);
-        if (inTauri) invoke("watch", { repo: path }).catch((e) => console.warn("Live updates unavailable:", e));
+        // Watch the folder the data came from (a branch checked out in a worktree is read from there).
+        if (inTauri) invoke("watch", { repo: s.path }).catch((e) => console.warn("Live updates unavailable:", e));
       }
-      current.current = { repo: path, snap: s };
+      current.current = { repo: path, branch, snap: s };
       setSnap(s);
       setRepo(path);
       rememberRepo(path);
@@ -90,7 +95,24 @@ export function useLiveRepo() {
     }
   }, []);
 
-  const open = useCallback((path: string) => pull(path, false), [pull]);
+  const open = useCallback(
+    (path: string) => {
+      branchRef.current = null; // another repo opens on its checked-out branch
+      return pull(path, false);
+    },
+    [pull],
+  );
+  // Show another branch of the open repo (read-only), or the checked-out one again with null.
+  const viewBranch = useCallback(
+    (branch: string | null) => {
+      const r = current.current.repo;
+      if (!r) return;
+      branchRef.current = branch;
+      setPending(null);
+      pull(r, false);
+    },
+    [pull],
+  );
   const refresh = useCallback(() => {
     const r = current.current.repo;
     if (r) pull(r, false), setPending(null);
@@ -115,9 +137,9 @@ export function useLiveRepo() {
     if (checking.current) return void (checkAgain.current = true);
     checking.current = true;
     try {
-      const s = await loadSnapshot(path);
+      const s = await loadSnapshot(path, branchRef.current);
       const shown = current.current.snap;
-      if (current.current.repo === path && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
+      if (current.current.repo === path && current.current.branch === branchRef.current && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
     } catch {
       /* the next change report checks again */
     } finally {
@@ -148,7 +170,7 @@ export function useLiveRepo() {
     (on: boolean) => {
       setLiveState(on);
       try {
-        localStorage.setItem(LIVE_KEY, on ? "on" : "off");
+        setItem(LIVE_KEY, on ? "on" : "off");
       } catch {
         /* remembered for this session only */
       }
@@ -171,5 +193,5 @@ export function useLiveRepo() {
     });
   }, []);
 
-  return { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, refresh, liveAvailable: inTauri };
+  return { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable: inTauri };
 }

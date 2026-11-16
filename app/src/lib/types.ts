@@ -44,6 +44,7 @@ export interface BranchRow {
   at: string;
   remote: boolean;
   current: boolean;
+  worktree: boolean; // checked out in another worktree folder
   sessions: number;
 }
 
@@ -89,6 +90,7 @@ export interface Snapshot {
   generated: string;
   repos: RepoRow[];
   branches: BranchRow[];
+  viewing: { branch: string; checked_out: boolean }; // checked_out false: another branch's commits, read-only
   stats: { files: number; add: number; rem: number };
   story: {
     logic: GroupItem[];

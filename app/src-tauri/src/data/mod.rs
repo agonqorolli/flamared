@@ -5,3 +5,4 @@ pub mod group;
 pub mod paths;
 pub mod sessions;
 pub mod snapshot;
+pub mod tree;

@@ -63,7 +63,11 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
       <Empty className="flex-1">
         <EmptyHeader>
           <EmptyTitle>No changes</EmptyTitle>
-          <EmptyDescription>Nothing uncommitted in {snap.repo} right now. Changes appear here as soon as an agent (or you) edits a file.</EmptyDescription>
+          <EmptyDescription>
+            {snap.viewing.checked_out
+              ? `Nothing uncommitted in ${snap.repo} right now. Changes appear here as soon as an agent (or you) edits a file.`
+              : `${snap.viewing.branch} has no commits since it split off.`}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

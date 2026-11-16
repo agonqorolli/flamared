@@ -6,9 +6,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Spinner } from "@/components/ui/spinner";
-import { ago, plural } from "@/lib/format";
+import { canPickFolder, recentRepos } from "@/lib/api";
+import { ago, base, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Snapshot } from "@/lib/types";
+import type { RepoRow, Snapshot } from "@/lib/types";
 import type { Waiting } from "@/lib/waiting";
 
 export type View = "changes" | "timeline" | "map";
@@ -19,17 +20,19 @@ interface Props {
   loading: boolean;
   onView: (v: View) => void;
   onOpenRepo: (path: string) => void;
+  onOpenFolder: () => void;
+  onViewBranch: (branch: string | null) => void;
   onRefresh: () => void;
   onSettings: () => void;
   live: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
-export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefresh, onSettings }: Props) {
+export function Header({ snap, view, loading, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-4">
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
-        {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} />}
-        {snap && <BranchPicker snap={snap} />}
+        {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} />}
+        {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} />}
       </div>
       {/* Main navigation: plain tabs with an underline (shadcn's line variant), not boxed buttons. The header has
           no vertical padding here so the underline sits on its bottom border. */}
@@ -66,8 +69,15 @@ export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefres
 }
 
 // Repos agents have worked in on this machine. Picking one loads it.
-function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: string) => void }) {
+function RepoPicker({ snap, onOpenRepo, onOpenFolder }: { snap: Snapshot; onOpenRepo: (path: string) => void; onOpenFolder: () => void }) {
   const [open, setOpen] = useState(false);
+  // Repos agents worked in, plus ones you opened yourself (Open folder…) that no agent session points to.
+  const rows: RepoRow[] = [
+    ...snap.repos,
+    ...recentRepos()
+      .filter((r) => !snap.repos.some((x) => x.full === r.path))
+      .map((r) => ({ name: base(r.path), path: r.path, full: r.path, sessions: 0, last: r.at, current: r.path === snap.path })),
+  ];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -79,11 +89,11 @@ function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: s
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[340px] p-0">
         <Command>
-          {snap.repos.length > 6 && <CommandInput placeholder="Find a repository" />}
+          {rows.length > 6 && <CommandInput placeholder="Find a repository" />}
           <CommandList>
             <CommandEmpty>No repository matches</CommandEmpty>
-            <CommandGroup heading="Repositories with agent sessions">
-              {snap.repos.map((r) => (
+            <CommandGroup heading="Repositories">
+              {rows.map((r) => (
                 <CommandItem
                   key={r.full}
                   value={`${r.name} ${r.path}`}
@@ -99,14 +109,21 @@ function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: s
                     <span className="text-xs text-faint">{ago(r.last)}</span>
                   </span>
                   <span className="truncate pl-6 text-xs text-faint">
-                    {plural(r.sessions, "session")} · {r.path}
+                    {r.sessions ? plural(r.sessions, "session") : "no agent sessions"} · {r.path}
                   </span>
                 </CommandItem>
               ))}
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup>
-              <CommandItem disabled title="Coming with the folder picker">
+              <CommandItem
+                disabled={!canPickFolder}
+                title={canPickFolder ? "Open any git repository" : "Only in the app"}
+                onSelect={() => {
+                  setOpen(false);
+                  onOpenFolder();
+                }}
+              >
                 <FolderPlusIcon />
                 Open folder…
               </CommandItem>
@@ -119,15 +136,17 @@ function RepoPicker({ snap, onOpenRepo }: { snap: Snapshot; onOpenRepo: (path: s
 }
 
 // Branches of this repo. Viewing is read-only; for now only the checked-out branch can be shown.
-function BranchPicker({ snap }: { snap: Snapshot }) {
+function BranchPicker({ snap, onViewBranch }: { snap: Snapshot; onViewBranch: (branch: string | null) => void }) {
+  const [open, setOpen] = useState(false);
   const local = snap.branches.filter((b) => !b.remote);
   const remote = snap.branches.filter((b) => b.remote);
+  const viewing = snap.viewing.branch;
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={`Branch: ${snap.branch}`}>
+        <Button variant="outline" size="sm" className="max-w-56 font-medium" title={`Branch: ${viewing}${snap.viewing.checked_out ? "" : " (viewing, read-only)"}`}>
           <GitBranchIcon data-icon="inline-start" />
-          <span className="truncate">{snap.branch}</span>
+          <span className="truncate">{viewing}</span>
           <ChevronDownIcon data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
@@ -141,14 +160,22 @@ function BranchPicker({ snap }: { snap: Snapshot }) {
               .map(([label, xs]) => (
                 <CommandGroup key={label} heading={remote.length ? label : undefined}>
                   {xs.map((b) => (
-                    <CommandItem key={b.name} value={b.name} disabled={!b.current} className="flex-col items-stretch gap-0.5">
+                    <CommandItem
+                      key={b.name}
+                      value={b.name}
+                      onSelect={() => {
+                        setOpen(false);
+                        if (b.name !== viewing) onViewBranch(b.current ? null : b.name);
+                      }}
+                      className="flex-col items-stretch gap-0.5"
+                    >
                       <span className="flex items-center gap-2">
-                        <CheckIcon className={b.current ? "text-selection" : "invisible"} />
+                        <CheckIcon className={b.name === viewing ? "text-selection" : "invisible"} />
                         <span className="flex-1 truncate font-medium">{b.name}</span>
                         {b.current && <span className="rounded-full bg-selection-bg px-1.5 text-[10px] text-selection">checked out</span>}
                       </span>
                       <span className="truncate pl-6 text-xs text-faint">
-                        {[`last commit ${ago(b.at)}`, b.sessions ? plural(b.sessions, "session") : "", b.current ? "" : "viewing other branches comes next"]
+                        {[`last commit ${ago(b.at)}`, b.sessions ? plural(b.sessions, "session") : "", b.current ? "with uncommitted changes" : b.worktree ? "in a worktree, with its uncommitted changes" : "commits since it split off"]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
@@ -158,7 +185,7 @@ function BranchPicker({ snap }: { snap: Snapshot }) {
               ))}
           </CommandList>
           <p className="border-t px-3 py-2 text-xs leading-relaxed text-faint">
-            Read-only: viewing a branch never switches your checkout. Other branches will show their commits since they split off.
+            Read-only: viewing a branch never switches your checkout. A branch checked out in a worktree shows that folder, uncommitted changes included.
           </p>
         </Command>
       </PopoverContent>

@@ -1,6 +1,7 @@
 // App settings, kept on this machine: how the app looks (theme, density) and how diffs look.
-// Stored in the webview's storage; it moves to the app's data folder with the license work.
+// Saved in the app's data folder (see store.ts).
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { getItem, setItem } from "./store";
 
 export const DIFF_THEMES = [
   ["github-dark", "GitHub Dark"],
@@ -62,7 +63,7 @@ export const DEFAULTS: Settings = {
 const KEY = "settings";
 const load = (): Settings => {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+    const saved = JSON.parse(getItem(KEY) || "{}");
     return { appearance: { ...DEFAULTS.appearance, ...saved.appearance }, diff: { ...DEFAULTS.diff, ...saved.diff } };
   } catch {
     return DEFAULTS;
@@ -96,7 +97,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const save = useCallback((next: Settings) => {
     setSettings(next);
     try {
-      localStorage.setItem(KEY, JSON.stringify(next));
+      setItem(KEY, JSON.stringify(next));
     } catch {
       /* kept for this session only */
     }

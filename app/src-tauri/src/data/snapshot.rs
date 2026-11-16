@@ -4,6 +4,7 @@ use super::git::{git, git_or_empty};
 use super::group::{diff_by_file, group, read_text, Group, TEST_RE};
 use super::paths::{basename, dirname, home, join, realpath, relpath, root_of, take};
 use super::sessions::{self, Event, Hunk};
+use super::tree::At;
 use chrono::{DateTime, FixedOffset};
 use indexmap::IndexMap;
 use regex::Regex;
@@ -117,7 +118,7 @@ fn file_diff_lines(top: &str, path: &str, untracked: &HashSet<String>, tracked: 
         if is_binary(top, path) {
             return vec![];
         }
-        let Some(text) = read_text(top, path) else { return vec![] };
+        let Some(text) = read_text(top, path) else { return vec![] }; // untracked files only exist in the working folder
         let body: Vec<&str> = text.lines().collect();
         let mut out = vec![format!("@@ -0,0 +1,{} @@", body.len())];
         out.extend(body.iter().map(|l| format!("+{l}")));
@@ -127,16 +128,32 @@ fn file_diff_lines(top: &str, path: &str, untracked: &HashSet<String>, tracked: 
     tracked.get(path).into_iter().flatten().filter(|l| !META.iter().any(|m| l.starts_with(m))).cloned().collect()
 }
 
+type Stamp = (std::time::SystemTime, u64);
+static LINES: LazyLock<std::sync::Mutex<HashMap<String, (Stamp, u64)>>> = LazyLock::new(Default::default);
+
+/// A file's line count for the map, remembered by size and modification time: a reload only reads the files that
+/// changed since, which matters in repos with thousands of files.
 fn line_count(top: &str, p: &str) -> u64 {
     use std::io::Read;
+    let path = join(top, p);
+    let stamp = std::fs::metadata(&path).ok().and_then(|m| Some((m.modified().ok()?, m.len())));
+    if let (Some(st), Some((old, n))) = (stamp, LINES.lock().unwrap().get(&path)) {
+        if *old == st {
+            return *n;
+        }
+    }
     let mut data = Vec::new();
-    if std::fs::File::open(join(top, p)).and_then(|f| f.take(2_000_000).read_to_end(&mut data)).is_err() {
-        return 0;
+    let n = if std::fs::File::open(&path).and_then(|f| f.take(2_000_000).read_to_end(&mut data)).is_err() {
+        0
+    } else if data[..data.len().min(4096)].contains(&0) {
+        10 // binary files get a small fixed size
+    } else {
+        (data.iter().filter(|b| **b == b'\n').count() as u64).max(1)
+    };
+    if let Some(st) = stamp {
+        LINES.lock().unwrap().insert(path, (st, n));
     }
-    if data[..data.len().min(4096)].contains(&0) {
-        return 10; // binary files get a small fixed size
-    }
-    (data.iter().filter(|b| **b == b'\n').count() as u64).max(1)
+    n
 }
 
 const TEMP: &[&str] = &["/private/tmp/", "/private/var/folders/", "/tmp/"];
@@ -214,29 +231,37 @@ fn branches(top: &str, current: &str, session_branches: &HashMap<String, u64>) -
         rows.push((name.to_string(), at.to_string(), remote));
     }
     rows.sort_by_key(|r| r.2); // stable: keeps newest first inside each part
+    // Branches checked out in other worktrees, read once (not once per branch: repos can have hundreds).
+    let in_worktree: HashSet<String> = git_or_empty(top, &["worktree", "list", "--porcelain"])
+        .lines()
+        .filter_map(|l| l.strip_prefix("branch refs/heads/").map(String::from))
+        .collect();
     rows.into_iter()
         .map(|(name, at, remote)| {
             let local = if remote { name.split_once('/').map_or(name.as_str(), |x| x.1) } else { name.as_str() };
-            json!({"name": name, "at": at, "remote": remote, "current": name == current, "sessions": session_branches.get(local).copied().unwrap_or(0)})
+            let worktree = !remote && name != current && in_worktree.contains(&name);
+            json!({"name": name, "at": at, "remote": remote, "current": name == current, "worktree": worktree,
+                   "sessions": session_branches.get(local).copied().unwrap_or(0)})
         })
         .collect()
 }
 
-pub fn build(top: &str, base: &str) -> Result<Value, String> {
+/// `at` is the working folder (the checked-out branch) or another branch's tip, read from git (see tree.rs).
+pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
     let top = realpath(top);
     let top = top.as_str();
-    let untracked: HashSet<String> = git(top, &["ls-files", "--others", "--exclude-standard"])?.lines().map(String::from).collect();
-    let r = group(top, base)?;
+    let untracked: HashSet<String> = at.untracked(top).into_iter().collect();
+    let r = group(top, base, at)?;
     let mut stats = r.stats.clone();
     // Everything that could be committed is shown: every changed, deleted and untracked (not ignored) file, any type.
     let keep = &r.files;
     for p in &untracked {
         if !stats.contains_key(p) {
-            let n = if is_binary(top, p) { 0 } else { read_text(top, p).map_or(0, |t| t.lines().count() as u64) };
+            let n = if at.is_binary(top, p) { 0 } else { at.read(top, p).map_or(0, |t| t.lines().count() as u64) };
             stats.insert(p.clone(), (n, 0));
         }
     }
-    let binary: HashSet<&String> = keep.keys().filter(|p| is_binary(top, p)).collect();
+    let binary: HashSet<&String> = keep.keys().filter(|p| at.is_binary(top, p)).collect();
     let stat = |p: &str| stats.get(p).copied().unwrap_or((0, 0));
 
     // Import links between changed files ("Connected files" in Changes).
@@ -249,7 +274,12 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
     }
 
     let base_time = ts(&git_or_empty(top, &["show", "-s", "--format=%cI", base]));
-    let branch = git_or_empty(top, &["branch", "--show-current"]).trim().to_string(); // empty when detached
+    let checked_out = git_or_empty(top, &["branch", "--show-current"]).trim().to_string(); // empty when detached
+    // The branch being shown: the checked-out one, or the one picked to view. Agent edits are matched against it.
+    let branch = match at {
+        At::Work => checked_out.clone(),
+        At::Commit(rev) => rev.clone(),
+    };
     let roots = repo_roots(top);
 
     // --- sessions -> timeline + the agent's words per file
@@ -315,7 +345,10 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
                                 via = json!(take(events[lr]["cmd"].as_str().unwrap_or("").lines().next().unwrap_or(""), 120));
                             }
                         }
-                        let text = current.entry((root.to_string(), rel.clone())).or_insert_with(|| read_text(root, &rel)).clone();
+                        let text = current.entry((root.to_string(), rel.clone())).or_insert_with(|| match at {
+                            At::Work => read_text(root, &rel),
+                            At::Commit(_) => at.read(top, &rel), // the file as it is at the viewed branch's tip
+                        }).clone();
                         events.push(json!({
                             "k": "edit", "path": rel, "add": e.add, "rem": e.rem, "at": e.at, "via": via, "agent": s.agent,
                             "step": format!("{sid}:{ti}:{step}"), "survives": survival(&e.hunks, text.as_ref()),
@@ -367,7 +400,7 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
                       "turns_kept": sessions_out.iter().map(|x| x["turns"].as_array().map_or(0, |t| t.len())).sum::<usize>(),
                       "skipped": skipped, "agents": agents});
 
-    let commits: Vec<Value> = git_or_empty(top, &["log", "--format=%h%x09%cI%x09%s", &format!("{base}..HEAD")])
+    let commits: Vec<Value> = git_or_empty(top, &["log", "--format=%h%x09%cI%x09%s", &format!("{base}..{}", at.rev())])
         .lines()
         .filter_map(|l| {
             let mut it = l.splitn(3, '\t');
@@ -418,7 +451,9 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         .map(|(k, ps)| json!({"kind": k, "files": ps.iter().filter(|p| keep.contains_key(*p)).map(&finfo).collect::<Vec<_>>()}))
         .filter(|s| s["files"].as_array().is_some_and(|f| !f.is_empty()))
         .collect();
-    let whole = diff_by_file(top, &["diff", "-M", base]);
+    let mut whole_args = vec!["diff", "-M"];
+    whole_args.extend(at.diff_args(base));
+    let whole = diff_by_file(top, &whole_args);
     let diff_lines: HashMap<&String, Vec<String>> = keep.keys().map(|p| (p, file_diff_lines(top, p, &untracked, &whole))).collect();
     let diffs: Map<String, Value> = keep
         .keys()
@@ -434,7 +469,7 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         .collect();
 
     // --- map: every file in the repo, sized by length, so the layout follows the folder tree (stable day to day)
-    let mut map_files: BTreeMap<String, u64> = git(top, &["ls-files"])?.lines().map(|p| (p.to_string(), line_count(top, p))).collect();
+    let mut map_files: BTreeMap<String, u64> = at.files_sized(top, |p| line_count(top, p)).into_iter().collect();
     for (p, st) in keep {
         // untracked and deleted files are part of the change too
         map_files.entry(p.clone()).or_insert_with(|| if st != "D" { line_count(top, p) } else { stat(p).1.max(1) });
@@ -469,13 +504,14 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
     }
     let group_of: BTreeMap<&String, &String> = r.groups.iter().flat_map(|g| g.files.iter().chain(&g.tests).map(move |p| (p, &g.name))).collect();
 
-    let head = git_or_empty(top, &["rev-parse", "--short", "HEAD"]).trim().to_string();
+    let head = git_or_empty(top, &["rev-parse", "--short", at.rev()]).trim().to_string();
     let (add, rem) = keep.keys().fold((0, 0), |(a, d), p| (a + stat(p).0, d + stat(p).1));
     Ok(json!({
         "repo": basename(top), "path": top, "branch": if branch.is_empty() { head.clone() } else { branch.clone() },
         "base": base_short, "base_label": base, "head": head,
         "generated": chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
-        "repos": known_repos(Some(top)), "branches": branches(top, &branch, &session_branches),
+        "repos": known_repos(Some(top)), "branches": branches(top, &checked_out, &session_branches),
+        "viewing": {"branch": if branch.is_empty() { head.clone() } else { branch.clone() }, "checked_out": matches!(at, At::Work)},
         "stats": {"files": keep.len(), "add": add, "rem": rem},
         "story": {"logic": logic, "shared": shared, "wiring": wiring,
                   "loose": loose.into_iter().map(|(k, v)| json!({"folder": k, "files": v})).collect::<Vec<_>>(),
@@ -485,4 +521,53 @@ pub fn build(top: &str, base: &str) -> Result<Value, String> {
         "map": {"files": map_files.into_iter().map(|(p, n)| json!([p, n])).collect::<Vec<_>>(),
                 "flags": flags.into_iter().filter(|(_, f)| !f.is_empty()).collect::<BTreeMap<_, _>>(), "groups": group_of},
     }))
+}
+
+/// The branch a repo's work usually merges into: origin's default (origin/HEAD), else main or master if it exists.
+fn default_branch(top: &str) -> Option<String> {
+    let head = git_or_empty(top, &["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).trim().to_string();
+    if let Some(name) = head.strip_prefix("origin/") {
+        if !git_or_empty(top, &["rev-parse", "--verify", "--quiet", name]).trim().is_empty() {
+            return Some(name.to_string());
+        }
+        return Some(head);
+    }
+    ["main", "master"].iter().find(|b| !git_or_empty(top, &["rev-parse", "--verify", "--quiet", b]).trim().is_empty()).map(|b| b.to_string())
+}
+
+/// The worktree folder where a branch is checked out, if any (Claude Code often works in worktrees).
+fn worktree_of(top: &str, branch: &str) -> Option<String> {
+    let mut path = None;
+    for line in git_or_empty(top, &["worktree", "list", "--porcelain"]).lines() {
+        if let Some(p) = line.strip_prefix("worktree ") {
+            path = Some(p.trim().to_string());
+        } else if line.strip_prefix("branch refs/heads/") == Some(branch) {
+            return path;
+        }
+    }
+    None
+}
+
+/// Everything a screen load needs for `repo`, showing `branch` (None: the checked-out one). Viewing is read-only:
+/// a branch checked out in a worktree is read from that folder (with its uncommitted changes); any other branch
+/// shows its commits since it split off from the default branch, read from git without touching the checkout.
+pub fn view(repo: &str, branch: Option<&str>) -> Result<Value, String> {
+    let top = realpath(git(repo, &["rev-parse", "--show-toplevel"])?.trim());
+    let checked_out = git_or_empty(&top, &["branch", "--show-current"]).trim().to_string();
+    let Some(branch) = branch.filter(|b| *b != checked_out) else { return build(&top, "HEAD", &At::Work) };
+    if let Some(folder) = worktree_of(&top, branch) {
+        return build(&folder, "HEAD", &At::Work);
+    }
+    let tip = git(&top, &["rev-parse", branch])?.trim().to_string();
+    let split = |other: &str| git_or_empty(&top, &["merge-base", other, branch]).trim().to_string();
+    // Where it split off: from the default branch; for the default branch itself (or one already merged into it),
+    // from the checked-out branch instead.
+    let mut base = default_branch(&top).map(|d| split(&d)).unwrap_or_default();
+    if base.is_empty() || base == tip {
+        base = split("HEAD");
+    }
+    if base.is_empty() {
+        base = tip.clone();
+    }
+    build(&top, &base, &At::Commit(branch.to_string()))
 }

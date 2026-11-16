@@ -5,7 +5,7 @@ fn main() {
     let (repo, base) = (a[0].as_str(), a.get(1).map(String::as_str).unwrap_or("HEAD"));
     for label in ["first load", "reload", "reload"] {
         let t = Instant::now();
-        let _ = app_lib::data::snapshot::build(repo, base);
+        let _ = app_lib::data::snapshot::build(repo, base, &app_lib::data::tree::At::Work);
         eprintln!("{label:<10} {:>6} ms", t.elapsed().as_millis());
     }
 }

@@ -1,9 +1,10 @@
 // Review: approve or reject each changed file, kept per repo, branch and base.
 // A mark stores a fingerprint of the file's change; when the agent changes the file again the fingerprint
 // no longer matches, so the file is back to not reviewed.
-// For now in the webview's storage; it moves to the app's data folder with the license work.
+// Saved in the app's data folder (see store.ts).
 import { useCallback, useState } from "react";
 import type { FileInfo, Snapshot } from "./types";
+import { getItem, setItem } from "./store";
 
 export type ReviewState = "approved" | "rejected";
 type Marks = Record<string, { state: ReviewState; sig: string }>;
@@ -17,7 +18,7 @@ const fingerprint = (f: FileInfo, diff: string) => {
 };
 const read = (key: string): Marks => {
   try {
-    return JSON.parse(localStorage.getItem(key) || "{}");
+    return JSON.parse(getItem(key) || "{}");
   } catch {
     return {};
   }
@@ -45,7 +46,7 @@ export function useReview(snap: Snapshot) {
       if (!state || stateOf(f, shown) === state) delete next[f.path];
       else next[f.path] = { state, sig: fingerprint(f, shown ?? snap.diffs[f.path] ?? "") };
       try {
-        localStorage.setItem(key, JSON.stringify(next));
+        setItem(key, JSON.stringify(next));
       } catch {
         /* kept for this session only */
       }

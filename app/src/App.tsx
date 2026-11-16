@@ -13,11 +13,23 @@ import { buildTimeline } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/brand";
 import { useLiveRepo } from "@/lib/live";
+import { pickRepoFolder } from "@/lib/api";
+import { plural } from "@/lib/format";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 
 export default function App() {
-  const { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, refresh, liveAvailable } = useLiveRepo();
+  const { repo, snap, loading, updating, error, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable } = useLiveRepo();
   const [view, setView] = useState<View>("changes");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null); // a short problem that doesn't replace the screen
+  const openFolder = async () => {
+    try {
+      const root = await pickRepoFolder();
+      if (root) setNotice(null), open(root);
+    } catch (e) {
+      setNotice(String(e));
+    }
+  };
   // A jump from one screen to a file in another; `n` makes a repeat jump to the same file count again.
   const [focus, setFocus] = useState<{ view: View; path: string; n: number } | null>(null);
   const timeline = useMemo(() => (snap ? buildTimeline(snap) : null), [snap]);
@@ -57,10 +69,35 @@ export default function App() {
             live={liveAvailable ? { on: live, updating, pending, set: setLive } : null}
             onView={setView}
             onOpenRepo={open}
+            onOpenFolder={openFolder}
+            onViewBranch={viewBranch}
             onRefresh={refresh}
             onSettings={() => setSettingsOpen(true)}
           />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          {snap && !snap.viewing.checked_out && (
+            <Alert className="mx-4 mt-3 w-auto">
+              <AlertDescription>
+                Viewing <b className="font-medium text-foreground">{snap.viewing.branch}</b>, read-only: its {plural(snap.timeline.commits.length, "commit")} since it split
+                off. Your checkout stays on {snap.branches.find((b) => b.current)?.name ?? "its branch"}.
+              </AlertDescription>
+              <AlertAction>
+                <Button variant="outline" size="xs" onClick={() => viewBranch(null)}>
+                  Back to {snap.branches.find((b) => b.current)?.name ?? "checkout"}
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
+          {notice && (
+            <Alert variant="destructive" className="mx-4 mt-3 w-auto">
+              <AlertDescription>{notice}</AlertDescription>
+              <AlertAction>
+                <Button variant="ghost" size="xs" onClick={() => setNotice(null)}>
+                  Dismiss
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
           {error ? (
             <Empty className="flex-1">
               <EmptyHeader>
