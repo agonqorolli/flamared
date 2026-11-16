@@ -63,12 +63,12 @@ export function Header({ snap, view, loading, opening, live, onView, onOpenRepo,
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
+        <TrialNote onOpen={() => onSettings("license")} />
         {live && snap && <LiveToggle {...live} updating={live.updating} />}
         <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading || !snap} aria-label={loading ? "Loading" : "Reload"} title={loading ? "Loading…" : `Reload now (${hint("reload")})`}>
           {loading ? <Spinner /> : <RefreshCwIcon />}
           <KeyHint id="reload" />
         </Button>
-        <TrialNote onOpen={() => onSettings("license")} />
         <Button variant="outline" size="icon-sm" onClick={() => onSettings()} aria-label="Settings" title={`Settings (${hint("settings")})`}>
           <SettingsIcon />
           <KeyHint id="settings" />
