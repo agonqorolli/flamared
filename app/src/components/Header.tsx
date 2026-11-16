@@ -40,10 +40,13 @@ export function Header({ snap, view, loading, live, onView, onOpenRepo, onRefres
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
-        {live && snap && <LiveToggle {...live} />}
-        <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title="Refresh (⌘R)">
-          {loading ? <Spinner /> : <RefreshCwIcon />}
-        </Button>
+        {live && snap && <LiveToggle {...live} updating={live.updating || loading} />}
+        {/* Live reloads by itself; the button is there while paused, or when there is no watcher. ⌘R always works. */}
+        {(!live || !live.on) && (
+          <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading} aria-label="Refresh" title="Reload now (⌘R)">
+            {loading ? <Spinner /> : <RefreshCwIcon />}
+          </Button>
+        )}
         <Button variant="outline" size="icon-sm" onClick={onSettings} aria-label="Settings" title="Settings (⌘,)">
           <SettingsIcon />
         </Button>
@@ -219,10 +222,10 @@ function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boo
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-64">
         {on
-          ? "Updates by itself when files change or an agent works in this repo. Click to pause."
+          ? "Updates by itself when files change or an agent works in this repo. Click to pause. ⌘R reloads now."
           : pending
             ? "Changes arrived while paused. Click to go live and load them."
-            : "Not updating by itself. Click to go live, or press ⌘R to reload once."}
+            : "Not updating by itself. Click to go live, or reload once with the button next to this (⌘R)."}
       </TooltipContent>
     </Tooltip>
   );

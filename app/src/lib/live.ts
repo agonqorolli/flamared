@@ -23,6 +23,18 @@ export interface Fresh {
 }
 const NONE: Fresh = { paths: new Set(), edits: new Set() };
 
+// What the screens show from a snapshot, as one string: two snapshots with the same signature look the same.
+// An agent's session file is written constantly (every message), but most writes change nothing on screen.
+function visible(s: Snapshot): string {
+  return JSON.stringify([
+    s.head,
+    s.branch,
+    s.diffs,
+    s.timeline.commits.map((c) => c.sha),
+    s.timeline.sessions.map((x) => [x.id, x.title, x.turns.map((t) => [t.prompt, t.events.length])]),
+  ]);
+}
+
 // What is new in `next` compared with `prev`: files whose change differs, edits that weren't there.
 function newSince(prev: Snapshot, next: Snapshot): Fresh {
   const paths = new Set(Object.keys(next.diffs).filter((p) => prev.diffs[p] !== next.diffs[p]));
@@ -53,6 +65,7 @@ export function useLiveRepo() {
     try {
       const s = await loadSnapshot(path);
       const prev = current.current;
+      if (quiet && prev.repo === path && prev.snap && visible(prev.snap) === visible(s)) return; // nothing new to show
       if (prev.repo === path && prev.snap) {
         const n = newSince(prev.snap, s);
         setFresh((f) => ({ paths: new Set([...f.paths, ...n.paths]), edits: new Set([...f.edits, ...n.edits]) }));
@@ -93,7 +106,29 @@ export function useLiveRepo() {
     })();
   }, [open]);
 
-  // Change reports from the watcher: reload now when Live, or note that changes are waiting.
+  // While paused, a change report only counts when a reload would show something different: checked in the
+  // background, one check at a time, without touching the screen.
+  const checking = useRef(false);
+  const checkAgain = useRef(false);
+  const check = useCallback(async (path: string) => {
+    if (checking.current) return void (checkAgain.current = true);
+    checking.current = true;
+    try {
+      const s = await loadSnapshot(path);
+      const shown = current.current.snap;
+      if (current.current.repo === path && shown && visible(shown) !== visible(s)) setPending(true);
+    } catch {
+      /* the next change report checks again */
+    } finally {
+      checking.current = false;
+      if (checkAgain.current) {
+        checkAgain.current = false;
+        check(path);
+      }
+    }
+  }, []);
+
+  // Change reports from the watcher: reload now when Live, or check whether changes are waiting.
   const liveRef = useRef(live);
   liveRef.current = live;
   useEffect(() => {
@@ -102,11 +137,11 @@ export function useLiveRepo() {
       const r = current.current.repo;
       if (!r) return;
       if (liveRef.current) pull(r, true);
-      else setPending(true);
+      else check(r);
     });
     off.catch((e) => console.warn("Live updates unavailable:", e));
     return () => void off.then((f) => f()).catch(() => {});
-  }, [pull]);
+  }, [pull, check]);
 
   const setLive = useCallback(
     (on: boolean) => {
