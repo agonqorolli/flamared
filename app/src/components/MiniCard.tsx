@@ -1,17 +1,16 @@
-import { cn } from "@/lib/utils";
+import { Children, type ReactNode } from "react";
 import { Eyebrow } from "@/components/Eyebrow";
+import { cn } from "@/lib/utils";
+
+interface CardProps {
+  title: ReactNode;
+  empty?: string; // shown when the card has no rows
+  children?: ReactNode;
+}
 
 // A small card for the column beside a diff (Uses, Used by, File history, Same step) and the map's side panel.
-export function MiniCard({
-  title,
-  empty,
-  children,
-}: {
-  title: React.ReactNode;
-  empty: string;
-  children?: React.ReactNode[];
-}) {
-  const rows = (children ?? []).filter(Boolean);
+export function MiniCard({ title, empty, children }: CardProps) {
+  const rows = Children.toArray(children).filter(Boolean);
   return (
     <section className="flex flex-col gap-0.5 rounded-xl border bg-card p-2">
       <Eyebrow className="px-1 pb-0.5">{title}</Eyebrow>
@@ -20,17 +19,15 @@ export function MiniCard({
   );
 }
 
-export function MiniRow({
-  on,
-  title,
-  onClick,
-  children,
-}: {
-  on?: boolean;
+interface RowProps {
+  on?: boolean; // the row for what is on screen
   title?: string;
   onClick: () => void;
-  children: React.ReactNode;
-}) {
+  children: ReactNode;
+}
+
+// A clickable row of a MiniCard.
+export function MiniRow({ on, title, onClick, children }: RowProps) {
   return (
     <button
       onClick={onClick}

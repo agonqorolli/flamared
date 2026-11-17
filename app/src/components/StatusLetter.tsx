@@ -1,6 +1,6 @@
-import { cn } from "@/lib/utils";
 import { STATUS } from "@/lib/format";
 import type { Status } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const COLOR: Record<Status, string> = {
   A: "text-add",
@@ -24,6 +24,7 @@ export function StatusLetter({ status, title }: { status: Status; title?: string
   );
 }
 
+// Lines added and removed: +12 −3.
 export function Counts({ add, rem }: { add: number; rem: number }) {
   return (
     <span className="shrink-0 font-mono text-mini whitespace-nowrap">

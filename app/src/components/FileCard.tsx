@@ -1,11 +1,12 @@
 import { ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { KeyHint } from "@/components/KeyHint";
-import { Separator } from "@/components/ui/separator";
-import { Said } from "@/components/Said";
+import type { ReactNode } from "react";
 import { Eyebrow } from "@/components/Eyebrow";
-import { hint } from "@/lib/keys";
+import { KeyHint } from "@/components/KeyHint";
+import { Said } from "@/components/Said";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { base, dir } from "@/lib/format";
+import { hint } from "@/lib/keys";
 
 interface Props {
   what: "File" | "Edit";
@@ -16,7 +17,7 @@ interface Props {
   agent: string | null;
   words: string | null;
   wordsLabel: string;
-  jump?: React.ReactNode; // a button to the same file in the other screen
+  jump?: ReactNode; // buttons to the same file on the other screens
   onStep?: (dir: 1 | -1) => void;
   onBack?: () => void; // the map's panel: back to its overview instead of ↑↓
 }

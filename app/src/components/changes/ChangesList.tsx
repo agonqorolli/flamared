@@ -1,39 +1,32 @@
-import { useEffect, useRef } from "react";
+import { FreshDot, ListRow } from "@/components/ListRow";
 import { Said } from "@/components/Said";
-import { cn } from "@/lib/utils";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
-import { plural, STATUS } from "@/lib/format";
+import { base, plural, STATUS } from "@/lib/format";
 import type { ReviewState } from "@/lib/review";
 import type { FileInfo } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import type { Block, Row, Section } from "./model";
 
 interface Props {
   sections: Section[];
-  selected: number;
+  selected: number; // the selected row's position in the flat list
   showAgent: boolean;
   fresh: Set<string>;
-  reviewOf: (f: FileInfo) => ReviewState | null;
-  onSelect: (i: number) => void;
+  reviewOf: (file: FileInfo) => ReviewState | null;
+  onSelect: (index: number) => void;
 }
 
-export function ChangesList({ sections, selected, showAgent, fresh, reviewOf, onSelect }: Props) {
+// The Changes list: each section's label, then its groups as cards, 8px apart.
+export function ChangesList({ sections, ...list }: Props) {
   return (
     <div className="flex flex-col pb-10">
-      {sections.map((s) => (
-        <section key={s.label} aria-label={s.label}>
-          <SectionLabel tip={s.tip}>{s.label}</SectionLabel>
+      {sections.map((section) => (
+        <section key={section.label} aria-label={section.label}>
+          <SectionLabel tip={section.tip}>{section.label}</SectionLabel>
           <div className="flex flex-col gap-2">
-            {s.blocks.map((b) => (
-              <GroupBlock
-                key={b.key}
-                block={b}
-                selected={selected}
-                showAgent={showAgent}
-                fresh={fresh}
-                reviewOf={reviewOf}
-                onSelect={onSelect}
-              />
+            {section.blocks.map((block) => (
+              <GroupBlock key={block.key} block={block} {...list} />
             ))}
           </div>
         </section>
@@ -42,6 +35,7 @@ export function ChangesList({ sections, selected, showAgent, fresh, reviewOf, on
   );
 }
 
+// One group as a card: its name, the agent's latest message about it (when asked for), and its files.
 function GroupBlock({
   block,
   selected,
@@ -62,13 +56,13 @@ function GroupBlock({
           <Said who={block.words_agent ?? "Agent"} text={block.words} />
         </div>
       )}
-      {block.rows.map((r) => (
+      {block.rows.map((row) => (
         <FileRow
-          key={r.index}
-          row={r}
-          on={r.index === selected}
-          fresh={fresh.has(r.file.path)}
-          review={reviewOf(r.file)}
+          key={row.index}
+          row={row}
+          on={row.index === selected}
+          fresh={fresh.has(row.file.path)}
+          review={reviewOf(row.file)}
           onSelect={onSelect}
         />
       ))}
@@ -77,51 +71,41 @@ function GroupBlock({
   );
 }
 
-function FileRow({
-  row,
-  on,
-  fresh,
-  review,
-  onSelect,
-}: {
+interface FileRowProps {
   row: Row;
   on: boolean;
   fresh: boolean;
   review: ReviewState | null;
-  onSelect: (i: number) => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (on) ref.current?.scrollIntoView({ block: "nearest" });
-  }, [on]);
-  const f = row.file;
+  onSelect: (index: number) => void;
+}
+
+// One changed file: its status letter, name and line counts, tinted by its review mark.
+function FileRow({ row, on, fresh, review, onSelect }: FileRowProps) {
+  const file = row.file;
   return (
-    <button
-      ref={ref}
+    <ListRow
+      on={on}
       data-review={review ?? undefined}
-      aria-current={on || undefined}
-      title={f.path}
+      title={file.path}
       onClick={() => onSelect(row.index)}
       className={cn(
-        "group/row flex min-h-7 w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs text-subtle hover:bg-raised",
         // Marks: "Looks good" rows dim green, "Needs work" rows dim red.
         review === "approved" && "bg-add/[.07] hover:bg-add/[.12]",
         review === "rejected" && "bg-rem/[.07] hover:bg-rem/[.12]",
-        on && "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] hover:bg-selection-bg",
         on && review === "approved" && "bg-add/[.16] shadow-[inset_2px_0_0_var(--add)] hover:bg-add/[.16]",
         on && review === "rejected" && "bg-rem/[.16] shadow-[inset_2px_0_0_var(--rem)] hover:bg-rem/[.16]",
       )}
     >
       <span className={cn("contents", review && !on && "[&>*]:opacity-55")}>
-        <StatusLetter status={f.status} title={STATUS[f.status]} />
-        <span className="min-w-0 flex-1 truncate font-mono font-medium">
-          {f.path.slice(f.path.lastIndexOf("/") + 1)}
-        </span>
-        {fresh && (
-          <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New or changed since you last looked" />
+        <StatusLetter status={file.status} title={STATUS[file.status]} />
+        <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(file.path)}</span>
+        {fresh && <FreshDot title="New or changed since you last looked" />}
+        {file.binary ? (
+          <span className="shrink-0 text-mini text-faint">binary</span>
+        ) : (
+          <Counts add={file.add} rem={file.rem} />
         )}
-        {f.binary ? <span className="shrink-0 text-mini text-faint">binary</span> : <Counts add={f.add} rem={f.rem} />}
       </span>
-    </button>
+    </ListRow>
   );
 }

@@ -1,48 +1,52 @@
+import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, useRef } from "react";
+import { clampWidth, type Pane, resetWidth, saveWidth, setWidth } from "@/lib/panes";
+import { cn } from "@/lib/utils";
+
+// How far one press of ← or → moves the edge, in px.
+const KEY_STEP = 16;
+
 // The drag handle on the edge of the left list or the right side column. Drag to resize (remembered between
 // launches), double-click to go back to the default width, or focus it and use ← →.
-import { useRef } from "react";
-import { cn } from "@/lib/utils";
-import { type Pane, clampWidth, resetWidth, saveWidth, setWidth } from "@/lib/panes";
-
 export function PaneHandle({ pane, className }: { pane: Pane; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   // The list grows when dragged right; the side column (on the right) grows when dragged left.
-  const dir = pane === "list" ? 1 : -1;
-  const current = () => ref.current?.parentElement?.getBoundingClientRect().width ?? 0;
+  const grows = pane === "list" ? 1 : -1;
+  const paneWidth = () => ref.current?.parentElement?.getBoundingClientRect().width ?? 0;
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
-    const startX = e.clientX;
-    const startW = current();
-    let w = startW;
+  const onPointerDown = (down: ReactPointerEvent<HTMLDivElement>) => {
+    if (down.button !== 0) return;
+    down.preventDefault();
+    const handle = down.currentTarget;
+    handle.setPointerCapture(down.pointerId);
+    const startX = down.clientX;
+    const startWidth = paneWidth();
+    let width = startWidth;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
-    const move = (ev: PointerEvent) => {
-      w = clampWidth(pane, startW + (ev.clientX - startX) * dir);
-      setWidth(pane, w);
+    const onMove = (move: PointerEvent) => {
+      width = clampWidth(pane, startWidth + (move.clientX - startX) * grows);
+      setWidth(pane, width);
     };
-    const up = () => {
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
+    const onRelease = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onRelease);
+      handle.removeEventListener("pointercancel", onRelease);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      if (w !== startW) saveWidth(pane, w);
+      if (width !== startWidth) saveWidth(pane, width);
     };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onRelease);
+    handle.addEventListener("pointercancel", onRelease);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const w = clampWidth(pane, current() + (e.key === "ArrowRight" ? 16 : -16) * dir);
-    setWidth(pane, w);
-    saveWidth(pane, w);
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const step = event.key === "ArrowRight" ? KEY_STEP : -KEY_STEP;
+    const width = clampWidth(pane, paneWidth() + step * grows);
+    setWidth(pane, width);
+    saveWidth(pane, width);
   };
 
   return (

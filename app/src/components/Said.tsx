@@ -1,22 +1,18 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+interface Props {
+  who: string;
+  text: string;
+  when?: string; // the time, in the column the edit times use; "" keeps the column empty
+  lines?: 2 | 4; // how many lines show before it is opened
+  title?: string;
+}
+
 // Something someone said, written like the rows around it: the time in the same left column as the edit times
 // (when there is one), then "Who: words" in muted text. Used for your prompt in Timeline and for the agent's last
 // message in the file card. Click to expand long text.
-export function Said({
-  who,
-  text,
-  when,
-  lines = 2,
-  title,
-}: {
-  who: string;
-  text: string;
-  when?: string;
-  lines?: 2 | 4;
-  title?: string;
-}) {
+export function Said({ who, text, when, lines = 2, title }: Props) {
   const [open, setOpen] = useState(false);
   return (
     <button

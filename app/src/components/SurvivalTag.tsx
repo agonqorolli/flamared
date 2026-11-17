@@ -1,5 +1,5 @@
-import { cn } from "@/lib/utils";
 import { SURVIVAL, type Survival } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const TONE: Record<Survival, string> = {
   kept: "bg-add-bg text-add",
@@ -8,6 +8,7 @@ const TONE: Record<Survival, string> = {
   undone: "bg-raised text-faint",
 };
 
+// Whether an edit is still in the file, as a small colored tag; nothing when that isn't known.
 export function SurvivalTag({ survives }: { survives: Survival | null }) {
   if (!survives) return null;
   return (

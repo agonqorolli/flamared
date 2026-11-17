@@ -1,40 +1,40 @@
+import { CheckIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { SideColumn } from "@/components/SideColumn";
-import { CheckIcon, ClockIcon, MapIcon, RefreshCwIcon, XIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { KeyHint } from "@/components/KeyHint";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DiffView } from "@/components/DiffView";
 import { FileCard } from "@/components/FileCard";
+import { JumpButton } from "@/components/JumpButton";
+import { KeyHint } from "@/components/KeyHint";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
+import { SideColumn } from "@/components/SideColumn";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { base } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { hint, useKeys } from "@/lib/keys";
 import type { ReviewState } from "@/lib/review";
-import { toPatch, type Row } from "./model";
+import { cn } from "@/lib/utils";
+import { type Row, toPatch } from "./model";
 
 interface Props {
   row: Row;
-  active: boolean;
-  count: number;
-  diff: string;
   rows: Row[];
+  active: boolean;
+  diff: string;
   reviewOf: (diff: string) => ReviewState | null; // the mark for the version on screen
   inTimeline: boolean;
-  onReview: (s: ReviewState | null, shown?: string) => void;
-  onStep: (dir: 1 | -1) => void;
-  onSelect: (i: number) => void;
+  onReview: (state: ReviewState | null, shown?: string) => void;
+  onStep: (step: 1 | -1) => void;
+  onSelect: (index: number) => void;
   onShowInTimeline: () => void;
   onShowInMap: () => void;
   onShowLatest: () => void;
 }
 
+// The selected file: its diff with the review bar under it, and beside it the file's card and connected files.
 export function FileDetail({
   row,
-  active,
-  count,
-  diff,
   rows,
+  active,
+  diff,
   reviewOf,
   inTimeline,
   onReview,
@@ -44,24 +44,27 @@ export function FileDetail({
   onShowInMap,
   onShowLatest,
 }: Props) {
-  const f = row.file;
+  const file = row.file;
   // The diff on screen holds still while you read: when the agent changes this file again, a bar offers the
   // newer version instead of swapping it in under you. Moving to another file always shows its latest.
-  const [held, setHeld] = useState({ path: f.path, diff });
-  useEffect(() => setHeld({ path: f.path, diff }), [f.path]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = held.path === f.path ? held.diff : diff;
+  const [held, setHeld] = useState({ path: file.path, diff });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setHeld({ path: file.path, diff }), [file.path]);
+  const shown = held.path === file.path ? held.diff : diff;
   const stale = shown !== diff;
   const review = reviewOf(shown);
   const showLatest = () => {
-    setHeld({ path: f.path, diff });
+    setHeld({ path: file.path, diff });
     onShowLatest();
   };
   // G / W mark what is on screen "Looks good" or "Needs work", like the buttons.
-  const reviewShown = (s: ReviewState | null) => onReview(s, stale ? shown : undefined);
+  const reviewShown = (state: ReviewState | null) => onReview(state, stale ? shown : undefined);
   // Pressing it again clears it, like the pressed button.
-  const mark = (m: ReviewState) => reviewShown(review === m ? null : m);
+  const mark = (state: ReviewState) => reviewShown(review === state ? null : state);
   useKeys(active, { looksGood: () => mark("approved"), needsWork: () => mark("rejected") });
-  const { patch, more } = f.binary || !shown.trim() ? { patch: null, more: null } : toPatch(f, shown);
+
+  const hasTextDiff = !file.binary && shown.trim() !== "";
+  const { patch, more } = hasTextDiff ? toPatch(file, shown) : { patch: null, more: null };
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -78,10 +81,10 @@ export function FileDetail({
           </div>
         )}
         <DiffView
-          id={`${f.path}:${stale ? "held" : "latest"}`}
+          id={`${file.path}:${stale ? "held" : "latest"}`}
           patch={patch}
           more={more}
-          empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"}
+          empty={file.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"}
         />
         <ReviewBar review={review} onReview={reviewShown} />
       </div>
@@ -89,44 +92,24 @@ export function FileDetail({
         <FileCard
           what="File"
           index={row.index}
-          count={count}
-          path={f.path}
-          binary={f.binary}
-          agent={f.words_agent}
-          words={f.words}
+          count={rows.length}
+          path={file.path}
+          binary={file.binary}
+          agent={file.words_agent}
+          words={file.words}
           wordsLabel="before changing it"
           onStep={onStep}
           jump={
             <>
-              {inTimeline && (
-                <Button
-                  variant="outline"
-                  size="icon-xs"
-                  aria-label="Show in Timeline"
-                  title={`Show in Timeline (${hint("toTimeline")})`}
-                  onClick={onShowInTimeline}
-                >
-                  <ClockIcon />
-                  <KeyHint id="toTimeline" />
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="icon-xs"
-                aria-label="Show in Map"
-                title={`Show in Map (${hint("toMap")})`}
-                onClick={onShowInMap}
-              >
-                <MapIcon />
-                <KeyHint id="toMap" />
-              </Button>
+              {inTimeline && <JumpButton to="timeline" onClick={onShowInTimeline} />}
+              <JumpButton to="map" onClick={onShowInMap} />
             </>
           }
         />
-        <Connected title="Uses" paths={f.links_out} empty="Uses no changed files" rows={rows} onSelect={onSelect} />
+        <Connected title="Uses" paths={file.links_out} empty="Uses no changed files" rows={rows} onSelect={onSelect} />
         <Connected
           title="Used by"
-          paths={f.links_in}
+          paths={file.links_in}
           empty="Used by no changed files"
           rows={rows}
           onSelect={onSelect}
@@ -136,16 +119,26 @@ export function FileDetail({
   );
 }
 
+const MARK_LABEL: Record<ReviewState, string> = { approved: "Looks good", rejected: "Needs work" };
+
 // Under the diff: this file's mark and the buttons that set it (G / W on the keyboard). Plain words, not code-review
 // terms: the mark is a note to yourself, and nothing is done to the code. Saved as "approved" / "rejected".
-function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview: (s: ReviewState | null) => void }) {
+function ReviewBar({
+  review,
+  onReview,
+}: {
+  review: ReviewState | null;
+  onReview: (state: ReviewState | null) => void;
+}) {
+  // The button of the active mark clears it.
+  const title = (state: ReviewState) => (review === state ? "Clear the mark" : MARK_LABEL[state]);
   return (
     <div className="mt-2 flex shrink-0 items-center justify-between gap-3" role="group" aria-label="Review this file">
       <span
         className={cn("text-xs text-faint", review === "approved" && "text-add", review === "rejected" && "text-rem")}
         aria-live="polite"
       >
-        {review === "approved" ? "Looks good" : review === "rejected" ? "Needs work" : "Not checked"}
+        {review ? MARK_LABEL[review] : "Not checked"}
         {review && <span className="text-faint"> · resets if the agent changes this file</span>}
       </span>
       <ToggleGroup
@@ -153,11 +146,11 @@ function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview:
         variant="outline"
         size="sm"
         value={review ?? ""}
-        onValueChange={(v) => onReview((v || null) as ReviewState | null)}
+        onValueChange={(value) => onReview((value || null) as ReviewState | null)}
       >
         <ToggleGroupItem
           value="approved"
-          title={`${review === "approved" ? "Clear the mark" : "Looks good"} (${hint("looksGood")})`}
+          title={`${title("approved")} (${hint("looksGood")})`}
           className="data-[state=on]:bg-add-bg data-[state=on]:text-add"
         >
           <CheckIcon data-icon="inline-start" />
@@ -166,7 +159,7 @@ function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview:
         </ToggleGroupItem>
         <ToggleGroupItem
           value="rejected"
-          title={`${review === "rejected" ? "Clear the mark" : "Needs work"} (${hint("needsWork")})`}
+          title={`${title("rejected")} (${hint("needsWork")})`}
           className="data-[state=on]:bg-rem-bg data-[state=on]:text-rem"
         >
           <XIcon data-icon="inline-start" />
@@ -178,26 +171,22 @@ function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview:
   );
 }
 
-// "Uses" / "Used by": changed files this one imports, and changed files that import it.
-function Connected({
-  title,
-  paths,
-  empty,
-  rows,
-  onSelect,
-}: {
+interface ConnectedProps {
   title: string;
   paths: string[];
   empty: string;
   rows: Row[];
-  onSelect: (i: number) => void;
-}) {
-  const hits = paths.map((p) => rows.find((r) => r.file.path === p)).filter((r): r is Row => !!r);
+  onSelect: (index: number) => void;
+}
+
+// "Uses" / "Used by": changed files this one imports, and changed files that import it.
+function Connected({ title, paths, empty, rows, onSelect }: ConnectedProps) {
+  const connected = paths.map((path) => rows.find((row) => row.file.path === path)).filter((row) => row !== undefined);
   return (
-    <MiniCard title={`${title} · ${hits.length}`} empty={empty}>
-      {hits.map((r) => (
-        <MiniRow key={r.index} onClick={() => onSelect(r.index)} title={`${r.file.path} · in ${r.group}`}>
-          <span className="truncate font-mono font-medium">{base(r.file.path)}</span>
+    <MiniCard title={`${title} · ${connected.length}`} empty={empty}>
+      {connected.map((row) => (
+        <MiniRow key={row.index} onClick={() => onSelect(row.index)} title={`${row.file.path} · in ${row.group}`}>
+          <span className="truncate font-mono font-medium">{base(row.file.path)}</span>
         </MiniRow>
       ))}
     </MiniCard>
