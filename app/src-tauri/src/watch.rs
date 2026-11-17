@@ -2,7 +2,7 @@
 //! matters changed. Bursts are collected for a moment first, so an agent saving 20 files means one reload.
 //! Watching only reads change notifications (FSEvents on macOS); nothing is written anywhere.
 use crate::data::git::{repo_roots, toplevel};
-use crate::data::paths::{join, realpath, root_of};
+use crate::data::paths::{realpath, root_of};
 use crate::data::sessions;
 use notify::RecursiveMode;
 use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
@@ -130,9 +130,8 @@ pub fn start(
 /// of changes that matters.
 #[tauri::command]
 pub fn watch(app: AppHandle, state: tauri::State<'_, Watching>, repo: String) -> Result<(), String> {
-    let dirs = vec![sessions::claude_dir(), join(&sessions::codex_dir(), "sessions")];
     let top = toplevel(&repo).unwrap_or_default();
-    let debouncer = start(&repo, dirs, move || {
+    let debouncer = start(&repo, sessions::session_dirs(), move || {
         let _ = app.emit("repo-changed", &top);
     })?;
     *state.0.lock().unwrap() = Some(debouncer);

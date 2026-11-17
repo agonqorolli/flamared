@@ -75,36 +75,11 @@ fn statements(code: &str) -> Vec<Vec<Token>> {
         }
         start = false;
         if matches!(c, '\'' | '"') {
-            let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
-            let width = if triple { 3 } else { 1 };
-            i += width;
-            let mut text = String::new();
-            let mut closed = false;
-            while i < chars.len() {
-                if chars[i] == c && (!triple || (chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c))) {
-                    i += width;
-                    closed = true;
-                    break;
-                }
-                if chars[i] == '\\' {
-                    i += 1;
-                    if i >= chars.len() {
-                        break;
-                    }
-                    // Unknown escape sequences cannot form a literal path.
-                    match chars[i] {
-                        '\\' | '\'' | '"' => text.push(chars[i]),
-                        _ => text.push('\0'),
-                    }
-                } else {
-                    text.push(chars[i]);
-                }
-                i += 1;
-            }
-            if !closed {
+            let Some((text, end)) = string_literal(&chars, i) else {
                 return vec![];
-            }
+            };
             stmt.push(Token::Text(text));
+            i = end;
         } else if c.is_alphabetic() || c == '_' {
             let from = i;
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
@@ -128,6 +103,37 @@ fn statements(code: &str) -> Vec<Vec<Token>> {
     out
 }
 
+/// The quoted Python string that starts at `chars[at]` (one quote or three): its text and where it ends, or None
+/// when it is never closed.
+fn string_literal(chars: &[char], at: usize) -> Option<(String, usize)> {
+    let quote = chars[at];
+    let triple = chars.get(at + 1) == Some(&quote) && chars.get(at + 2) == Some(&quote);
+    let width = if triple { 3 } else { 1 };
+    let mut i = at + width;
+    let mut text = String::new();
+    while i < chars.len() {
+        if chars[i] == quote && (!triple || (chars.get(i + 1) == Some(&quote) && chars.get(i + 2) == Some(&quote))) {
+            return Some((text, i + width));
+        }
+        if chars[i] == '\\' {
+            i += 1;
+            if i >= chars.len() {
+                break;
+            }
+            // Unknown escape sequences cannot form a literal path.
+            match chars[i] {
+                '\\' | '\'' | '"' => text.push(chars[i]),
+                _ => text.push('\0'),
+            }
+        } else {
+            text.push(chars[i]);
+        }
+        i += 1;
+    }
+    None
+}
+
+/// The path a few tokens spell out: a string, a variable holding one, or `Path(...)` around either.
 fn literal(tokens: &[Token], vars: &HashMap<String, String>) -> Option<String> {
     match tokens {
         [Token::Text(s)] if !s.is_empty() && !s.contains(['\0', '\n', '\r']) => Some(s.clone()),
@@ -139,45 +145,91 @@ fn literal(tokens: &[Token], vars: &HashMap<String, String>) -> Option<String> {
     }
 }
 
+/// Words that mean a statement may not run, or may run more than once.
+const CONTROL_FLOW: &[&str] = &[
+    "if", "for", "while", "try", "with", "def", "class", "match", "raise", "exit", "quit",
+];
+/// Calls that move the working folder, stop the script, or run code that can't be read here.
+const UNPREDICTABLE_CALLS: &[&str] = &["chdir", "exit", "exec", "eval"];
+/// `open()` modes that write: replace, append or create, as text or bytes.
+const WRITE_MODES: &[&str] = &["w", "wb", "a", "ab", "x", "xb"];
+/// `Path` methods that write a whole file.
+const WRITE_METHODS: &[&str] = &["write_text", "write_bytes"];
+
+/// The files a Python script plainly writes, in the order it writes them; none when any statement can't be followed.
 fn python_writes(code: &str) -> Vec<String> {
-    let (mut vars, mut out) = (HashMap::new(), Vec::new());
+    let (mut vars, mut written) = (HashMap::new(), Vec::new());
     for stmt in statements(code) {
         // We do not interpret Python control flow or changes to the process's working folder.
-        if stmt.iter().any(|t| matches!(t, Token::Name(n) if matches!(n.as_str(), "if" | "for" | "while" | "try" | "with" | "def" | "class" | "match" | "raise" | "exit" | "quit")))
-            || stmt.windows(2).any(|w| matches!(w, [Token::Name(n), Token::Punct('(')] if matches!(n.as_str(), "chdir" | "exit" | "exec" | "eval"))) {
+        if is_unpredictable(&stmt) {
             return vec![];
         }
-        if let [Token::Name(name), Token::Punct(op), Token::Punct('='), ..] = stmt.as_slice() {
-            if matches!(op, '+' | '-' | '*' | '/' | '%' | '|' | '&' | '^') {
-                vars.remove(name);
-            }
+        // `p += suffix`: p no longer holds a path we know.
+        if let [Token::Name(name), Token::Punct(op), Token::Punct('='), ..] = stmt.as_slice()
+            && matches!(op, '+' | '-' | '*' | '/' | '%' | '|' | '&' | '^')
+        {
+            vars.remove(name);
         }
-        if let [Token::Name(name), Token::Punct('='), rhs @ ..] = stmt.as_slice() {
+        if let [Token::Name(name), Token::Punct('='), value @ ..] = stmt.as_slice() {
             if name == "open" || name == "Path" {
                 return vec![];
             }
-            let value = literal(rhs, &vars);
+            let value = literal(value, &vars);
             vars.remove(name);
             if let Some(value) = value {
                 vars.insert(name.clone(), value);
             }
             continue;
         }
-        // open(path, 'w').write(...) / append / exclusive creation, with optional binary mode.
-        let path = match stmt.as_slice() {
-            [Token::Name(open), Token::Punct('('), path, Token::Punct(','), Token::Text(mode), Token::Punct(')'), Token::Punct('.'), Token::Name(write), Token::Punct('('), ..]
-                if open == "open" && write == "write" && matches!(mode.as_str(), "w" | "wb" | "a" | "ab" | "x" | "xb") => literal(std::slice::from_ref(path), &vars),
-            // Path('file').write_text(...) / p.write_text(...) where p is a known literal Path.
-            _ => stmt.windows(3).position(|w| matches!(w, [Token::Punct('.'), Token::Name(n), Token::Punct('(')] if n == "write_text" || n == "write_bytes"))
-                .and_then(|i| literal(&stmt[..i], &vars)),
-        };
-        if let Some(path) = path {
-            if !out.contains(&path) {
-                out.push(path);
-            }
+        if let Some(path) = written_path(&stmt, &vars)
+            && !written.contains(&path)
+        {
+            written.push(path);
         }
     }
-    out
+    written
+}
+
+fn is_unpredictable(stmt: &[Token]) -> bool {
+    let is_name_in =
+        |token: &Token, names: &[&str]| matches!(token, Token::Name(name) if names.contains(&name.as_str()));
+    let has_control_flow = stmt.iter().any(|token| is_name_in(token, CONTROL_FLOW));
+    let has_unpredictable_call = stmt
+        .windows(2)
+        .any(|pair| is_name_in(&pair[0], UNPREDICTABLE_CALLS) && pair[1] == Token::Punct('('));
+    has_control_flow || has_unpredictable_call
+}
+
+/// The file a statement writes, when its path is a literal we know.
+fn written_path(stmt: &[Token], vars: &HashMap<String, String>) -> Option<String> {
+    use Token::{Name, Punct, Text};
+    // open(path, 'w').write(...) / append / exclusive creation, with optional binary mode.
+    if let [
+        Name(open),
+        Punct('('),
+        path,
+        Punct(','),
+        Text(mode),
+        Punct(')'),
+        Punct('.'),
+        Name(write),
+        Punct('('),
+        ..,
+    ] = stmt
+        && open == "open"
+        && write == "write"
+        && WRITE_MODES.contains(&mode.as_str())
+    {
+        return literal(std::slice::from_ref(path), vars);
+    }
+    // Path('file').write_text(...) / p.write_text(...) where p is a known literal Path.
+    let call = stmt.windows(3).position(is_write_call)?;
+    literal(&stmt[..call], vars)
+}
+
+fn is_write_call(tokens: &[Token]) -> bool {
+    use Token::{Name, Punct};
+    matches!(tokens, [Punct('.'), Name(method), Punct('(')] if WRITE_METHODS.contains(&method.as_str()))
 }
 
 #[cfg(test)]
