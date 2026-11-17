@@ -48,7 +48,9 @@ function Workspace() {
   const openFolder = async () => {
     try {
       const root = await pickRepoFolder();
-      if (root) setNotice(null), open(root);
+      if (!root) return;
+      setNotice(null);
+      open(root);
     } catch (e) {
       setNotice(String(e));
     }

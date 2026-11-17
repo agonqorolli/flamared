@@ -49,7 +49,10 @@ export function buildTimeline(snap: Snapshot): Timeline {
   let lastDay = "";
   for (const it of raw) {
     const d = it.at ? day(new Date(it.at).toISOString()) : "";
-    if (d !== lastDay) items.push({ kind: "day", label: d || "Unknown day" }), (lastDay = d);
+    if (d !== lastDay) {
+      items.push({ kind: "day", label: d || "Unknown day" });
+      lastDay = d;
+    }
     if (it.commit) {
       items.push({ kind: "commit", sha: it.commit.sha, subject: it.commit.subject, at: it.commit.at });
       continue;

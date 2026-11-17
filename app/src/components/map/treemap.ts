@@ -52,13 +52,19 @@ export function squarify(items: TreeNode[], x: number, y: number, w: number, h: 
     if (w >= h) {
       const rw = s / h;
       let yy = y;
-      for (const b of r) out.push({ node: b.c, x, y: yy, w: rw, h: b.a / rw }), (yy += b.a / rw);
+      for (const b of r) {
+        out.push({ node: b.c, x, y: yy, w: rw, h: b.a / rw });
+        yy += b.a / rw;
+      }
       x += rw;
       w -= rw;
     } else {
       const rh = s / w;
       let xx = x;
-      for (const b of r) out.push({ node: b.c, x: xx, y, w: b.a / rh, h: rh }), (xx += b.a / rh);
+      for (const b of r) {
+        out.push({ node: b.c, x: xx, y, w: b.a / rh, h: rh });
+        xx += b.a / rh;
+      }
       y += rh;
       h -= rh;
     }
@@ -66,8 +72,12 @@ export function squarify(items: TreeNode[], x: number, y: number, w: number, h: 
   while (todo.length) {
     const side = Math.min(w, h);
     const next = todo[0];
-    if (!row.length || worst([...row, next], side) <= worst(row, side)) row.push(todo.shift()!);
-    else place(row), (row = []);
+    if (!row.length || worst([...row, next], side) <= worst(row, side)) {
+      row.push(todo.shift()!);
+    } else {
+      place(row);
+      row = [];
+    }
   }
   if (row.length) place(row);
   return out;
