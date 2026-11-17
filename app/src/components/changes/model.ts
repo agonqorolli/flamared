@@ -32,7 +32,14 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
   const rows: Row[] = [];
   // The agent's latest message about any file in the block, whatever the section.
   const latestWords = (fs: FileInfo[]) => fs.filter((f) => f.words).sort((x, y) => ms(y.words_at) - ms(x.words_at))[0];
-  const block = (key: string, name: string, sub: string, files: FileInfo[], tests: FileInfo[], extra: Partial<Block> = {}): Block => ({
+  const block = (
+    key: string,
+    name: string,
+    sub: string,
+    files: FileInfo[],
+    tests: FileInfo[],
+    extra: Partial<Block> = {},
+  ): Block => ({
     key,
     name,
     sub,
@@ -65,13 +72,27 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       label: "Logic groups",
       tip: "logic",
       blocks: S.logic.map((g, i) =>
-        block(`logic-${i}`, g.name, plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""), g.files, g.tests),
+        block(
+          `logic-${i}`,
+          g.name,
+          plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""),
+          g.files,
+          g.tests,
+        ),
       ),
     });
   if (S.shared.length)
-    sections.push({ label: "Shared building blocks", tip: "shared", blocks: [merge("shared", "shared", `${S.shared.length} files used by 3+ changed files`, S.shared)] });
+    sections.push({
+      label: "Shared building blocks",
+      tip: "shared",
+      blocks: [merge("shared", "shared", `${S.shared.length} files used by 3+ changed files`, S.shared)],
+    });
   if (S.wiring.length)
-    sections.push({ label: "Wiring", tip: "wiring", blocks: [merge("wiring", "wiring", `${S.wiring.length} files using 4+ changed files`, S.wiring)] });
+    sections.push({
+      label: "Wiring",
+      tip: "wiring",
+      blocks: [merge("wiring", "wiring", `${S.wiring.length} files using 4+ changed files`, S.wiring)],
+    });
   if (S.loose.length)
     sections.push({
       label: "Other changes, by folder",
@@ -86,7 +107,15 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
     sections.push({
       label: "Tests on their own",
       tip: "tests",
-      blocks: [block("tests", "tests", `${plural(S.loose_tests.length, "test file")} whose source didn't change`, [], S.loose_tests)],
+      blocks: [
+        block(
+          "tests",
+          "tests",
+          `${plural(S.loose_tests.length, "test file")} whose source didn't change`,
+          [],
+          S.loose_tests,
+        ),
+      ],
     });
   if (S.support.length)
     sections.push({
@@ -105,7 +134,8 @@ export function toPatch(f: FileInfo, diff: string): { patch: string; more: strin
   for (let i = 0; i < lines.length; i++) {
     const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(lines[i]);
     if (!m) continue;
-    let old = 0, neu = 0;
+    let old = 0,
+      neu = 0;
     for (let j = i + 1; j < lines.length && !lines[j].startsWith("@@"); j++) {
       if (lines[j].startsWith("\\")) continue; // "\ No newline at end of file"
       if (!lines[j].startsWith("+")) old++;

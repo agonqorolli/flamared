@@ -1,9 +1,7 @@
 import { day } from "./format";
 import type { Snapshot, TimelineEdit, TimelineEvent } from "./types";
 
-export type TimelineRow =
-  | { kind: "say"; text: string }
-  | { kind: "edit"; edit: TimelineEdit; index: number };
+export type TimelineRow = { kind: "say"; text: string } | { kind: "edit"; edit: TimelineEdit; index: number };
 
 export type TimelineItem =
   | { kind: "day"; label: string }
@@ -34,7 +32,13 @@ export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
 // activity is, so the turn an agent is working in now stays on top. Inside a turn the latest event comes first too.
 export function buildTimeline(snap: Snapshot): Timeline {
   type Session = Snapshot["timeline"]["sessions"][number];
-  type Raw = { at: number; turn?: Session["turns"][number]; ti?: number; session?: Session; commit?: Snapshot["timeline"]["commits"][number] };
+  type Raw = {
+    at: number;
+    turn?: Session["turns"][number];
+    ti?: number;
+    session?: Session;
+    commit?: Snapshot["timeline"]["commits"][number];
+  };
   const raw: Raw[] = [];
   for (const s of snap.timeline.sessions)
     s.turns.forEach((t, ti) => {
@@ -94,9 +98,12 @@ export function editPatch(e: TimelineEdit): string | null {
 }
 
 // The status letter of one edit: deleted, moved, created or changed the file.
-export const editStatus = (e: TimelineEdit) => (e.del ? "D" : e.from ? "R" : e.new ? "A" : "M") as "D" | "R" | "A" | "M";
+export const editStatus = (e: TimelineEdit) =>
+  (e.del ? "D" : e.from ? "R" : e.new ? "A" : "M") as "D" | "R" | "A" | "M";
 export const editStatusTip = (e: TimelineEdit) =>
-  e.inferred ? "Write found in the agent's command; no diff recorded" : ({ A: "Created the file", D: "Deleted the file", R: `Moved from ${e.from}`, M: "Changed the file" })[editStatus(e)];
+  e.inferred
+    ? "Write found in the agent's command; no diff recorded"
+    : { A: "Created the file", D: "Deleted the file", R: `Moved from ${e.from}`, M: "Changed the file" }[editStatus(e)];
 
 // A stable name for one edit across reloads (the list position changes as new edits arrive).
 export const editKey = (e: TimelineEdit) => `${e.step}|${e.at}|${e.path}`;

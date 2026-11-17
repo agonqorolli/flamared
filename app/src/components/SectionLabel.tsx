@@ -8,11 +8,16 @@ import { TIPS, type TipKey } from "@/lib/format";
 export function SectionLabel({ children, tip }: { children: React.ReactNode; tip?: TipKey }) {
   return (
     <Eyebrow className="flex items-center gap-1.5 px-1.5 pt-4 pb-1.5 leading-4">
-      <span className="truncate" title={typeof children === "string" ? children : undefined}>{children}</span>
+      <span className="truncate" title={typeof children === "string" ? children : undefined}>
+        {children}
+      </span>
       {tip && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label={`What is “${children}”?`}>
+            <button
+              className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-faint hover:text-foreground"
+              aria-label={`What is “${children}”?`}
+            >
               <InfoIcon className="size-3" />
             </button>
           </TooltipTrigger>

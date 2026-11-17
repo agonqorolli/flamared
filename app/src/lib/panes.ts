@@ -10,7 +10,9 @@ const KEY: Record<Pane, string> = { list: "pane.list", side: "pane.side" };
 // Px limits; the max also leaves room for the diff in a narrow window. The side column can shrink until the file
 // card holds just ↑↓: two icon-xs buttons (6 units each), the gap between (1), the card's padding (6) and its 1px
 // border on each side. Spacing units change with density, so it is worked out from the current one.
-const unit = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
+const unit = () =>
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--spacing")) *
+  parseFloat(getComputedStyle(document.documentElement).fontSize);
 const MIN: Record<Pane, () => number> = { list: () => 150, side: () => Math.ceil(19 * unit() + 2) };
 const MAX: Record<Pane, number> = { list: 560, side: 480 };
 

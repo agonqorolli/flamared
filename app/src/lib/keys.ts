@@ -72,7 +72,10 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
   {
     scope: "Map",
     rows: [
-      { ids: ["lensSize", "lensRework", "lensFinal", "lensFlags"], does: "Color by Change size / Rework / Still in final / Flags" },
+      {
+        ids: ["lensSize", "lensRework", "lensFinal", "lensFlags"],
+        does: "Color by Change size / Rework / Still in final / Flags",
+      },
       { ids: ["toChanges", "toTimeline"], does: "Show the selected file in Changes / Timeline" },
       { ids: ["back"], does: "Back to the overview, then out of a zoomed folder" },
     ],
@@ -101,7 +104,9 @@ export function is(e: KeyboardEvent, id: KeyId): boolean {
 function busy(e: KeyboardEvent) {
   const t = e.target instanceof Element ? e.target : null;
   if (t?.closest("input, textarea, select, [contenteditable=true], [cmdk-root]")) return true;
-  return !!document.querySelector("[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open]");
+  return !!document.querySelector(
+    "[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open]",
+  );
 }
 
 type Actions = Partial<Record<KeyId, (() => void) | false | "" | null | undefined>>;

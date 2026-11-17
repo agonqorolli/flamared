@@ -29,7 +29,21 @@ interface Props {
   onShowLatest: () => void;
 }
 
-export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimeline, onReview, onStep, onSelect, onShowInTimeline, onShowInMap, onShowLatest }: Props) {
+export function FileDetail({
+  row,
+  active,
+  count,
+  diff,
+  rows,
+  reviewOf,
+  inTimeline,
+  onReview,
+  onStep,
+  onSelect,
+  onShowInTimeline,
+  onShowInMap,
+  onShowLatest,
+}: Props) {
   const f = row.file;
   // The diff on screen holds still while you read: when the agent changes this file again, a bar offers the
   // newer version instead of swapping it in under you. Moving to another file always shows its latest.
@@ -52,7 +66,10 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {stale && (
-          <div role="status" className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-lg border border-selection/40 bg-selection-bg px-3 py-1.5 text-xs">
+          <div
+            role="status"
+            className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-lg border border-selection/40 bg-selection-bg px-3 py-1.5 text-xs"
+          >
             <span>This file changed since you opened it.</span>
             <Button variant="outline" size="xs" onClick={showLatest}>
               <RefreshCwIcon data-icon="inline-start" />
@@ -60,7 +77,12 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
             </Button>
           </div>
         )}
-        <DiffView id={`${f.path}:${stale ? "held" : "latest"}`} patch={patch} more={more} empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"} />
+        <DiffView
+          id={`${f.path}:${stale ? "held" : "latest"}`}
+          patch={patch}
+          more={more}
+          empty={f.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"}
+        />
         <ReviewBar review={review} onReview={reviewShown} />
       </div>
       <SideColumn label="File and connected files">
@@ -77,12 +99,24 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
           jump={
             <>
               {inTimeline && (
-                <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title={`Show in Timeline (${hint("toTimeline")})`} onClick={onShowInTimeline}>
+                <Button
+                  variant="outline"
+                  size="icon-xs"
+                  aria-label="Show in Timeline"
+                  title={`Show in Timeline (${hint("toTimeline")})`}
+                  onClick={onShowInTimeline}
+                >
                   <ClockIcon />
                   <KeyHint id="toTimeline" />
                 </Button>
               )}
-              <Button variant="outline" size="icon-xs" aria-label="Show in Map" title={`Show in Map (${hint("toMap")})`} onClick={onShowInMap}>
+              <Button
+                variant="outline"
+                size="icon-xs"
+                aria-label="Show in Map"
+                title={`Show in Map (${hint("toMap")})`}
+                onClick={onShowInMap}
+              >
                 <MapIcon />
                 <KeyHint id="toMap" />
               </Button>
@@ -90,7 +124,13 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
           }
         />
         <Connected title="Uses" paths={f.links_out} empty="Uses no changed files" rows={rows} onSelect={onSelect} />
-        <Connected title="Used by" paths={f.links_in} empty="Used by no changed files" rows={rows} onSelect={onSelect} />
+        <Connected
+          title="Used by"
+          paths={f.links_in}
+          empty="Used by no changed files"
+          rows={rows}
+          onSelect={onSelect}
+        />
       </SideColumn>
     </div>
   );
@@ -101,17 +141,34 @@ export function FileDetail({ row, active, count, diff, rows, reviewOf, inTimelin
 function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview: (s: ReviewState | null) => void }) {
   return (
     <div className="mt-2 flex shrink-0 items-center justify-between gap-3" role="group" aria-label="Review this file">
-      <span className={cn("text-xs text-faint", review === "approved" && "text-add", review === "rejected" && "text-rem")} aria-live="polite">
+      <span
+        className={cn("text-xs text-faint", review === "approved" && "text-add", review === "rejected" && "text-rem")}
+        aria-live="polite"
+      >
         {review === "approved" ? "Looks good" : review === "rejected" ? "Needs work" : "Not checked"}
         {review && <span className="text-faint"> · resets if the agent changes this file</span>}
       </span>
-      <ToggleGroup type="single" variant="outline" size="sm" value={review ?? ""} onValueChange={(v) => onReview((v || null) as ReviewState | null)}>
-        <ToggleGroupItem value="approved" title={`${review === "approved" ? "Clear the mark" : "Looks good"} (${hint("looksGood")})`} className="data-[state=on]:bg-add-bg data-[state=on]:text-add">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        value={review ?? ""}
+        onValueChange={(v) => onReview((v || null) as ReviewState | null)}
+      >
+        <ToggleGroupItem
+          value="approved"
+          title={`${review === "approved" ? "Clear the mark" : "Looks good"} (${hint("looksGood")})`}
+          className="data-[state=on]:bg-add-bg data-[state=on]:text-add"
+        >
           <CheckIcon data-icon="inline-start" />
           Looks good
           <KeyHint id="looksGood" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="rejected" title={`${review === "rejected" ? "Clear the mark" : "Needs work"} (${hint("needsWork")})`} className="data-[state=on]:bg-rem-bg data-[state=on]:text-rem">
+        <ToggleGroupItem
+          value="rejected"
+          title={`${review === "rejected" ? "Clear the mark" : "Needs work"} (${hint("needsWork")})`}
+          className="data-[state=on]:bg-rem-bg data-[state=on]:text-rem"
+        >
           <XIcon data-icon="inline-start" />
           Needs work
           <KeyHint id="needsWork" />
@@ -122,7 +179,19 @@ function ReviewBar({ review, onReview }: { review: ReviewState | null; onReview:
 }
 
 // "Uses" / "Used by": changed files this one imports, and changed files that import it.
-function Connected({ title, paths, empty, rows, onSelect }: { title: string; paths: string[]; empty: string; rows: Row[]; onSelect: (i: number) => void }) {
+function Connected({
+  title,
+  paths,
+  empty,
+  rows,
+  onSelect,
+}: {
+  title: string;
+  paths: string[];
+  empty: string;
+  rows: Row[];
+  onSelect: (i: number) => void;
+}) {
   const hits = paths.map((p) => rows.find((r) => r.file.path === p)).filter((r): r is Row => !!r);
   return (
     <MiniCard title={`${title} · ${hits.length}`} empty={empty}>

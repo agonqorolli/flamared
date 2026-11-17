@@ -39,7 +39,8 @@ function preview(): LicenseStatus {
   return { state: "trial", days_left: days, ends: now + days * 86400 };
 }
 
-export const loadLicense = (): Promise<LicenseStatus> => (inTauri ? invoke<LicenseStatus>("license_status") : Promise.resolve(preview()));
+export const loadLicense = (): Promise<LicenseStatus> =>
+  inTauri ? invoke<LicenseStatus>("license_status") : Promise.resolve(preview());
 
 const activateKey = (key: string): Promise<LicenseStatus> => {
   if (inTauri) return invoke<LicenseStatus>("license_activate", { key });

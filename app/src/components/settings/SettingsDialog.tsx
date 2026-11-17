@@ -26,7 +26,15 @@ export type Section = (typeof SECTIONS)[number]["id"];
 
 // Settings: the menu on the left, the chosen section's settings on the right. `start` picks the section it opens
 // on (the trial note in the header opens License); otherwise it opens where it was left.
-export function SettingsDialog({ open, start, onOpenChange }: { open: boolean; start?: Section; onOpenChange: (open: boolean) => void }) {
+export function SettingsDialog({
+  open,
+  start,
+  onOpenChange,
+}: {
+  open: boolean;
+  start?: Section;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [section, setSection] = useState<Section>("appearance");
   useEffect(() => {
     if (open && start) setSection(start);
@@ -87,13 +95,32 @@ function Appearance() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Theme</FieldLabel>
-              <FieldDescription>Gray is the dark theme with softer contrast. System follows macOS: Gray when it's dark, Light when it's light. Diffs switch to a light code theme in Light.</FieldDescription>
+              <FieldDescription>
+                Gray is the dark theme with softer contrast. System follows macOS: Gray when it's dark, Light when it's
+                light. Diffs switch to a light code theme in Light.
+              </FieldDescription>
             </FieldContent>
-            <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={a.theme} onValueChange={(v) => v && setAppearance({ theme: v as AppearanceSettings["theme"] })}>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              spacing={0}
+              value={a.theme}
+              onValueChange={(v) => v && setAppearance({ theme: v as AppearanceSettings["theme"] })}
+            >
               {THEMES.map(([id, label, back, card]) => (
                 <ToggleGroupItem key={id} value={id}>
-                  <span className="relative size-3.5 shrink-0 overflow-hidden rounded-[4px] border border-foreground/20" style={{ background: back }} aria-hidden>
-                    {card && <span className="absolute right-0 bottom-0 size-2 rounded-tl-[3px]" style={{ background: card }} />}
+                  <span
+                    className="relative size-3.5 shrink-0 overflow-hidden rounded-[4px] border border-foreground/20"
+                    style={{ background: back }}
+                    aria-hidden
+                  >
+                    {card && (
+                      <span
+                        className="absolute right-0 bottom-0 size-2 rounded-tl-[3px]"
+                        style={{ background: card }}
+                      />
+                    )}
                   </span>
                   {label}
                 </ToggleGroupItem>
@@ -105,7 +132,14 @@ function Appearance() {
               <FieldLabel>Density</FieldLabel>
               <FieldDescription>Space between rows and around panels. Text stays the same size.</FieldDescription>
             </FieldContent>
-            <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={a.density} onValueChange={(v) => v && setAppearance({ density: v as AppearanceSettings["density"] })}>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              spacing={0}
+              value={a.density}
+              onValueChange={(v) => v && setAppearance({ density: v as AppearanceSettings["density"] })}
+            >
               <ToggleGroupItem value="compact">Compact</ToggleGroupItem>
               <ToggleGroupItem value="normal">Normal</ToggleGroupItem>
               <ToggleGroupItem value="spacious">Spacious</ToggleGroupItem>
@@ -152,7 +186,14 @@ function DiffStyle() {
   const d = settings.diff;
   const { options, style } = diffOptions(d, theme);
   const choice = <K extends keyof DiffSettings>(key: K, items: [DiffSettings[K], string][]) => (
-    <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={String(d[key])} onValueChange={(v) => v && setDiff({ [key]: items.find(([x]) => String(x) === v)![0] } as Partial<DiffSettings>)}>
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      spacing={0}
+      value={String(d[key])}
+      onValueChange={(v) => v && setDiff({ [key]: items.find(([x]) => String(x) === v)![0] } as Partial<DiffSettings>)}
+    >
       {items.map(([v, label]) => (
         <ToggleGroupItem key={String(v)} value={String(v)}>
           {label}
@@ -195,22 +236,35 @@ function DiffStyle() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Layout</FieldLabel>
-              <FieldDescription>One column, or the old and new code side by side. {hint("splitDiff")} switches it.</FieldDescription>
+              <FieldDescription>
+                One column, or the old and new code side by side. {hint("splitDiff")} switches it.
+              </FieldDescription>
             </FieldContent>
-            {choice("layout", [["unified", "Unified"], ["split", "Split"]])}
+            {choice("layout", [
+              ["unified", "Unified"],
+              ["split", "Split"],
+            ])}
           </Field>
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Long lines</FieldLabel>
               <FieldDescription>Scroll sideways, or wrap onto the next line.</FieldDescription>
             </FieldContent>
-            {choice("longLines", [["scroll", "Scroll"], ["wrap", "Wrap"]])}
+            {choice("longLines", [
+              ["scroll", "Scroll"],
+              ["wrap", "Wrap"],
+            ])}
           </Field>
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Text size</FieldLabel>
             </FieldContent>
-            {choice("fontSize", [[11, "11"], [12, "12"], [13, "13"], [14, "14"]])}
+            {choice("fontSize", [
+              [11, "11"],
+              [12, "12"],
+              [13, "13"],
+              [14, "14"],
+            ])}
           </Field>
           <FieldSeparator />
           <Field orientation="horizontal">
@@ -218,14 +272,23 @@ function DiffStyle() {
               <FieldLabel>Changes inside a line</FieldLabel>
               <FieldDescription>How the changed part of a line is highlighted.</FieldDescription>
             </FieldContent>
-            {choice("inline", [["word-alt", "Words"], ["word", "Words, strict"], ["char", "Characters"], ["none", "Off"]])}
+            {choice("inline", [
+              ["word-alt", "Words"],
+              ["word", "Words, strict"],
+              ["char", "Characters"],
+              ["none", "Off"],
+            ])}
           </Field>
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Change markers</FieldLabel>
               <FieldDescription>What marks an added or removed line in the margin.</FieldDescription>
             </FieldContent>
-            {choice("markers", [["classic", "+ / −"], ["bars", "Bars"], ["none", "None"]])}
+            {choice("markers", [
+              ["classic", "+ / −"],
+              ["bars", "Bars"],
+              ["none", "None"],
+            ])}
           </Field>
           <Field orientation="horizontal">
             <FieldContent>

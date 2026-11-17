@@ -15,7 +15,16 @@ import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { Said } from "@/components/Said";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
-import { editKey, editPatch, ms, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
+import {
+  editKey,
+  editPatch,
+  ms,
+  editStatus,
+  editStatusTip,
+  type Timeline,
+  type TimelineItem,
+  type TimelineRow,
+} from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import { hint, useKeys } from "@/lib/keys";
 import type { TimelineEdit } from "@/lib/types";
@@ -32,7 +41,16 @@ interface Props {
 }
 
 // Timeline: every agent edit in order (latest first) with the agent's words, commands and your prompts around it.
-export function TimelineView({ timeline, active, focus, inChanges, onShowInChanges, onShowInMap, fresh, onSeen }: Props) {
+export function TimelineView({
+  timeline,
+  active,
+  focus,
+  inChanges,
+  onShowInChanges,
+  onShowInMap,
+  fresh,
+  onSeen,
+}: Props) {
   const { items, edits } = timeline;
   const hasWords = items.some((it) => it.kind === "turn" && it.rows.some((r) => r.kind === "say"));
   // The selection follows the edit, so new edits arriving at the top don't move you.
@@ -68,11 +86,29 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Agent edits" className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar">
+      <nav
+        aria-label="Agent edits"
+        className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar"
+      >
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
-          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={showAgent && hasWords ? "agent" : "edits"}
+            onValueChange={(v) => v && setShowAgent(v === "agent")}
+          >
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
-            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? `Show the agent's messages between the edits (${hint("agent")})` : "No agent messages in these turns"}>
+            <ToggleGroupItem
+              value="agent"
+              disabled={!hasWords}
+              title={
+                hasWords
+                  ? `Show the agent's messages between the edits (${hint("agent")})`
+                  : "No agent messages in these turns"
+              }
+            >
               {/* Just "Agent" when the list is dragged narrow. */}
               <span className="@max-[11rem]:hidden">Edits +&nbsp;</span>Agent
               <KeyHint id="agent" />
@@ -84,7 +120,9 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
           </span>
         </div>
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
-          {!edits.length && <p className="px-1.5 pt-4 text-xs text-faint">No matching agent turns. Showing commits only.</p>}
+          {!edits.length && (
+            <p className="px-1.5 pt-4 text-xs text-faint">No matching agent turns. Showing commits only.</p>
+          )}
           {/* One section per day, laid out like the groups in Changes: the day's label, then its cards 8px apart. */}
           <div className="flex flex-col pb-10">
             {byDay(items).map(({ label, items: day }, d) => (
@@ -92,7 +130,14 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
                 {label && <SectionLabel>{label}</SectionLabel>}
                 <div className="flex flex-col gap-2">
                   {day.map((it, k) => (
-                    <Item key={it.kind === "turn" ? it.key : `${it.kind}-${k}`} item={it} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} onSelect={setSelected} />
+                    <Item
+                      key={it.kind === "turn" ? it.key : `${it.kind}-${k}`}
+                      item={it}
+                      selected={sel}
+                      showAgent={showAgent && hasWords}
+                      fresh={fresh}
+                      onSelect={setSelected}
+                    />
                   ))}
                 </div>
               </section>
@@ -116,7 +161,9 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
         <Empty className="flex-1">
           <EmptyHeader>
             <EmptyTitle>No agent edits</EmptyTitle>
-            <EmptyDescription>No Claude Code or Codex turn edited files that are still in this change.</EmptyDescription>
+            <EmptyDescription>
+              No Claude Code or Codex turn edited files that are still in this change.
+            </EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
@@ -134,7 +181,19 @@ function byDay(items: TimelineItem[]) {
   return days;
 }
 
-function Item({ item, selected, showAgent, fresh, onSelect }: { item: TimelineItem; selected: number; showAgent: boolean; fresh: Set<string>; onSelect: (i: number) => void }) {
+function Item({
+  item,
+  selected,
+  showAgent,
+  fresh,
+  onSelect,
+}: {
+  item: TimelineItem;
+  selected: number;
+  showAgent: boolean;
+  fresh: Set<string>;
+  onSelect: (i: number) => void;
+}) {
   if (item.kind === "day") return null;
   if (item.kind === "commit")
     return (
@@ -162,7 +221,19 @@ function Item({ item, selected, showAgent, fresh, onSelect }: { item: TimelineIt
   );
 }
 
-function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; agent: string; selected: number; fresh: Set<string>; onSelect: (i: number) => void }) {
+function TurnRow({
+  row,
+  agent,
+  selected,
+  fresh,
+  onSelect,
+}: {
+  row: TimelineRow;
+  agent: string;
+  selected: number;
+  fresh: Set<string>;
+  onSelect: (i: number) => void;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
   const on = row.kind === "edit" && row.index === selected;
   useEffect(() => {
@@ -190,13 +261,23 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
       <span className="w-9 shrink-0 text-micro text-faint @max-[13rem]:hidden">{time(e.at)}</span>
       <StatusLetter status={editStatus(e)} title={editStatusTip(e)} />
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(e.path)}</span>
-      {fresh.has(editKey(e)) && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />}
+      {fresh.has(editKey(e)) && (
+        <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />
+      )}
       {!e.inferred && <Counts add={e.add} rem={e.rem} />}
     </button>
   );
 }
 
-function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChanges, onShowInMap }: {
+function EditDetail({
+  edit: e,
+  index,
+  edits,
+  inChanges,
+  onSelect,
+  onShowInChanges,
+  onShowInMap,
+}: {
   edit: TimelineEdit;
   index: number;
   edits: TimelineEdit[];
@@ -206,7 +287,10 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
   onShowInMap: () => void;
 }) {
   // This file's edits (latest first), and other files edited in the same step (between the same two agent messages).
-  const history = edits.map((x, j) => [x, j] as const).filter(([x]) => x.path === e.path).sort(([a], [b]) => ms(b.at) - ms(a.at));
+  const history = edits
+    .map((x, j) => [x, j] as const)
+    .filter(([x]) => x.path === e.path)
+    .sort(([a], [b]) => ms(b.at) - ms(a.at));
   const together = edits
     .map((x, j) => [x, j] as const)
     .filter(([x], j) => j !== index && x.step === e.step && x.path !== e.path)
@@ -216,7 +300,15 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <DiffView id={`${index}`} patch={editPatch(e)} empty={e.inferred ? "The agent's command writes this file, but Codex didn't record a diff. See Changes for the current diff." : "No diff recorded for this edit"} />
+        <DiffView
+          id={`${index}`}
+          patch={editPatch(e)}
+          empty={
+            e.inferred
+              ? "The agent's command writes this file, but Codex didn't record a diff. See Changes for the current diff."
+              : "No diff recorded for this edit"
+          }
+        />
       </div>
       <SideColumn label="Edit and related edits">
         <FileCard
@@ -231,11 +323,23 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
           jump={
             inChanges && (
               <>
-                <Button variant="outline" size="icon-xs" aria-label="Show in Changes" title={`Show in Changes (${hint("toChanges")})`} onClick={onShowInChanges}>
+                <Button
+                  variant="outline"
+                  size="icon-xs"
+                  aria-label="Show in Changes"
+                  title={`Show in Changes (${hint("toChanges")})`}
+                  onClick={onShowInChanges}
+                >
                   <FileDiffIcon />
                   <KeyHint id="toChanges" />
                 </Button>
-                <Button variant="outline" size="icon-xs" aria-label="Show in Map" title={`Show in Map (${hint("toMap")})`} onClick={onShowInMap}>
+                <Button
+                  variant="outline"
+                  size="icon-xs"
+                  aria-label="Show in Map"
+                  title={`Show in Map (${hint("toMap")})`}
+                  onClick={onShowInMap}
+                >
                   <MapIcon />
                   <KeyHint id="toMap" />
                 </Button>
@@ -261,7 +365,11 @@ function EditDetail({ edit: e, index, edits, inChanges, onSelect, onShowInChange
         </MiniCard>
         <MiniCard title={`Same step · ${together.length}`} empty="No other files in this step">
           {together.map(([x, j]) => (
-            <MiniRow key={j} onClick={() => onSelect(j)} title={`${x.path}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}`}>
+            <MiniRow
+              key={j}
+              onClick={() => onSelect(j)}
+              title={`${x.path}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}`}
+            >
               <span className="truncate font-mono font-medium">{base(x.path)}</span>
             </MiniRow>
           ))}

@@ -8,7 +8,10 @@ export function KeyHint({ id, className }: { id: KeyId; className?: string }) {
   return (
     <Kbd
       aria-hidden
-      className={cn("key-hint absolute -right-1.5 -bottom-1.5 z-30 h-4 min-w-4 rounded-[4px] bg-foreground px-1 text-micro text-background shadow-md", className)}
+      className={cn(
+        "key-hint absolute -right-1.5 -bottom-1.5 z-30 h-4 min-w-4 rounded-[4px] bg-foreground px-1 text-micro text-background shadow-md",
+        className,
+      )}
     >
       {keyParts(id).join("")}
     </Kbd>

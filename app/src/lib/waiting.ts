@@ -21,7 +21,11 @@ export function whatChanged(prev: Snapshot, next: Snapshot): Waiting | null {
   const switched = prev.branch !== next.branch ? next.branch : null;
   const oldEdits = new Set(buildTimeline(prev).edits.map(editKey));
   const edits = buildTimeline(next).edits.filter((e) => !oldEdits.has(editKey(e))).length;
-  const said = (s: Snapshot) => s.timeline.sessions.reduce((a, x) => a + x.turns.reduce((b, t) => b + t.events.filter((e) => e.k === "say").length, 0), 0);
+  const said = (s: Snapshot) =>
+    s.timeline.sessions.reduce(
+      (a, x) => a + x.turns.reduce((b, t) => b + t.events.filter((e) => e.k === "say").length, 0),
+      0,
+    );
   const talk = !edits && said(next) > said(prev); // messages without edits (commands aren't shown, so they don't count)
   // HEAD moved without a new commit in the list: with the usual base (HEAD itself) that is how a commit shows up;
   // it can also be an amend, pull or reset, which the snapshot can't tell apart.

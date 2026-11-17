@@ -37,7 +37,11 @@ function visible(s: Snapshot): string {
     s.branch,
     s.diffs,
     s.timeline.commits.map((c) => c.sha),
-    s.timeline.sessions.map((x) => [x.id, x.title, x.turns.map((t) => [t.prompt, t.events.filter((e) => e.k !== "run").length])]), // commands are not shown
+    s.timeline.sessions.map((x) => [
+      x.id,
+      x.title,
+      x.turns.map((t) => [t.prompt, t.events.filter((e) => e.k !== "run").length]),
+    ]), // commands are not shown
   ]);
 }
 
@@ -45,7 +49,11 @@ function visible(s: Snapshot): string {
 function newSince(prev: Snapshot, next: Snapshot): Fresh {
   const paths = new Set(Object.keys(next.diffs).filter((p) => prev.diffs[p] !== next.diffs[p]));
   const before = new Set(buildTimeline(prev).edits.map(editKey));
-  const edits = new Set(buildTimeline(next).edits.map(editKey).filter((k) => !before.has(k)));
+  const edits = new Set(
+    buildTimeline(next)
+      .edits.map(editKey)
+      .filter((k) => !before.has(k)),
+  );
   return { paths, edits };
 }
 
@@ -59,7 +67,11 @@ export function useLiveRepo() {
   const [live, setLiveState] = useState(readLive);
   const [pending, setPending] = useState<Waiting | null>(null); // what a reload would change, while paused
   const [fresh, setFresh] = useState<Fresh>(NONE);
-  const current = useRef<{ repo: string | null; branch: string | null; snap: Snapshot | null }>({ repo: null, branch: null, snap: null });
+  const current = useRef<{ repo: string | null; branch: string | null; snap: Snapshot | null }>({
+    repo: null,
+    branch: null,
+    snap: null,
+  });
   const generation = useRef(0);
   const busy = useRef(false);
   const foreground = useRef(false);
@@ -77,9 +89,10 @@ export function useLiveRepo() {
     setLoading(!quiet);
     const prev = current.current;
     const switching = prev.repo !== path || prev.branch !== branch;
-    const label = prev.repo !== path
-      ? path.split("/").filter(Boolean).pop() || path
-      : branch || prev.snap?.branches.find((b) => b.current)?.name || "working folder";
+    const label =
+      prev.repo !== path
+        ? path.split("/").filter(Boolean).pop() || path
+        : branch || prev.snap?.branches.find((b) => b.current)?.name || "working folder";
     if (!quiet) {
       failed.current = null;
       setError(null);
@@ -173,7 +186,15 @@ export function useLiveRepo() {
     try {
       const s = await loadSnapshot(path, branch);
       const shown = current.current.snap;
-      if (!busy.current && id === generation.current && current.current.repo === path && current.current.branch === branch && shown && visible(shown) !== visible(s)) setPending(whatChanged(shown, s));
+      if (
+        !busy.current &&
+        id === generation.current &&
+        current.current.repo === path &&
+        current.current.branch === branch &&
+        shown &&
+        visible(shown) !== visible(s)
+      )
+        setPending(whatChanged(shown, s));
     } catch {
       /* the next change report checks again */
     } finally {
@@ -227,5 +248,23 @@ export function useLiveRepo() {
     });
   }, []);
 
-  return { repo, snap, loading, opening, updating, error, retry, dismissError, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable: inTauri };
+  return {
+    repo,
+    snap,
+    loading,
+    opening,
+    updating,
+    error,
+    retry,
+    dismissError,
+    live,
+    setLive,
+    pending,
+    fresh,
+    seen,
+    open,
+    viewBranch,
+    refresh,
+    liveAvailable: inTauri,
+  };
 }

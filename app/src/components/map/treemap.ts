@@ -14,13 +14,21 @@ export function buildTree(repo: string, files: [string, number][]): TreeNode {
     const parts = p.split("/");
     let node = root;
     for (let k = 0; k < parts.length - 1; k++) {
-      if (!node.kids.has(parts[k])) node.kids.set(parts[k], { name: parts[k], path: parts.slice(0, k + 1).join("/"), size: 0, kids: new Map() });
+      if (!node.kids.has(parts[k]))
+        node.kids.set(parts[k], { name: parts[k], path: parts.slice(0, k + 1).join("/"), size: 0, kids: new Map() });
       node = node.kids.get(parts[k])!;
     }
     // Square root of the line count: huge data files (timings, lockfiles) don't swallow the map.
-    node.kids.set(parts[parts.length - 1], { name: parts[parts.length - 1], path: p, leaf: true, size: Math.sqrt(Math.max(1, n)), kids: new Map() });
+    node.kids.set(parts[parts.length - 1], {
+      name: parts[parts.length - 1],
+      path: p,
+      leaf: true,
+      size: Math.sqrt(Math.max(1, n)),
+      kids: new Map(),
+    });
   }
-  const sum = (n: TreeNode): number => (n.leaf ? n.size : (n.size = [...n.kids.values()].reduce((a, c) => a + sum(c), 0)));
+  const sum = (n: TreeNode): number =>
+    n.leaf ? n.size : (n.size = [...n.kids.values()].reduce((a, c) => a + sum(c), 0));
   sum(root);
   return root;
 }

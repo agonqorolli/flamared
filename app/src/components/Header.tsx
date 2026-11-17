@@ -1,9 +1,28 @@
 import { useState } from "react";
-import { ChevronDownIcon, ClockIcon, FolderGit2Icon, FileDiffIcon, MapIcon, FolderPlusIcon, GitBranchIcon, InfoIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ClockIcon,
+  FolderGit2Icon,
+  FileDiffIcon,
+  MapIcon,
+  FolderPlusIcon,
+  GitBranchIcon,
+  InfoIcon,
+  RefreshCwIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KeyHint } from "@/components/KeyHint";
 import { MiddlePath } from "@/components/MiddlePath";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,28 +58,62 @@ interface Props {
 // tauri.conf.json) with the same 14px after them. In px, not spacing units: density mustn't move it.
 const titleBar = "__TAURI_INTERNALS__" in window && navigator.userAgent.includes("Mac");
 
-export function Header({ snap, view, loading, opening, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
+export function Header({
+  snap,
+  view,
+  loading,
+  opening,
+  live,
+  onView,
+  onOpenRepo,
+  onOpenFolder,
+  onViewBranch,
+  onRefresh,
+  onSettings,
+}: Props) {
   return (
-    <header data-tauri-drag-region="deep" className={cn("flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3", titleBar && "pl-[88px]")}>
+    <header
+      data-tauri-drag-region="deep"
+      className={cn("flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3", titleBar && "pl-[88px]")}
+    >
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
         {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} switching={!!opening} />}
-        {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} disabled={!!opening?.repoChanged} switching={!!opening} />}
+        {snap && (
+          <BranchPicker
+            snap={snap}
+            onViewBranch={onViewBranch}
+            disabled={!!opening?.repoChanged}
+            switching={!!opening}
+          />
+        )}
       </div>
       {/* Main navigation: plain tabs with an underline (shadcn's line variant), not boxed buttons. The header has
           no vertical padding here so the underline sits on its bottom border. */}
       <Tabs value={view} onValueChange={(v) => onView(v as View)} className="self-stretch">
         <TabsList variant="line" className="gap-3 p-0 group-data-horizontal/tabs:h-full">
-          <TabsTrigger value="changes" title={`Changes (${hint("goChanges")})`} className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+          <TabsTrigger
+            value="changes"
+            title={`Changes (${hint("goChanges")})`}
+            className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px"
+          >
             <FileDiffIcon data-icon="inline-start" />
             Changes
             <KeyHint id="goChanges" className="-bottom-0.5" />
           </TabsTrigger>
-          <TabsTrigger value="timeline" title={`Timeline (${hint("goTimeline")})`} className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+          <TabsTrigger
+            value="timeline"
+            title={`Timeline (${hint("goTimeline")})`}
+            className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px"
+          >
             <ClockIcon data-icon="inline-start" />
             Timeline
             <KeyHint id="goTimeline" className="-bottom-0.5" />
           </TabsTrigger>
-          <TabsTrigger value="map" title={`Map (${hint("goMap")})`} className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px">
+          <TabsTrigger
+            value="map"
+            title={`Map (${hint("goMap")})`}
+            className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px"
+          >
             <MapIcon data-icon="inline-start" />
             Map
             <KeyHint id="goMap" className="-bottom-0.5" />
@@ -70,11 +123,24 @@ export function Header({ snap, view, loading, opening, live, onView, onOpenRepo,
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
         <TrialNote onOpen={() => onSettings("license")} />
         {live && snap && <LiveToggle {...live} updating={live.updating} />}
-        <Button variant="outline" size="icon-sm" onClick={onRefresh} disabled={loading || !snap} aria-label={loading ? "Loading" : "Reload"} title={loading ? "Loading…" : `Reload now (${hint("reload")})`}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={onRefresh}
+          disabled={loading || !snap}
+          aria-label={loading ? "Loading" : "Reload"}
+          title={loading ? "Loading…" : `Reload now (${hint("reload")})`}
+        >
           {loading ? <Spinner /> : <RefreshCwIcon />}
           <KeyHint id="reload" />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={() => onSettings()} aria-label="Settings" title={`Settings (${hint("settings")})`}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => onSettings()}
+          aria-label="Settings"
+          title={`Settings (${hint("settings")})`}
+        >
           <SettingsIcon />
           <KeyHint id="settings" />
         </Button>
@@ -86,7 +152,14 @@ export function Header({ snap, view, loading, opening, live, onView, onOpenRepo,
 // One row of the repo or branch list: the name, a badge describing its file count
 // (hidden when zero), and an optional faint line under it. The one on screen
 // (`on`) is highlighted like the selected row in the Changes and Timeline lists (blue, with a bar on the left).
-function PickerItem({ value, on, title, files, sub, onSelect }: {
+function PickerItem({
+  value,
+  on,
+  title,
+  files,
+  sub,
+  onSelect,
+}: {
   value: string;
   on: boolean;
   title: string;
@@ -101,13 +174,17 @@ function PickerItem({ value, on, title, files, sub, onSelect }: {
       aria-current={on || undefined}
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-3 py-1.5",
-        on && "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] data-selected:bg-selection-bg data-selected:text-accent-foreground",
+        on &&
+          "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] data-selected:bg-selection-bg data-selected:text-accent-foreground",
       )}
     >
       <span className="truncate font-medium">{title}</span>
       <span className="col-start-2">
         {!!files?.n && (
-          <span title={files.title} className="inline-block max-w-48 truncate rounded-full bg-foreground/10 px-1.5 align-middle text-micro text-muted-foreground">
+          <span
+            title={files.title}
+            className="inline-block max-w-48 truncate rounded-full bg-foreground/10 px-1.5 align-middle text-micro text-muted-foreground"
+          >
             {files.label}
           </span>
         )}
@@ -118,14 +195,25 @@ function PickerItem({ value, on, title, files, sub, onSelect }: {
 }
 
 // The repo and branch lists: a little space between rows, and the heading lined up with the rows' text.
-const pickerGroup = "**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-items]]:flex **:[[cmdk-group-items]]:flex-col **:[[cmdk-group-items]]:gap-1";
+const pickerGroup =
+  "**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-items]]:flex **:[[cmdk-group-items]]:flex-col **:[[cmdk-group-items]]:gap-1";
 
 // A repo row's value for the list's search and keyboard position: its name and folder.
 const rowValue = (r?: RepoRow) => r && `${r.name} ${r.path}`;
 
 // Repos agents have worked in on this machine. Picking one loads it. When the list opens, each repo's checked-out
 // branch and uncommitted files are read (one quick git status each), for "on <branch>" and "N to check".
-function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snapshot; onOpenRepo: (path: string) => void; onOpenFolder: () => void; switching: boolean }) {
+function RepoPicker({
+  snap,
+  onOpenRepo,
+  onOpenFolder,
+  switching,
+}: {
+  snap: Snapshot;
+  onOpenRepo: (path: string) => void;
+  onOpenFolder: () => void;
+  switching: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Record<string, RepoStatus>>({});
   // Repos agents worked in, plus ones you opened yourself (Open folder…) that no agent session points to.
@@ -133,11 +221,22 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
     ...snap.repos,
     ...recentRepos()
       .filter((r) => !snap.repos.some((x) => x.full === r.path))
-      .map((r) => ({ name: base(r.path), path: r.path, full: r.path, sessions: 0, last: r.at, current: r.path === snap.path })),
+      .map((r) => ({
+        name: base(r.path),
+        path: r.path,
+        full: r.path,
+        sessions: 0,
+        last: r.at,
+        current: r.path === snap.path,
+      })),
   ];
   const onOpenChange = (o: boolean) => {
     setOpen(o);
-    if (o) loadRepoStatus(rows.map((r) => r.full)).then((xs) => setStatus(Object.fromEntries(xs.map((x) => [x.full, x]))), () => {});
+    if (o)
+      loadRepoStatus(rows.map((r) => r.full)).then(
+        (xs) => setStatus(Object.fromEntries(xs.map((x) => [x.full, x]))),
+        () => {},
+      );
   };
   // The open repo on its checked-out branch is counted exactly (marks checked against each file's change).
   // The open repo on its checked-out branch: the files the Changes screen lists.
@@ -161,7 +260,9 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
               heading={
                 <span className="flex items-center gap-1.5">
                   Repositories
-                  <InfoTip label="About this list">Repositories Claude Code or Codex have worked in, plus ones you opened.</InfoTip>
+                  <InfoTip label="About this list">
+                    Repositories Claude Code or Codex have worked in, plus ones you opened.
+                  </InfoTip>
                 </span>
               }
               className={pickerGroup}
@@ -175,7 +276,11 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
                     value={rowValue(r)!}
                     on={r.current}
                     title={r.name}
-                    files={{ n: count, label: plural(count, "changed file"), title: "Uncommitted changed files, as the Changes screen lists them" }}
+                    files={{
+                      n: count,
+                      label: plural(count, "changed file"),
+                      title: "Uncommitted changed files, as the Changes screen lists them",
+                    }}
                     sub={<MiddlePath path={r.path} />}
                     onSelect={() => {
                       setOpen(false);
@@ -209,7 +314,17 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
 
 // Branches of this repo. Viewing is read-only. When the list opens, each other branch's changed files are counted
 // (as viewing it would show them), and the checked-out branch's files to check.
-function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snapshot; onViewBranch: (branch: string | null) => void; disabled: boolean; switching: boolean }) {
+function BranchPicker({
+  snap,
+  onViewBranch,
+  disabled,
+  switching,
+}: {
+  snap: Snapshot;
+  onViewBranch: (branch: string | null) => void;
+  disabled: boolean;
+  switching: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<Record<string, BranchFiles>>({});
   const [own, setOwn] = useState<RepoStatus | null>(null); // the checked-out branch, while another is viewed
@@ -220,13 +335,23 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
     setOpen(o);
     if (!o) return;
     loadBranchFiles(snap.path).then(setFiles, () => {});
-    if (!snap.viewing.checked_out) loadRepoStatus([snap.path]).then((xs) => setOwn(xs[0] ?? null), () => {});
+    if (!snap.viewing.checked_out)
+      loadRepoStatus([snap.path]).then(
+        (xs) => setOwn(xs[0] ?? null),
+        () => {},
+      );
   };
   const ownCount = snap.viewing.checked_out ? snap.stats.files : (own?.changed.length ?? 0);
   return (
     <Popover open={open && !disabled} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled} className="max-w-56 font-medium" title={snap.viewing.checked_out ? `Working folder: ${viewing}` : `Previewing ${viewing}`}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          className="max-w-56 font-medium"
+          title={snap.viewing.checked_out ? `Working folder: ${viewing}` : `Previewing ${viewing}`}
+        >
           <GitBranchIcon data-icon="inline-start" />
           <span className="truncate">{viewing}</span>
           <ChevronDownIcon data-icon="inline-end" />
@@ -247,7 +372,8 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
                       {remote.length ? label : "Branches"}
                       {i === 0 && (
                         <InfoTip label="About previewing a branch">
-                          Shows a branch's changes without checking it out. Everything here is read-only; you can't edit it in the app.
+                          Shows a branch's changes without checking it out. Everything here is read-only; you can't edit
+                          it in the app.
                         </InfoTip>
                       )}
                     </span>
@@ -296,7 +422,11 @@ function InfoTip({ label, children }: { label: string; children: React.ReactNode
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button tabIndex={-1} className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label={label}>
+        <button
+          tabIndex={-1}
+          className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground"
+          aria-label={label}
+        >
           <InfoIcon className="size-3" />
         </button>
       </TooltipTrigger>
@@ -314,14 +444,37 @@ function LastCommit({ branch: b }: { branch: BranchRow }) {
 
 // Live: the screens update by themselves when files or agent sessions change. Paused holds them still and says
 // when changes are waiting.
-function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void }) {
+function LiveToggle({
+  on,
+  updating,
+  pending,
+  set,
+}: {
+  on: boolean;
+  updating: boolean;
+  pending: Waiting | null;
+  set: (on: boolean) => void;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="sm" aria-pressed={on} onClick={() => set(!on)} className="text-xs text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={on}
+          onClick={() => set(!on)}
+          className="text-xs text-muted-foreground"
+        >
           <span className="relative flex size-2">
-            {on && updating && <span className="absolute inline-flex size-full animate-ping rounded-full bg-add opacity-75" />}
-            <span className={cn("relative inline-flex size-2 rounded-full", on ? "bg-add" : pending ? "bg-warn" : "bg-faint")} />
+            {on && updating && (
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-add opacity-75" />
+            )}
+            <span
+              className={cn(
+                "relative inline-flex size-2 rounded-full",
+                on ? "bg-add" : pending ? "bg-warn" : "bg-faint",
+              )}
+            />
           </span>
           {on ? "Live" : pending ? `Paused · ${pending.label}` : "Paused"}
           <KeyHint id="live" />
@@ -336,7 +489,9 @@ function LiveToggle({ on, updating, pending, set }: { on: boolean; updating: boo
             {pending.details.map((d) => (
               <span key={d}>· {d}</span>
             ))}
-            <span className="text-muted-foreground">Click or press {hint("live")} to go live and load them, or reload once ({hint("reload")}).</span>
+            <span className="text-muted-foreground">
+              Click or press {hint("live")} to go live and load them, or reload once ({hint("reload")}).
+            </span>
           </>
         ) : (
           `Not updating by itself. Click or press ${hint("live")} to go live, or reload once (${hint("reload")}).`
@@ -351,7 +506,13 @@ function TrialNote({ onOpen }: { onOpen: () => void }) {
   const { status } = useLicense();
   if (status.state !== "trial") return null;
   return (
-    <Button variant="ghost" size="sm" onClick={onOpen} className="text-faint" title={`The trial ends ${shortDate(status.ends)}. Enter a license key`}>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onOpen}
+      className="text-faint"
+      title={`The trial ends ${shortDate(status.ends)}. Enter a license key`}
+    >
       {plural(status.days_left, "day")} left in trial
     </Button>
   );

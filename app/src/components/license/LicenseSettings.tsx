@@ -11,7 +11,10 @@ export function LicenseSettings() {
   const { status, remove } = useLicense();
   return (
     <>
-      <SectionHead title="License" text="One payment, no subscription. The key is checked on this Mac; nothing is sent anywhere." />
+      <SectionHead
+        title="License"
+        text="One payment, no subscription. The key is checked on this Mac; nothing is sent anywhere."
+      />
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         {status.state === "licensed" ? (
           <FieldGroup>
@@ -27,7 +30,10 @@ export function LicenseSettings() {
             <Field orientation="horizontal">
               <FieldContent>
                 <FieldLabel>Moving to another Mac</FieldLabel>
-                <FieldDescription>Takes the key off this Mac. Enter it again on the new one; the key from your purchase email keeps working.</FieldDescription>
+                <FieldDescription>
+                  Takes the key off this Mac. Enter it again on the new one; the key from your purchase email keeps
+                  working.
+                </FieldDescription>
               </FieldContent>
               <Button variant="outline" size="sm" onClick={remove}>
                 Remove from this Mac
@@ -38,7 +44,9 @@ export function LicenseSettings() {
           <FieldGroup>
             <Field orientation="horizontal">
               <FieldContent>
-                <FieldLabel>{status.state === "trial" ? `Trial: ${plural(status.days_left, "day")} left` : "Trial ended"}</FieldLabel>
+                <FieldLabel>
+                  {status.state === "trial" ? `Trial: ${plural(status.days_left, "day")} left` : "Trial ended"}
+                </FieldLabel>
                 <FieldDescription>
                   {status.state === "trial"
                     ? `Everything works during the ${TRIAL_DAYS}-day trial, until ${shortDate(status.ends)}. After that, ${APP_NAME} needs a license.`

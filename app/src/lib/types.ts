@@ -118,7 +118,12 @@ export interface Snapshot {
   };
   diffs: Record<string, string>;
   timeline: {
-    sessions: { id: string; title: string; agent: string; turns: { at: string | null; prompt: string; branch: string | null; events: TimelineEvent[] }[] }[];
+    sessions: {
+      id: string;
+      title: string;
+      agent: string;
+      turns: { at: string | null; prompt: string; branch: string | null; events: TimelineEvent[] }[];
+    }[];
     commits: { sha: string; at: string; subject: string }[];
     link: SessionLink;
   };

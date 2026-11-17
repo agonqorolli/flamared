@@ -15,15 +15,30 @@ export function diffOptions(d: DiffSettings, theme: Theme) {
       disableLineNumbers: !d.lineNumbers,
       disableFileHeader: true,
     },
-    style: { "--diffs-font-size": `${d.fontSize}px`, "--diffs-line-height": `${Math.round(d.fontSize * 1.65)}px` } as React.CSSProperties,
+    style: {
+      "--diffs-font-size": `${d.fontSize}px`,
+      "--diffs-line-height": `${Math.round(d.fontSize * 1.65)}px`,
+    } as React.CSSProperties,
   };
 }
 
 // A diff in a card that scrolls inside itself; `empty` shows instead when there is no patch.
-export function DiffView({ id, patch, more, empty }: { id: string; patch: string | null; more?: string | null; empty: string }) {
+export function DiffView({
+  id,
+  patch,
+  more,
+  empty,
+}: {
+  id: string;
+  patch: string | null;
+  more?: string | null;
+  empty: string;
+}) {
   const { settings, theme } = useSettings();
   if (!patch) {
-    return <div className="flex h-24 shrink-0 items-center rounded-xl border bg-card px-6 text-sm text-faint">{empty}</div>;
+    return (
+      <div className="flex h-24 shrink-0 items-center rounded-xl border bg-card px-6 text-sm text-faint">{empty}</div>
+    );
   }
   const { options, style } = diffOptions(settings.diff, theme);
   return (

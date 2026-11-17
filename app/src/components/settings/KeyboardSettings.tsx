@@ -8,7 +8,10 @@ import { Eyebrow } from "@/components/Eyebrow";
 export function KeyboardSettings() {
   return (
     <>
-      <SectionHead title="Keyboard" text="Hold ⌘ to see each button's key next to it. Letter keys work when you aren't typing in a field." />
+      <SectionHead
+        title="Keyboard"
+        text="Hold ⌘ to see each button's key next to it. Letter keys work when you aren't typing in a field."
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
         {SHORTCUT_ROWS.map(({ scope, rows }) => (
           <section key={scope} aria-label={scope} className="flex flex-col">

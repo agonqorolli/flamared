@@ -61,7 +61,12 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
 
 export function BuyButton({ variant = "default" }: { variant?: "default" | "outline" }) {
   return (
-    <Button type="button" size="sm" variant={variant} onClick={() => openUrl(BUY_URL).catch(() => window.open(BUY_URL, "_blank"))}>
+    <Button
+      type="button"
+      size="sm"
+      variant={variant}
+      onClick={() => openUrl(BUY_URL).catch(() => window.open(BUY_URL, "_blank"))}
+    >
       Buy a license
     </Button>
   );

@@ -56,10 +56,7 @@ export function PaneHandle({ pane, className }: { pane: Pane; className?: string
       onPointerDown={onPointerDown}
       onDoubleClick={() => resetWidth(pane)}
       onKeyDown={onKeyDown}
-      className={cn(
-        "group absolute inset-y-0 z-10 flex cursor-col-resize justify-center outline-none",
-        className,
-      )}
+      className={cn("group absolute inset-y-0 z-10 flex cursor-col-resize justify-center outline-none", className)}
     >
       <div className="w-0.5 bg-transparent transition-colors group-hover:bg-selection group-focus-visible:bg-selection group-active:bg-selection" />
     </div>

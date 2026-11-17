@@ -64,23 +64,50 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Change groups" className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar">
+      <nav
+        aria-label="Change groups"
+        className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar"
+      >
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
-          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "files"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={showAgent && hasWords ? "agent" : "files"}
+            onValueChange={(v) => v && setShowAgent(v === "agent")}
+          >
             <ToggleGroupItem value="files">Files</ToggleGroupItem>
             {/* Off when no agent message belongs to these changes, so the toggle never silently does nothing. */}
-            <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? `Show the agent's latest message on each group (${hint("agent")})` : "No agent messages for these changes"}>
+            <ToggleGroupItem
+              value="agent"
+              disabled={!hasWords}
+              title={
+                hasWords
+                  ? `Show the agent's latest message on each group (${hint("agent")})`
+                  : "No agent messages for these changes"
+              }
+            >
               {/* Just "Agent" when the list is dragged narrow. */}
               <span className="@max-[11rem]:hidden">Files +&nbsp;</span>Agent
               <KeyHint id="agent" />
             </ToggleGroupItem>
           </ToggleGroup>
           {/* Hidden when the list is dragged too narrow for it beside the toggle. */}
-          <span className="hidden text-xs whitespace-nowrap text-faint @min-[14rem]:inline">{plural(snap.stats.files, "file")}</span>
+          <span className="hidden text-xs whitespace-nowrap text-faint @min-[14rem]:inline">
+            {plural(snap.stats.files, "file")}
+          </span>
         </div>
         {/* Radix sizes the content as a table, which lets long text push past the edge; keep it a block. */}
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
-          <ChangesList sections={sections} selected={sel} showAgent={showAgent && hasWords} fresh={fresh} reviewOf={review.stateOf} onSelect={select} />
+          <ChangesList
+            sections={sections}
+            selected={sel}
+            showAgent={showAgent && hasWords}
+            fresh={fresh}
+            reviewOf={review.stateOf}
+            onSelect={select}
+          />
         </ScrollArea>
         <PaneHandle pane="list" className="-right-1 w-2" />
       </nav>
@@ -99,7 +126,9 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
           onReview={(s, shown) => {
             review.toggle(row.file, s, shown);
             if (!s) return;
-            const next = rows.map((_, k) => (sel + 1 + k) % rows.length).find((i) => i !== sel && !review.stateOf(rows[i].file));
+            const next = rows
+              .map((_, k) => (sel + 1 + k) % rows.length)
+              .find((i) => i !== sel && !review.stateOf(rows[i].file));
             if (next !== undefined) select(next);
           }}
           onStep={(d) => select(sel + d)}

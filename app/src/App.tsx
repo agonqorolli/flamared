@@ -39,7 +39,24 @@ function Gate() {
 }
 
 function Workspace() {
-  const { snap, loading, opening, updating, error, retry, dismissError, live, setLive, pending, fresh, seen, open, viewBranch, refresh, liveAvailable } = useLiveRepo();
+  const {
+    snap,
+    loading,
+    opening,
+    updating,
+    error,
+    retry,
+    dismissError,
+    live,
+    setLive,
+    pending,
+    fresh,
+    seen,
+    open,
+    viewBranch,
+    refresh,
+    liveAvailable,
+  } = useLiveRepo();
   const [view, setView] = useState<View>("changes");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsAt, setSettingsAt] = useState<Section | undefined>();
@@ -80,7 +97,8 @@ function Workspace() {
     shortcuts: () => openSettings("keyboard"),
     openFolder: canPickFolder && openFolder,
     live: liveAvailable && (() => setLive(!live)),
-    splitDiff: !opening && view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
+    splitDiff:
+      !opening && view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
   });
 
   return (
@@ -113,12 +131,20 @@ function Workspace() {
         <Alert variant="destructive" className="mx-3 mt-3 w-auto pr-32">
           <AlertDescription>{error}</AlertDescription>
           <AlertAction className="flex gap-1">
-            <Button variant="ghost" size="xs" onClick={retry}>Retry</Button>
-            <Button variant="ghost" size="xs" onClick={dismissError}>Dismiss</Button>
+            <Button variant="ghost" size="xs" onClick={retry}>
+              Retry
+            </Button>
+            <Button variant="ghost" size="xs" onClick={dismissError}>
+              Dismiss
+            </Button>
           </AlertAction>
         </Alert>
       )}
-      <div inert={!!opening && !!snap} aria-busy={!!opening} className={cn("flex min-h-0 flex-1 flex-col", opening && snap && "opacity-50")}>
+      <div
+        inert={!!opening && !!snap}
+        aria-busy={!!opening}
+        className={cn("flex min-h-0 flex-1 flex-col", opening && snap && "opacity-50")}
+      >
         {error && !snap ? (
           <Empty className="flex-1">
             <EmptyHeader>
@@ -126,7 +152,9 @@ function Workspace() {
               <EmptyDescription>{error}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button variant="outline" onClick={retry}>Retry</Button>
+              <Button variant="outline" onClick={retry}>
+                Retry
+              </Button>
             </EmptyContent>
           </Empty>
         ) : !snap ? (
@@ -136,7 +164,9 @@ function Workspace() {
             ) : (
               <EmptyHeader>
                 <EmptyTitle>No repository yet</EmptyTitle>
-                <EmptyDescription>No coding agent session was found on this machine. Opening any folder comes with the folder picker.</EmptyDescription>
+                <EmptyDescription>
+                  No coding agent session was found on this machine. Opening any folder comes with the folder picker.
+                </EmptyDescription>
               </EmptyHeader>
             )}
           </Empty>

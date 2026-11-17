@@ -63,7 +63,16 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   appearance: { theme: "gray", density: "normal" },
-  diff: { theme: "github-dark", layout: "unified", longLines: "scroll", inline: "word-alt", markers: "classic", backgrounds: true, lineNumbers: true, fontSize: 12 },
+  diff: {
+    theme: "github-dark",
+    layout: "unified",
+    longLines: "scroll",
+    inline: "word-alt",
+    markers: "classic",
+    backgrounds: true,
+    lineNumbers: true,
+    fontSize: 12,
+  },
 };
 
 const KEY = "settings";
@@ -79,7 +88,8 @@ const load = (): Settings => {
 // System follows macOS: Gray when it's dark (the default dark look), Light when it's light. Once the window's
 // theme is unset (below), the web view's color scheme is macOS's.
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
-const resolveTheme = (t: AppearanceSettings["theme"]): Theme => (t === "system" ? (systemDark.matches ? "gray" : "light") : t);
+const resolveTheme = (t: AppearanceSettings["theme"]): Theme =>
+  t === "system" ? (systemDark.matches ? "gray" : "light") : t;
 
 interface Api {
   settings: Settings;
@@ -102,7 +112,10 @@ function applyAppearance(a: AppearanceSettings) {
   root.style.colorScheme = theme === "light" ? "light" : "dark";
   // The header doubles as the title bar (see Header.tsx); the window buttons on it follow macOS's appearance unless
   // told otherwise, so match them to the theme, or leave them to macOS for System.
-  if (inTauri) getCurrentWindow().setTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark").catch(() => {});
+  if (inTauri)
+    getCurrentWindow()
+      .setTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark")
+      .catch(() => {});
 }
 
 // Called once before the first render, so the window opens in the saved theme instead of flashing dark first.
@@ -118,9 +131,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       /* kept for this session only */
     }
   }, []);
-  const setDiff = useCallback((patch: Partial<DiffSettings>) => save({ ...settings, diff: { ...settings.diff, ...patch } }), [settings, save]);
+  const setDiff = useCallback(
+    (patch: Partial<DiffSettings>) => save({ ...settings, diff: { ...settings.diff, ...patch } }),
+    [settings, save],
+  );
   const resetDiff = useCallback(() => save({ ...settings, diff: DEFAULTS.diff }), [settings, save]);
-  const setAppearance = useCallback((patch: Partial<AppearanceSettings>) => save({ ...settings, appearance: { ...settings.appearance, ...patch } }), [settings, save]);
+  const setAppearance = useCallback(
+    (patch: Partial<AppearanceSettings>) => save({ ...settings, appearance: { ...settings.appearance, ...patch } }),
+    [settings, save],
+  );
   const resetAppearance = useCallback(() => save({ ...settings, appearance: DEFAULTS.appearance }), [settings, save]);
   const [dark, setDark] = useState(systemDark.matches);
   useEffect(() => {
@@ -130,7 +149,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => applyAppearance(settings.appearance), [settings.appearance, dark]);
   const theme = resolveTheme(settings.appearance.theme);
-  return <Ctx.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useSettings() {

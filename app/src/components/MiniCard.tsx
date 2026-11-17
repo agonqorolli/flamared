@@ -2,7 +2,15 @@ import { cn } from "@/lib/utils";
 import { Eyebrow } from "@/components/Eyebrow";
 
 // A small card for the column beside a diff (Uses, Used by, File history, Same step) and the map's side panel.
-export function MiniCard({ title, empty, children }: { title: React.ReactNode; empty: string; children?: React.ReactNode[] }) {
+export function MiniCard({
+  title,
+  empty,
+  children,
+}: {
+  title: React.ReactNode;
+  empty: string;
+  children?: React.ReactNode[];
+}) {
   const rows = (children ?? []).filter(Boolean);
   return (
     <section className="flex flex-col gap-0.5 rounded-xl border bg-card p-2">
@@ -12,7 +20,17 @@ export function MiniCard({ title, empty, children }: { title: React.ReactNode; e
   );
 }
 
-export function MiniRow({ on, title, onClick, children }: { on?: boolean; title?: string; onClick: () => void; children: React.ReactNode }) {
+export function MiniRow({
+  on,
+  title,
+  onClick,
+  children,
+}: {
+  on?: boolean;
+  title?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}

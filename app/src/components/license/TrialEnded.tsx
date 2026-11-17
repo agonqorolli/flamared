@@ -11,12 +11,14 @@ export function TrialEnded() {
           <div className="text-xs text-faint">{APP_NAME}</div>
           <h1 className="text-lg font-semibold">Your trial has ended</h1>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Thanks for trying {APP_NAME} for {TRIAL_DAYS} days. To keep using it, {BUY_URL ? "buy a license" : "enter a license key"}: one payment, no
-            subscription.
+            Thanks for trying {APP_NAME} for {TRIAL_DAYS} days. To keep using it,{" "}
+            {BUY_URL ? "buy a license" : "enter a license key"}: one payment, no subscription.
           </p>
         </div>
         <KeyForm autoFocus />
-        <p className="border-t pt-4 text-xs leading-snug text-faint">The key is checked on this Mac. Your code and agent sessions never leave it.</p>
+        <p className="border-t pt-4 text-xs leading-snug text-faint">
+          The key is checked on this Mac. Your code and agent sessions never leave it.
+        </p>
       </div>
     </div>
   );

@@ -35,7 +35,8 @@ const keptShare = (sv: Record<Survival, number>) => {
 };
 // Tile colors per lens, from the --lens-* tokens in index.css (each theme has its own). Scales mix a lens's low and
 // high color by how much the file has of it.
-const mix = (lens: "size" | "rework", t: number) => `color-mix(in srgb, var(--lens-${lens}-high) ${Math.round(t * 100)}%, var(--lens-${lens}-low))`;
+const mix = (lens: "size" | "rework", t: number) =>
+  `color-mix(in srgb, var(--lens-${lens}-high) ${Math.round(t * 100)}%, var(--lens-${lens}-low))`;
 const LENS: Record<Lens, { label: string; color: (x: FileStats, M: Info) => string }> = {
   size: { label: "Change size", color: (x, M) => mix("size", Math.log1p(x.f.add + x.f.rem) / Math.log1p(M.maxLines)) },
   rework: { label: "Rework", color: (x, M) => (x.edits ? mix("rework", x.edits / M.maxEdits) : "var(--lens-none)") },
@@ -43,16 +44,29 @@ const LENS: Record<Lens, { label: string; color: (x: FileStats, M: Info) => stri
     label: "Still in final",
     color: (x) => {
       const s = keptShare(x.sv);
-      return s == null ? "var(--lens-none)" : s >= 0.8 ? "var(--lens-kept)" : s >= 0.4 ? "var(--lens-partly)" : "var(--lens-gone)";
+      return s == null
+        ? "var(--lens-none)"
+        : s >= 0.8
+          ? "var(--lens-kept)"
+          : s >= 0.4
+            ? "var(--lens-partly)"
+            : "var(--lens-gone)";
     },
   },
   flags: { label: "Flags", color: (x) => (x.flags.length ? "var(--lens-flag)" : "var(--lens-none)") },
 };
 
-const LENS_KEY: Record<Lens, KeyId> = { size: "lensSize", rework: "lensRework", final: "lensFinal", flags: "lensFlags" };
+const LENS_KEY: Record<Lens, KeyId> = {
+  size: "lensSize",
+  rework: "lensRework",
+  final: "lensFinal",
+  flags: "lensFlags",
+};
 
 function Legend({ lens }: { lens: Lens }) {
-  const sw = (c: string) => <span className="mr-1 ml-2 inline-block size-2.5 rounded-[2px] align-[-1px]" style={{ background: c }} />;
+  const sw = (c: string) => (
+    <span className="mr-1 ml-2 inline-block size-2.5 rounded-[2px] align-[-1px]" style={{ background: c }} />
+  );
   if (lens === "size") return <>stronger color = more lines changed</>;
   if (lens === "rework") return <>stronger color = more agent edits · gray = no agent edits here</>;
   if (lens === "final")
@@ -88,11 +102,21 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
     const files: Record<string, FileStats> = {};
     const all = [
       ...snap.story.logic.flatMap((g) => [...g.files, ...g.tests]),
-      ...[...snap.story.shared, ...snap.story.wiring, ...snap.story.loose.flatMap((l) => l.files)].flatMap((g) => [...g.files, ...g.tests]),
+      ...[...snap.story.shared, ...snap.story.wiring, ...snap.story.loose.flatMap((l) => l.files)].flatMap((g) => [
+        ...g.files,
+        ...g.tests,
+      ]),
       ...snap.story.loose_tests,
       ...snap.story.support.flatMap((s) => s.files),
     ];
-    for (const f of all) files[f.path] = { f, edits: 0, sv: { kept: 0, partly: 0, gone: 0, undone: 0 }, flags: snap.map.flags[f.path] || [], group: snap.map.groups[f.path] };
+    for (const f of all)
+      files[f.path] = {
+        f,
+        edits: 0,
+        sv: { kept: 0, partly: 0, gone: 0, undone: 0 },
+        flags: snap.map.flags[f.path] || [],
+        group: snap.map.groups[f.path],
+      };
     for (const e of timeline.edits) {
       const x = files[e.path];
       if (!x) continue;
@@ -100,7 +124,11 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
       if (e.survives) x.sv[e.survives]++;
     }
     const list = Object.values(files);
-    return { files, maxLines: Math.max(1, ...list.map((x) => x.f.add + x.f.rem)), maxEdits: Math.max(1, ...list.map((x) => x.edits)) };
+    return {
+      files,
+      maxLines: Math.max(1, ...list.map((x) => x.f.add + x.f.rem)),
+      maxEdits: Math.max(1, ...list.map((x) => x.edits)),
+    };
   }, [snap, timeline]);
 
   useEffect(() => {
@@ -134,9 +162,21 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
     <div className="flex min-h-0 flex-1 gap-3 p-3">
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 pb-2.5">
-          <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={lens} onValueChange={(v) => v && setLens(v as Lens)} aria-label="Color by">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={lens}
+            onValueChange={(v) => v && setLens(v as Lens)}
+            aria-label="Color by"
+          >
             {(Object.keys(LENS) as Lens[]).map((k) => (
-              <ToggleGroupItem key={k} value={k} title={`Color by ${LENS[k].label.toLowerCase()} (${hint(LENS_KEY[k])})`}>
+              <ToggleGroupItem
+                key={k}
+                value={k}
+                title={`Color by ${LENS[k].label.toLowerCase()} (${hint(LENS_KEY[k])})`}
+              >
                 {LENS[k].label}
                 <KeyHint id={LENS_KEY[k]} />
               </ToggleGroupItem>
@@ -149,7 +189,12 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
             {parts.map((p, k) => (
               <span key={k} className="contents">
                 /
-                <Button variant="ghost" size="xs" className="font-mono" onClick={() => setZoom(parts.slice(0, k + 1).join("/"))}>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="font-mono"
+                  onClick={() => setZoom(parts.slice(0, k + 1).join("/"))}
+                >
                   {p}
                 </Button>
               </span>
@@ -160,11 +205,26 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
             <Legend lens={lens} />
           </span>
         </div>
-        <Treemap tree={tree} zoom={zoom} info={info} lens={lens} sel={sel} active={active} onSelect={select} onZoom={setZoom} />
+        <Treemap
+          tree={tree}
+          zoom={zoom}
+          info={info}
+          lens={lens}
+          sel={sel}
+          active={active}
+          onSelect={select}
+          onZoom={setZoom}
+        />
       </main>
       <SideColumn label="Selected file">
         {sel && info.files[sel] ? (
-          <Selected x={info.files[sel]} inTimeline={timeline.paths.has(sel)} onBack={() => setSel(null)} onOpenInChanges={onOpenInChanges} onShowInTimeline={onShowInTimeline} />
+          <Selected
+            x={info.files[sel]}
+            inTimeline={timeline.paths.has(sel)}
+            onBack={() => setSel(null)}
+            onOpenInChanges={onOpenInChanges}
+            onShowInTimeline={onShowInTimeline}
+          />
         ) : (
           <Overview snap={snap} info={info} onSelect={select} />
         )}
@@ -173,7 +233,16 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
   );
 }
 
-function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
+function Treemap({
+  tree,
+  zoom,
+  info,
+  lens,
+  sel,
+  active,
+  onSelect,
+  onZoom,
+}: {
   tree: TreeNode;
   zoom: string;
   info: Info;
@@ -201,7 +270,15 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
     const st = { left: x, top: y, width: w, height: h };
     if (node.leaf) {
       const x2 = info.files[node.path];
-      if (!x2) return void out.push(<div key={node.path} className="absolute rounded-[2px] border border-map-edge bg-map-tile" style={st} title={`${node.path} · unchanged`} />);
+      if (!x2)
+        return void out.push(
+          <div
+            key={node.path}
+            className="absolute rounded-[2px] border border-map-edge bg-map-tile"
+            style={st}
+            title={`${node.path} · unchanged`}
+          />,
+        );
       out.push(
         <button
           key={node.path}
@@ -223,7 +300,11 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
     const pad = depth > 0 ? 2 : 0;
     if (depth > 0)
       out.push(
-        <div key={`d:${node.path}`} className="pointer-events-none absolute rounded border border-map-folder" style={st}>
+        <div
+          key={`d:${node.path}`}
+          className="pointer-events-none absolute rounded border border-map-folder"
+          style={st}
+        >
           {labelled && (
             <button
               onClick={() => onZoom(node.path)}
@@ -237,11 +318,17 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
       );
     const kids = [...node.kids.values()].sort((a, b) => b.size - a.size);
     if (w - 2 * pad < 2 || h - head - 2 * pad < 2) return;
-    for (const t of squarify(kids, x + pad, y + head + pad, w - 2 * pad, h - head - 2 * pad)) draw(t.node, t.x, t.y, t.w, t.h, depth + 1);
+    for (const t of squarify(kids, x + pad, y + head + pad, w - 2 * pad, h - head - 2 * pad))
+      draw(t.node, t.x, t.y, t.w, t.h, depth + 1);
   };
   if (size.w && size.h) draw(root, 0, 0, size.w, size.h, 0);
   return (
-    <div ref={ref} role="img" aria-label="Treemap of the repository; changed files are lit up" className="relative min-h-80 flex-1 overflow-hidden rounded-xl border bg-map-bg">
+    <div
+      ref={ref}
+      role="img"
+      aria-label="Treemap of the repository; changed files are lit up"
+      className="relative min-h-80 flex-1 overflow-hidden rounded-xl border bg-map-bg"
+    >
       {out}
     </div>
   );
@@ -254,7 +341,9 @@ function Stat({ label, note, children }: { label: string; note?: string; childre
       {/* The value wraps under its label when the side column is dragged narrow. */}
       <div className="flex flex-wrap justify-between gap-x-2.5 text-xs text-muted-foreground">
         <span>{label}</span>
-        <b className="ml-auto min-w-0 text-right font-medium [overflow-wrap:anywhere] text-foreground @max-[8rem]:max-w-full @max-[8rem]:truncate">{children}</b>
+        <b className="ml-auto min-w-0 text-right font-medium [overflow-wrap:anywhere] text-foreground @max-[8rem]:max-w-full @max-[8rem]:truncate">
+          {children}
+        </b>
       </div>
       {note && <span className="text-mini text-faint">{note}</span>}
     </div>
@@ -265,7 +354,11 @@ function Stat({ label, note, children }: { label: string; note?: string; childre
 function Overview({ snap, info, onSelect }: { snap: Snapshot; info: Info; onSelect: (p: string) => void }) {
   const list = Object.values(info.files);
   const folders = new Set(list.map((x) => x.f.path.split("/").slice(0, -1).join("/")));
-  const top = (key: (x: FileStats) => number, n: number) => [...list].sort((a, b) => key(b) - key(a)).filter((x) => key(x) > 0).slice(0, n);
+  const top = (key: (x: FileStats) => number, n: number) =>
+    [...list]
+      .sort((a, b) => key(b) - key(a))
+      .filter((x) => key(x) > 0)
+      .slice(0, n);
   const row = (x: FileStats, right: React.ReactNode) => (
     <MiniRow key={x.f.path} onClick={() => onSelect(x.f.path)} title={x.f.path}>
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(x.f.path)}</span>
@@ -307,7 +400,13 @@ function Overview({ snap, info, onSelect }: { snap: Snapshot; info: Info; onSele
   );
 }
 
-function Selected({ x, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: {
+function Selected({
+  x,
+  inTimeline,
+  onBack,
+  onOpenInChanges,
+  onShowInTimeline,
+}: {
   x: FileStats;
   inTimeline: boolean;
   onBack: () => void;
@@ -332,12 +431,24 @@ function Selected({ x, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: 
         onBack={onBack}
         jump={
           <>
-            <Button variant="outline" size="icon-xs" aria-label="Open in Changes" title={`Open in Changes (${hint("toChanges")})`} onClick={() => onOpenInChanges(f.path)}>
+            <Button
+              variant="outline"
+              size="icon-xs"
+              aria-label="Open in Changes"
+              title={`Open in Changes (${hint("toChanges")})`}
+              onClick={() => onOpenInChanges(f.path)}
+            >
               <FileDiffIcon />
               <KeyHint id="toChanges" />
             </Button>
             {inTimeline && (
-              <Button variant="outline" size="icon-xs" aria-label="Show in Timeline" title={`Show in Timeline (${hint("toTimeline")})`} onClick={() => onShowInTimeline(f.path)}>
+              <Button
+                variant="outline"
+                size="icon-xs"
+                aria-label="Show in Timeline"
+                title={`Show in Timeline (${hint("toTimeline")})`}
+                onClick={() => onShowInTimeline(f.path)}
+              >
                 <ClockIcon />
                 <KeyHint id="toTimeline" />
               </Button>
