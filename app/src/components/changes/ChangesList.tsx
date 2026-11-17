@@ -82,7 +82,6 @@ function FileRow({ row, on, fresh, review, onSelect }: { row: Row; on: boolean; 
         <StatusLetter status={f.status} title={STATUS[f.status]} />
         <span className="min-w-0 flex-1 truncate font-mono font-medium">{f.path.slice(f.path.lastIndexOf("/") + 1)}</span>
         {fresh && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New or changed since you last looked" />}
-        {row.note && <span className="shrink-0 text-micro text-faint">{row.note}</span>}
         {f.binary ? <span className="shrink-0 text-mini text-faint">binary</span> : <Counts add={f.add} rem={f.rem} />}
       </span>
     </button>

@@ -19,7 +19,9 @@ export function MiniRow({ on, title, onClick, children }: { on?: boolean; title?
       title={title}
       aria-current={on || undefined}
       className={cn(
-        "flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-subtle hover:bg-raised",
+        // In a side column dragged very narrow, what follows the name wraps under it, and anything still too wide for the
+        // row is cut short (the row's title has it all), instead of pushing past the edge.
+        "flex min-w-0 items-center gap-x-2 rounded-md px-1.5 py-1 text-left text-xs text-subtle hover:bg-raised @max-[8rem]:flex-wrap @max-[8rem]:*:max-w-full @max-[8rem]:*:truncate",
         on && "bg-selection-bg text-accent-foreground hover:bg-selection-bg",
       )}
     >

@@ -251,9 +251,10 @@ function Treemap({ tree, zoom, info, lens, sel, active, onSelect, onZoom }: {
 function Stat({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 px-1 py-1">
-      <div className="flex justify-between gap-2.5 text-xs text-muted-foreground">
+      {/* The value wraps under its label when the side column is dragged narrow. */}
+      <div className="flex flex-wrap justify-between gap-x-2.5 text-xs text-muted-foreground">
         <span>{label}</span>
-        <b className="text-right font-medium text-foreground">{children}</b>
+        <b className="ml-auto min-w-0 text-right font-medium [overflow-wrap:anywhere] text-foreground @max-[8rem]:max-w-full @max-[8rem]:truncate">{children}</b>
       </div>
       {note && <span className="text-mini text-faint">{note}</span>}
     </div>
@@ -294,7 +295,7 @@ function Overview({ snap, info, onSelect }: { snap: Snapshot; info: Info; onSele
       </MiniCard>
       <MiniCard
         title={
-          <span className="flex items-center gap-1">
+          <span className="flex flex-wrap items-center gap-1">
             Flagged <FlagRules />
           </span>
         }

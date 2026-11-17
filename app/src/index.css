@@ -239,7 +239,8 @@
 
 /* Screen layout: the list on the left (Changes, Timeline) and the side column on the right. The side column takes
    26% of what is left beside the list, within 200–220px at normal density, so it sits in the same place on every
-   screen, including the Map, which has no list. 6 spacing units: the 12px margin on each side. */
+   screen, including the Map, which has no list. 6 spacing units: the 12px margin on each side. Dragging either edge
+   replaces the variable on :root with a fixed width (lib/panes.ts). */
 :root {
     --list-w: calc(var(--spacing) * 75);
     --side-w: clamp(calc(var(--spacing) * 50), calc((100vw - var(--list-w) - var(--spacing) * 6) * 0.26), calc(var(--spacing) * 55));

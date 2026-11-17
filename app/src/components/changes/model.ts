@@ -4,7 +4,6 @@ import type { FileInfo, GroupItem, Snapshot } from "@/lib/types";
 
 export interface Row {
   file: FileInfo;
-  note: string; // "used by 4", "uses 5": why a file sits in a shared or wiring block
   group: string;
   index: number; // position in the flat list (j/k and "File N of M")
 }
@@ -33,7 +32,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
   const rows: Row[] = [];
   // The agent's latest message about any file in the block, whatever the section.
   const latestWords = (fs: FileInfo[]) => fs.filter((f) => f.words).sort((x, y) => ms(y.words_at) - ms(x.words_at))[0];
-  const block = (key: string, name: string, sub: string, files: (FileInfo & { note?: string })[], tests: FileInfo[], extra: Partial<Block> = {}): Block => ({
+  const block = (key: string, name: string, sub: string, files: FileInfo[], tests: FileInfo[], extra: Partial<Block> = {}): Block => ({
     key,
     name,
     sub,
@@ -44,7 +43,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
     lonely: false,
     ...extra,
     rows: [...files, ...tests].map((f) => {
-      const row = { file: f, note: (f as { note?: string }).note ?? "", group: name, index: rows.length };
+      const row = { file: f, group: name, index: rows.length };
       rows.push(row);
       return row;
     }),
@@ -55,7 +54,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       key,
       name,
       sub,
-      list.flatMap((g) => g.files.map((f) => ({ ...f, note: g.used_by ? `used by ${g.used_by}` : g.imports ? `uses ${g.imports}` : "" }))),
+      list.flatMap((g) => g.files),
       list.flatMap((g) => g.tests),
       extra,
     );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { SideColumn } from "@/components/SideColumn";
+import { PaneHandle } from "@/components/PaneHandle";
 import { FileDiffIcon, MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KeyHint } from "@/components/KeyHint";
@@ -67,16 +68,18 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
 
   return (
     <div className="flex min-h-0 flex-1">
-      <nav aria-label="Agent edits" className="flex w-(--list-w) min-w-60 shrink-0 flex-col border-r bg-sidebar">
+      <nav aria-label="Agent edits" className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center justify-between gap-2 px-3 pt-3">
           <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={showAgent && hasWords ? "agent" : "edits"} onValueChange={(v) => v && setShowAgent(v === "agent")}>
             <ToggleGroupItem value="edits">Edits</ToggleGroupItem>
             <ToggleGroupItem value="agent" disabled={!hasWords} title={hasWords ? `Show the agent's messages between the edits (${hint("agent")})` : "No agent messages in these turns"}>
-              Edits + Agent
+              {/* Just "Agent" when the list is dragged narrow. */}
+              <span className="@max-[11rem]:hidden">Edits +&nbsp;</span>Agent
               <KeyHint id="agent" />
             </ToggleGroupItem>
           </ToggleGroup>
-          <span className="flex items-center gap-1 text-xs text-faint">
+          {/* Hidden when the list is dragged too narrow for it beside the toggle. */}
+          <span className="hidden items-center gap-1 text-xs whitespace-nowrap text-faint @min-[14rem]:flex">
             {plural(edits.length, "edit")}
           </span>
         </div>
@@ -96,6 +99,7 @@ export function TimelineView({ timeline, active, focus, inChanges, onShowInChang
             ))}
           </div>
         </ScrollArea>
+        <PaneHandle pane="list" className="-right-1 w-2" />
       </nav>
       {e ? (
         <EditDetail
@@ -182,7 +186,8 @@ function TurnRow({ row, agent, selected, fresh, onSelect }: { row: TimelineRow; 
         on && "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)] hover:bg-selection-bg",
       )}
     >
-      <span className="w-9 shrink-0 text-micro text-faint">{time(e.at)}</span>
+      {/* Left out when the list is dragged narrow, so the file name keeps the room. */}
+      <span className="w-9 shrink-0 text-micro text-faint @max-[13rem]:hidden">{time(e.at)}</span>
       <StatusLetter status={editStatus(e)} title={editStatusTip(e)} />
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(e.path)}</span>
       {fresh.has(editKey(e)) && <span className="size-1.5 shrink-0 rounded-full bg-selection" title="New since you last looked" />}
