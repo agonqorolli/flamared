@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+/// How long changes are collected before the window is told, so that a burst means one reload.
 const QUIET: Duration = Duration::from_millis(700);
 
 /// The one active watcher; opening another repo replaces it.
@@ -19,79 +20,81 @@ pub struct Watching(Mutex<Option<Debouncer<notify::RecommendedWatcher>>>);
 
 /// Inside a repo's .git folder only these mean the change itself moved: a commit, a branch switch, a reset.
 /// The index (staging), logs and objects don't change what the app shows.
-fn git_meta_matters(rel: &str) -> bool {
-    let rel = rel.strip_prefix(".git/").unwrap_or(rel);
-    let rel = rel
-        .split_once("worktrees/")
-        .map_or(rel, |(_, r)| r.split_once('/').map_or(r, |x| x.1));
-    !rel.ends_with(".lock") && (rel == "HEAD" || rel == "packed-refs" || rel.starts_with("refs/"))
+fn git_meta_matters(path: &str) -> bool {
+    let path = path.strip_prefix(".git/").unwrap_or(path);
+    // A worktree keeps its own HEAD and refs under .git/worktrees/<name>/.
+    let path = path.split_once("worktrees/").map_or(path, |(_, in_worktrees)| {
+        in_worktrees.split_once('/').map_or(in_worktrees, |(_name, rest)| rest)
+    });
+    !path.ends_with(".lock") && (path == "HEAD" || path == "packed-refs" || path.starts_with("refs/"))
 }
 
 /// Does this batch of changed paths affect what the window shows for the repo at `roots`?
 fn matters(paths: &[String], roots: &[String], session_dirs: &[String]) -> bool {
-    let mut work: Vec<(&str, String)> = Vec::new(); // (root, path relative to it) for files in the working tree
-    for p in paths {
-        if session_dirs.iter().any(|d| p.starts_with(d.as_str())) {
+    // (root, path relative to it) for the changed files in a working folder; git is asked about these last.
+    let mut working_files: Vec<(&str, &str)> = Vec::new();
+    for path in paths {
+        if session_dirs.iter().any(|dir| path.starts_with(dir.as_str())) {
             // A session counts only if it worked in this repo (or one of its worktrees).
-            if p.ends_with(".jsonl") && sessions::cwds(p).iter().any(|c| root_of(&realpath(c), roots).is_some()) {
+            let worked_here = || {
+                sessions::cwds(path)
+                    .iter()
+                    .any(|cwd| root_of(&realpath(cwd), roots).is_some())
+            };
+            if path.ends_with(".jsonl") && worked_here() {
                 return true;
             }
             continue;
         }
-        let Some(root) = root_of(p, roots) else { continue };
-        let rel = p[root.len()..].trim_start_matches('/');
-        if rel == ".git" || rel.starts_with(".git/") {
-            if git_meta_matters(rel) {
+        let Some(root) = root_of(path, roots) else { continue };
+        let relative = path[root.len()..].trim_start_matches('/');
+        if relative == ".git" || relative.starts_with(".git/") {
+            if git_meta_matters(relative) {
                 return true;
             }
             continue;
         }
-        work.push((root, rel.to_string()));
+        working_files.push((root, relative));
     }
     // Files git ignores (node_modules, build output...) never show up in the change, so they don't count.
-    for root in roots {
-        let rels: Vec<&str> = work
+    roots.iter().any(|root| {
+        let in_root = working_files.iter().filter(|(of, _)| *of == root.as_str());
+        let changed: Vec<&str> = in_root.map(|(_, relative)| *relative).collect();
+        if changed.is_empty() {
+            return false;
+        }
+        let ignored = ignored_by_git(root, &changed);
+        changed
             .iter()
-            .filter(|(r, _)| r == root)
-            .map(|(_, p)| p.as_str())
-            .collect();
-        if rels.is_empty() {
-            continue;
-        }
-        let ignored = check_ignore(root, &rels);
-        if rels.iter().any(|p| !ignored.contains(&p.to_string())) {
-            return true;
-        }
-    }
-    false
+            .any(|path| !ignored.iter().any(|ignored| ignored == path))
+    })
 }
 
-/// The paths among `rels` that git ignores in the repo at `root`.
-fn check_ignore(root: &str, rels: &[&str]) -> Vec<String> {
+/// The paths among `paths` (relative to `root`) that git ignores in the repo at `root`.
+fn ignored_by_git(root: &str, paths: &[&str]) -> Vec<String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
-    let Ok(mut child) = Command::new("git")
+    let check = Command::new("git")
         .args(["-C", root, "check-ignore", "--stdin", "-z"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn()
-    else {
+        .spawn();
+    let Ok(mut check) = check else {
         return vec![];
     };
-    if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(rels.join("\0").as_bytes());
+    if let Some(mut stdin) = check.stdin.take() {
+        let _ = stdin.write_all(paths.join("\0").as_bytes());
     }
-    child
-        .wait_with_output()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .split('\0')
-                .filter(|s| !s.is_empty())
-                .map(String::from)
-                .collect()
-        })
-        .unwrap_or_default()
+    let Ok(output) = check.wait_with_output() else {
+        return vec![];
+    };
+    let ignored = String::from_utf8_lossy(&output.stdout);
+    ignored
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(String::from)
+        .collect()
 }
 
 /// Watch `repo` (and its worktrees) plus `session_dirs`, calling `on_change` after each burst of changes that
@@ -103,16 +106,16 @@ pub fn start(
 ) -> Result<Debouncer<notify::RecommendedWatcher>, String> {
     let top = toplevel(repo).map_err(|_| format!("{repo} is not a git repository"))?;
     let roots = repo_roots(&top);
-    let session_dirs: Vec<String> = session_dirs
-        .into_iter()
-        .filter(|d| Path::new(d).is_dir())
-        .map(|d| realpath(&d))
-        .collect();
-    let (r, s) = (roots.clone(), session_dirs.clone());
-    let mut debouncer = new_debouncer(QUIET, move |res: DebounceEventResult| {
-        let Ok(events) = res else { return };
-        let paths: Vec<String> = events.iter().map(|e| e.path.to_string_lossy().into_owned()).collect();
-        if matters(&paths, &r, &s) {
+    let existing = session_dirs.into_iter().filter(|dir| Path::new(dir).is_dir());
+    let session_dirs: Vec<String> = existing.map(|dir| realpath(&dir)).collect();
+    let (watched_roots, watched_sessions) = (roots.clone(), session_dirs.clone());
+    let mut debouncer = new_debouncer(QUIET, move |burst: DebounceEventResult| {
+        let Ok(events) = burst else { return };
+        let paths: Vec<String> = events
+            .iter()
+            .map(|event| event.path.to_string_lossy().into_owned())
+            .collect();
+        if matters(&paths, &watched_roots, &watched_sessions) {
             on_change();
         }
     })

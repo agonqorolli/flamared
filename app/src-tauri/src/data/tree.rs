@@ -6,6 +6,10 @@ use super::paths::join;
 /// How much of a file is looked at to tell text from binary: a NUL byte in the first 8 KB means binary, as in git.
 const BINARY_CHECK_BYTES: usize = 8000;
 
+/// A commit's files are sized for the map by their stored bytes, at about this many bytes a line, which keeps the
+/// proportions of line counts without reading every file.
+const BYTES_PER_LINE: u64 = 40;
+
 /// The text of a file in the working folder, or None when it isn't there.
 pub fn read_text(repo: &str, path: &str) -> Option<String> {
     std::fs::read(join(repo, path))
@@ -72,19 +76,20 @@ impl At {
     }
 
     /// Every file here with a rough size for the map: line counts in the working folder (via `count`), and for a
-    /// commit its stored size in bytes / 40, which keeps the same proportions without reading every file.
+    /// commit its stored size as lines (see `BYTES_PER_LINE`).
     pub fn files_sized(&self, repo: &str, count: impl Fn(&str) -> u64) -> Vec<(String, u64)> {
         match self {
             At::Work => git_or_empty(repo, &["ls-files"])
                 .lines()
-                .map(|p| (p.to_string(), count(p)))
+                .map(|path| (path.to_string(), count(path)))
                 .collect(),
             At::Commit(rev) => git_or_empty(repo, &["ls-tree", "-r", "-l", rev])
                 .lines()
-                .filter_map(|l| {
-                    let (meta, path) = l.split_once('\t')?;
-                    let size: u64 = meta.split_whitespace().nth(3)?.parse().unwrap_or(0);
-                    Some((path.to_string(), (size / 40).max(1)))
+                .filter_map(|line| {
+                    // "<mode> <type> <id> <size>\t<path>"
+                    let (meta, path) = line.split_once('\t')?;
+                    let bytes: u64 = meta.split_whitespace().nth(3)?.parse().unwrap_or(0);
+                    Some((path.to_string(), (bytes / BYTES_PER_LINE).max(1)))
                 })
                 .collect(),
         }
