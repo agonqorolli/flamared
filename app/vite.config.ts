@@ -1,10 +1,10 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import fs from "node:fs";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
+import { defineConfig } from "vite";
 
 // Dev only: outside the Tauri window there is no Rust side, so the page can read a saved snapshot instead
 // (SNAPSHOT_FILE=<json from `cargo run --example dump`>). Never part of a build.
@@ -13,10 +13,13 @@ const devSnapshot = (): Plugin => ({
   apply: "serve",
   configureServer(server) {
     server.middlewares.use("/__snapshot.json", (_req, res) => {
-      const f = process.env.SNAPSHOT_FILE;
-      if (!f || !fs.existsSync(f)) return void res.writeHead(404).end();
+      const file = process.env.SNAPSHOT_FILE;
+      if (!file || !fs.existsSync(file)) {
+        res.writeHead(404).end();
+        return;
+      }
       res.setHeader("content-type", "application/json");
-      fs.createReadStream(f).pipe(res);
+      fs.createReadStream(file).pipe(res);
     });
   },
 });
