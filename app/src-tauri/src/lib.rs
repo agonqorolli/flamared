@@ -1,47 +1,11 @@
+//! The Rust side of the app: the data layer, the commands the window calls, live watching, saved state and the
+//! license.
 mod app_data;
+mod commands;
 pub mod data;
 pub mod license;
 mod state;
 pub mod watch;
-
-/// Everything the screens show for one repo, on the checked-out branch or another one (read-only). Runs off the
-/// main thread: it reads git and every session file.
-#[tauri::command]
-async fn snapshot(repo: String, branch: Option<String>) -> Result<data::snapshot::model::Snapshot, String> {
-    tauri::async_runtime::spawn_blocking(move || data::snapshot::view(&repo, branch.as_deref()))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-/// The repo a picked folder belongs to (its top folder), or a plain-language reason it can't be opened.
-#[tauri::command]
-fn repo_root(path: String) -> Result<String, String> {
-    data::git::toplevel(&path).map_err(|_| format!("{path} isn't inside a git repository."))
-}
-
-/// Repos agents have worked in on this machine, most recent first (the app opens the first one).
-#[tauri::command]
-async fn repos() -> Result<Vec<data::snapshot::model::RepoRow>, String> {
-    tauri::async_runtime::spawn_blocking(|| data::repos::known_repos(None))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// For the repo picker when it opens: each repo's checked-out branch and uncommitted files, read in parallel.
-#[tauri::command]
-async fn repo_status(repos: Vec<String>) -> Result<Vec<data::snapshot::model::RepoStatus>, String> {
-    tauri::async_runtime::spawn_blocking(move || data::repos::status_of_each(&repos))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// For the branch picker when it opens: how many files each branch changed.
-#[tauri::command]
-async fn branch_files(repo: String) -> Result<indexmap::IndexMap<String, data::snapshot::model::BranchFiles>, String> {
-    tauri::async_runtime::spawn_blocking(move || data::branches::branch_files(&repo))
-        .await
-        .map_err(|e| e.to_string())?
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -51,11 +15,11 @@ pub fn run() {
         .manage(watch::Watching::default())
         .manage(state::State::default())
         .invoke_handler(tauri::generate_handler![
-            snapshot,
-            repos,
-            repo_root,
-            repo_status,
-            branch_files,
+            commands::snapshot,
+            commands::repos,
+            commands::repo_root,
+            commands::repo_status,
+            commands::branch_files,
             watch::watch,
             state::state_load,
             state::state_save,
