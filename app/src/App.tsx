@@ -1,27 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { Header } from "@/components/header/Header";
-import { BranchEmpty } from "@/components/BranchEmpty";
-import { ChangesView } from "@/components/changes/ChangesView";
-import { TimelineView } from "@/components/timeline/TimelineView";
-import { MapView } from "@/components/map/MapView";
-import { SettingsDialog, type SettingsSection as Section } from "@/components/settings/SettingsDialog";
-import { TrialEnded } from "@/components/license/TrialEnded";
-import { LicenseProvider, useLicense } from "@/lib/license";
-import type { LicenseStatus } from "@/lib/types";
-import { SettingsProvider } from "@/lib/settings";
-import { buildTimeline } from "@/lib/timeline";
-import { cn } from "@/lib/utils";
-import type { View } from "@/lib/views";
+import { useEffect, useState } from "react";
 import { APP_NAME } from "@/brand";
-import { useLiveRepo } from "@/lib/live";
+import { BranchEmpty } from "@/components/BranchEmpty";
+import { Header } from "@/components/header/Header";
+import { TrialEnded } from "@/components/license/TrialEnded";
+import { type Focus, Screens } from "@/components/Screens";
+import { SettingsDialog, type SettingsSection } from "@/components/settings/SettingsDialog";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { canPickFolder, pickRepoFolder } from "@/lib/api";
 import { useKeyHints, useKeys } from "@/lib/keys";
-import { useSettings } from "@/lib/settings";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { LicenseProvider, useLicense } from "@/lib/license";
+import { useLiveRepo } from "@/lib/live";
+import { SettingsProvider, useSettings } from "@/lib/settings";
+import type { LicenseStatus } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { View } from "@/lib/views";
 
 // The license decides what the window shows: the app, or the trial-ended screen (the app isn't even started then).
 export default function App({ license }: { license: LicenseStatus }) {
@@ -40,6 +36,8 @@ function Gate() {
   return useLicense().status.state === "ended" ? <TrialEnded /> : <Workspace />;
 }
 
+// The app itself: the header, and under it the open repo's screens, or what stands in for them while there is
+// nothing to show.
 function Workspace() {
   const {
     snap,
@@ -61,8 +59,11 @@ function Workspace() {
   } = useLiveRepo();
   const [view, setView] = useState<View>("changes");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsAt, setSettingsAt] = useState<Section | undefined>();
-  const openSettings = (at?: Section) => (setSettingsAt(at), setSettingsOpen(true));
+  const [settingsAt, setSettingsAt] = useState<SettingsSection | undefined>();
+  const openSettings = (at?: SettingsSection) => {
+    setSettingsAt(at);
+    setSettingsOpen(true);
+  };
   const [notice, setNotice] = useState<string | null>(null); // a short problem that doesn't replace the screen
   const openFolder = async () => {
     try {
@@ -74,13 +75,10 @@ function Workspace() {
       setNotice(String(e));
     }
   };
-  // A jump from one screen to a file in another; `n` makes a repeat jump to the same file count again.
-  const [focus, setFocus] = useState<{ view: View; path: string; n: number } | null>(null);
-  const timeline = useMemo(() => (snap ? buildTimeline(snap) : null), [snap]);
-  const changed = useMemo(() => new Set(snap ? Object.keys(snap.diffs) : []), [snap]);
+  const [focus, setFocus] = useState<Focus | null>(null);
   const jump = (to: View) => (path: string) => {
     setView(to);
-    setFocus((f) => ({ view: to, path, n: (f?.n ?? 0) + 1 }));
+    setFocus((last) => ({ view: to, path, n: (last?.n ?? 0) + 1 }));
   };
 
   useEffect(() => {
@@ -89,6 +87,7 @@ function Workspace() {
 
   // Shortcuts that work on every screen (lib/keys.ts lists them all; each screen handles its own).
   const { settings, setDiff } = useSettings();
+  const toggleSplitDiff = () => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" });
   useKeyHints();
   useKeys(true, {
     goChanges: () => setView("changes"),
@@ -99,10 +98,10 @@ function Workspace() {
     shortcuts: () => openSettings("keyboard"),
     openFolder: canPickFolder && openFolder,
     live: liveAvailable && (() => setLive(!live)),
-    splitDiff:
-      !opening && view !== "map" && (() => setDiff({ layout: settings.diff.layout === "split" ? "unified" : "split" })),
+    splitDiff: !opening && view !== "map" && toggleSplitDiff,
   });
 
+  const hasChanges = !!snap && Object.keys(snap.diffs).length > 0;
   return (
     <div className="flex h-full flex-col">
       <Header
@@ -119,101 +118,80 @@ function Workspace() {
         onSettings={openSettings}
       />
       <SettingsDialog open={settingsOpen} start={settingsAt} onOpenChange={setSettingsOpen} />
-      {notice && (
-        <Alert variant="destructive" className="mx-3 mt-3 w-auto">
-          <AlertDescription>{notice}</AlertDescription>
-          <AlertAction>
-            <Button variant="ghost" size="xs" onClick={() => setNotice(null)}>
-              Dismiss
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
-      {error && snap && (
-        <Alert variant="destructive" className="mx-3 mt-3 w-auto pr-32">
-          <AlertDescription>{error}</AlertDescription>
-          <AlertAction className="flex gap-1">
-            <Button variant="ghost" size="xs" onClick={retry}>
-              Retry
-            </Button>
-            <Button variant="ghost" size="xs" onClick={dismissError}>
-              Dismiss
-            </Button>
-          </AlertAction>
-        </Alert>
-      )}
+      {notice && <Notice text={notice} onDismiss={() => setNotice(null)} />}
+      {error && snap && <Notice text={error} onRetry={retry} onDismiss={dismissError} />}
       <div
         inert={!!opening && !!snap}
         aria-busy={!!opening}
         className={cn("flex min-h-0 flex-1 flex-col", opening && snap && "opacity-50")}
       >
-        {error && !snap ? (
-          <Empty className="flex-1">
-            <EmptyHeader>
-              <EmptyTitle>Couldn't read this repository</EmptyTitle>
-              <EmptyDescription>{error}</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button variant="outline" onClick={retry}>
-                Retry
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : !snap ? (
-          <Empty className="flex-1">
-            {loading ? (
-              <Spinner />
-            ) : (
-              <EmptyHeader>
-                <EmptyTitle>No repository yet</EmptyTitle>
-                <EmptyDescription>
-                  No coding agent session was found on this machine. Opening any folder comes with the folder picker.
-                </EmptyDescription>
-              </EmptyHeader>
-            )}
-          </Empty>
-        ) : changed.size === 0 ? (
-          <BranchEmpty branch={snap.viewing.branch} />
-        ) : (
-          // All three screens stay mounted so each keeps its place; only the shown one listens to keys.
-          <>
-            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "changes" && "hidden")}>
-              <ChangesView
-                snap={snap}
-                active={!opening && view === "changes"}
-                focus={focus?.view === "changes" ? focus : null}
-                inTimeline={(p) => !!timeline?.paths.has(p)}
-                onShowInTimeline={jump("timeline")}
-                onShowInMap={jump("map")}
-                fresh={fresh.paths}
-                onSeen={(p) => seen("paths", p)}
-              />
-            </div>
-            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
-              <TimelineView
-                timeline={timeline!}
-                active={!opening && view === "timeline"}
-                focus={focus?.view === "timeline" ? focus : null}
-                inChanges={(p) => changed.has(p)}
-                onShowInChanges={jump("changes")}
-                onShowInMap={jump("map")}
-                fresh={fresh.edits}
-                onSeen={(k) => seen("edits", k)}
-              />
-            </div>
-            <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "map" && "hidden")}>
-              <MapView
-                snap={snap}
-                timeline={timeline!}
-                active={!opening && view === "map"}
-                focus={focus?.view === "map" ? focus : null}
-                onOpenInChanges={jump("changes")}
-                onShowInTimeline={jump("timeline")}
-              />
-            </div>
-          </>
+        {!snap && error && <CouldNotRead error={error} onRetry={retry} />}
+        {!snap && !error && <NoRepo loading={loading} />}
+        {snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
+        {snap && hasChanges && (
+          <Screens snap={snap} view={view} active={!opening} focus={focus} fresh={fresh} onSeen={seen} onJump={jump} />
         )}
       </div>
     </div>
+  );
+}
+
+interface NoticeProps {
+  text: string;
+  onRetry?: () => void;
+  onDismiss: () => void;
+}
+
+// A problem that doesn't replace the screen: a red bar under the header, to dismiss or, when it can be, to retry.
+function Notice({ text, onRetry, onDismiss }: NoticeProps) {
+  return (
+    <Alert variant="destructive" className={cn("mx-3 mt-3 w-auto", onRetry && "pr-32")}>
+      <AlertDescription>{text}</AlertDescription>
+      <AlertAction className={onRetry ? "flex gap-1" : undefined}>
+        {onRetry && (
+          <Button variant="ghost" size="xs" onClick={onRetry}>
+            Retry
+          </Button>
+        )}
+        <Button variant="ghost" size="xs" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </AlertAction>
+    </Alert>
+  );
+}
+
+// In place of the screens when the first repo couldn't be read.
+function CouldNotRead({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <Empty className="flex-1">
+      <EmptyHeader>
+        <EmptyTitle>Couldn't read this repository</EmptyTitle>
+        <EmptyDescription>{error}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+}
+
+// In place of the screens before a repo is open: a spinner while the first one loads, or that there is none.
+function NoRepo({ loading }: { loading: boolean }) {
+  return (
+    <Empty className="flex-1">
+      {loading ? (
+        <Spinner />
+      ) : (
+        <EmptyHeader>
+          <EmptyTitle>No repository yet</EmptyTitle>
+          <EmptyDescription>
+            No coding agent session was found on this machine. Opening any folder comes with the folder picker.
+          </EmptyDescription>
+        </EmptyHeader>
+      )}
+    </Empty>
   );
 }
