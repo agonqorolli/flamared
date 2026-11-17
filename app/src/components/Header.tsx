@@ -152,7 +152,15 @@ function RepoPicker({ snap, onOpenRepo, onOpenFolder, switching }: { snap: Snaps
           {rows.length > 6 && <CommandInput placeholder="Find a repository" />}
           <CommandList className="max-h-[max(18rem,50vh)]">
             <CommandEmpty>No repository matches</CommandEmpty>
-            <CommandGroup heading="Repositories" className={pickerGroup}>
+            <CommandGroup
+              heading={
+                <span className="flex items-center gap-1.5">
+                  Repositories
+                  <InfoTip label="About this list">Repositories Claude Code or Codex have worked in, plus ones you opened.</InfoTip>
+                </span>
+              }
+              className={pickerGroup}
+            >
               {rows.map((r) => {
                 const st = status[r.full];
                 const count = r.current && openCount != null ? openCount : (st?.changed.length ?? 0);
@@ -232,7 +240,11 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
                   heading={
                     <span className="flex items-center gap-1.5">
                       {remote.length ? label : "Branches"}
-                      {i === 0 && <ReadOnlyTip />}
+                      {i === 0 && (
+                        <InfoTip label="About previewing a branch">
+                          Shows a branch's changes without checking it out. Everything here is read-only; you can't edit it in the app.
+                        </InfoTip>
+                      )}
                     </span>
                   }
                   className={pickerGroup}
@@ -254,7 +266,7 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
                             ? `Files changed since this branch split from ${against}, as the preview shows them`
                             : b.current
                               ? "Uncommitted changed files, as the Changes screen lists them"
-                              : "Uncommitted changed files in its other working folder",
+                              : "Uncommitted changed files in its worktree",
                         }}
                         sub={<LastCommit branch={b} />}
                         onSelect={() => {
@@ -273,18 +285,18 @@ function BranchPicker({ snap, onViewBranch, disabled, switching }: { snap: Snaps
   );
 }
 
-// After the first heading: viewing a branch is read-only. Not tabbable, so the popover's auto-focus doesn't land on it
-// and open the tooltip; it opens on hover only.
-function ReadOnlyTip() {
+// An ⓘ after a picker heading. Not tabbable, so the popover's auto-focus doesn't land on it and open the tooltip;
+// it opens on hover only.
+function InfoTip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button tabIndex={-1} className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label="About previewing a branch">
+        <button tabIndex={-1} className="inline-flex size-4 items-center justify-center rounded-full text-faint hover:text-foreground" aria-label={label}>
           <InfoIcon className="size-3" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="right" className="max-w-64">
-        Previewing a branch doesn't change your working folder. A branch with its own working folder also shows its uncommitted changes.
+        {children}
       </TooltipContent>
     </Tooltip>
   );
