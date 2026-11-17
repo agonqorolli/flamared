@@ -5,12 +5,12 @@
 //! Kept in license.json in the app's data folder, apart from state.json so the window's saved settings never touch
 //! it. The trial starts the first time the app opens. Deleting the file (or reinstalling) starts a new trial; that is
 //! accepted. Turning the clock back gains nothing: the trial counts from the latest time the app has seen.
+use crate::app_data;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 /// The public half of the signing key. Made with `cargo run --example license -- new-keypair`.
 const PUBLIC_KEY: [u8; 32] = [
@@ -90,26 +90,14 @@ fn status_at(saved: &mut Saved, now: i64) -> Status {
     }
 }
 
-fn file(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("license.json"))
-}
+const FILE: &str = "license.json";
 
 fn load(app: &AppHandle) -> Saved {
-    file(app)
-        .ok()
-        .and_then(|f| std::fs::read_to_string(f).ok())
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or_default()
+    app_data::read(app, FILE).unwrap_or_default()
 }
 
-// Same as state.json: a temporary file renamed over the old one, so a crash never leaves half a file.
 fn save(app: &AppHandle, saved: &Saved) -> Result<(), String> {
-    let path = file(app)?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, serde_json::to_string_pretty(saved).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+    app_data::write(app, FILE, saved)
 }
 
 fn now() -> i64 {

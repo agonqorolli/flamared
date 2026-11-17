@@ -1,3 +1,4 @@
+mod app_data;
 pub mod data;
 pub mod license;
 mod state;
