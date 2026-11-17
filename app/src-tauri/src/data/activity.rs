@@ -1,8 +1,10 @@
 //! What each recent agent session is doing right now: working, waiting for you, or finished. Not shown anywhere yet
-//! (the pickers tried it and went back to plain change counts); kept, with its tests, for when it has a place. Read from the end of the session file, no AI:
+//! (the pickers tried it and went back to plain change counts); kept, with its tests, for when it has a place.
+//! Read from the end of the session file, no AI:
 //! - Claude Code: the last message. A finished turn (`end_turn`) is finished; a tool call with no result yet is the
 //!   agent running it, or, once the file has been quiet for a while, waiting for you (usually an approval prompt).
 //! - Codex: `task_complete` is finished; an approval request is waiting; anything else recent is working.
+//!
 //! "Waiting for you" is a best guess (a slow command looks the same), so the window says "probably".
 use super::paths::realpath;
 use super::sessions;
@@ -51,7 +53,7 @@ pub fn agents_now(repo_of: impl Fn(&str) -> Option<String>) -> Vec<Value> {
             json!({"repo": repo, "branch": turn.branch, "agent": s.agent, "state": state, "at": at_iso, "prompt": last_prompt(&s)}),
         ));
     }
-    out.sort_by(|a, b| b.0.cmp(&a.0));
+    out.sort_by_key(|(written, _)| std::cmp::Reverse(*written));
     out.into_iter().map(|(_, v)| v).collect()
 }
 
@@ -165,12 +167,12 @@ mod tests {
         let noise = json!({"type": "file-history-snapshot"});
         // A tool call with no result: running it at first, then probably waiting for approval, then abandoned.
         assert_eq!(claude_state(&[tool_call.clone(), noise.clone()], secs(5)), "working");
-        assert_eq!(claude_state(&[tool_call.clone()], secs(90)), "waiting");
+        assert_eq!(claude_state(std::slice::from_ref(&tool_call), secs(90)), "waiting");
         assert_eq!(claude_state(&[tool_call], secs(7 * 3600)), "finished");
         // A finished turn is finished however recent.
         assert_eq!(claude_state(&[done], secs(3)), "finished");
         // A tool result just written: the agent is continuing; long silent after one, it has stopped.
-        assert_eq!(claude_state(&[result.clone()], secs(10)), "working");
+        assert_eq!(claude_state(std::slice::from_ref(&result), secs(10)), "working");
         assert_eq!(claude_state(&[result], secs(600)), "finished");
         assert_eq!(claude_state(&[stopped], secs(1)), "finished");
         assert_eq!(claude_state(&[], secs(1)), "finished");

@@ -7,7 +7,7 @@ pub mod watch;
 /// Everything the screens show for one repo, on the checked-out branch or another one (read-only). Runs off the
 /// main thread: it reads git and every session file.
 #[tauri::command]
-async fn snapshot(repo: String, branch: Option<String>) -> Result<serde_json::Value, String> {
+async fn snapshot(repo: String, branch: Option<String>) -> Result<data::snapshot::model::Snapshot, String> {
     tauri::async_runtime::spawn_blocking(move || data::snapshot::view(&repo, branch.as_deref()))
         .await
         .map_err(|e| e.to_string())?
@@ -21,34 +21,24 @@ fn repo_root(path: String) -> Result<String, String> {
 
 /// Repos agents have worked in on this machine, most recent first (the app opens the first one).
 #[tauri::command]
-async fn repos() -> Result<Vec<serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(|| data::snapshot::known_repos(None))
+async fn repos() -> Result<Vec<data::snapshot::model::RepoRow>, String> {
+    tauri::async_runtime::spawn_blocking(|| data::repos::known_repos(None))
         .await
         .map_err(|e| e.to_string())
 }
 
 /// For the repo picker when it opens: each repo's checked-out branch and uncommitted files, read in parallel.
 #[tauri::command]
-async fn repo_status(repos: Vec<String>) -> Result<Vec<serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        std::thread::scope(|s| {
-            repos
-                .iter()
-                .map(|r| s.spawn(move || data::snapshot::repo_status(r)))
-                .collect::<Vec<_>>()
-                .into_iter()
-                .filter_map(|h| h.join().ok())
-                .collect()
-        })
-    })
-    .await
-    .map_err(|e| e.to_string())
+async fn repo_status(repos: Vec<String>) -> Result<Vec<data::snapshot::model::RepoStatus>, String> {
+    tauri::async_runtime::spawn_blocking(move || data::repos::status_of_each(&repos))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// For the branch picker when it opens: how many files each branch changed.
 #[tauri::command]
-async fn branch_files(repo: String) -> Result<serde_json::Map<String, serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(move || data::snapshot::branch_files(&repo))
+async fn branch_files(repo: String) -> Result<indexmap::IndexMap<String, data::snapshot::model::BranchFiles>, String> {
+    tauri::async_runtime::spawn_blocking(move || data::branches::branch_files(&repo))
         .await
         .map_err(|e| e.to_string())?
 }
