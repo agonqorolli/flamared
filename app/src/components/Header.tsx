@@ -36,7 +36,7 @@ import type { Opening } from "@/lib/live";
 import type { Waiting } from "@/lib/waiting";
 import { shortDate, useLicense } from "@/lib/license";
 import { hint } from "@/lib/keys";
-import type { Section } from "@/components/settings/SettingsDialog";
+import type { SettingsSection as Section } from "@/components/settings/SettingsDialog";
 
 export type View = "changes" | "timeline" | "map";
 

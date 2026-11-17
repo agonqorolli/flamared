@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
+import { BUY_URL } from "@/brand";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { BUY_URL } from "@/brand";
 import { openInBrowser } from "@/lib/api";
 import { useLicense } from "@/lib/license";
 
@@ -24,11 +24,17 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
       setBusy(false);
     }
   };
+  // Enter sends the key; Shift+Enter starts a new line.
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    if (key.trim()) submit();
+  };
   return (
     <form
       className="flex flex-col gap-3"
-      onSubmit={(e) => {
-        e.preventDefault();
+      onSubmit={(event) => {
+        event.preventDefault();
         submit();
       }}
     >
@@ -37,8 +43,11 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
         <Textarea
           id="license-key"
           value={key}
-          onChange={(e) => (setKey(e.target.value), setError(null))}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), key.trim() && submit())}
+          onChange={(event) => {
+            setKey(event.target.value);
+            setError(null);
+          }}
+          onKeyDown={onKeyDown}
           placeholder="Paste the key from your purchase email"
           aria-invalid={!!error || undefined}
           autoFocus={autoFocus}
@@ -59,7 +68,7 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
   );
 }
 
-export function BuyButton({ variant = "default" }: { variant?: "default" | "outline" }) {
+function BuyButton({ variant = "default" }: { variant?: "default" | "outline" }) {
   return (
     <Button type="button" size="sm" variant={variant} onClick={() => openInBrowser(BUY_URL)}>
       Buy a license

@@ -8,7 +8,7 @@ import { BranchEmpty } from "@/components/BranchEmpty";
 import { ChangesView } from "@/components/changes/ChangesView";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import { MapView } from "@/components/map/MapView";
-import { SettingsDialog, type Section } from "@/components/settings/SettingsDialog";
+import { SettingsDialog, type SettingsSection as Section } from "@/components/settings/SettingsDialog";
 import { TrialEnded } from "@/components/license/TrialEnded";
 import { LicenseProvider, useLicense } from "@/lib/license";
 import type { LicenseStatus } from "@/lib/types";

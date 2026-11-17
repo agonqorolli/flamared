@@ -1,7 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
-import { SectionHead } from "@/components/settings/SectionHead";
 import { APP_NAME } from "@/brand";
+import { SectionHead } from "@/components/settings/SectionHead";
+import { SettingRow, SettingsBody } from "@/components/settings/SettingRow";
+import { Button } from "@/components/ui/button";
+import { FieldGroup, FieldSeparator } from "@/components/ui/field";
 import { plural } from "@/lib/format";
 import { shortDate, TRIAL_DAYS, useLicense } from "@/lib/license";
 import { KeyForm } from "./KeyForm";
@@ -15,50 +16,42 @@ export function LicenseSettings() {
         title="License"
         text="One payment, no subscription. The key is checked on this Mac; nothing is sent anywhere."
       />
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <SettingsBody>
         {status.state === "licensed" ? (
           <FieldGroup>
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel>Licensed to {status.holder.name}</FieldLabel>
-                <FieldDescription>
+            <SettingRow
+              label={<>Licensed to {status.holder.name}</>}
+              description={
+                <>
                   {status.holder.email} · order {status.holder.id} · since {status.holder.issued}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
+                </>
+              }
+            />
             <FieldSeparator />
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel>Moving to another Mac</FieldLabel>
-                <FieldDescription>
-                  Takes the key off this Mac. Enter it again on the new one; the key from your purchase email keeps
-                  working.
-                </FieldDescription>
-              </FieldContent>
+            <SettingRow
+              label="Moving to another Mac"
+              description="Takes the key off this Mac. Enter it again on the new one; the key from your purchase email keeps working."
+            >
               <Button variant="outline" size="sm" onClick={remove}>
                 Remove from this Mac
               </Button>
-            </Field>
+            </SettingRow>
           </FieldGroup>
         ) : (
           <FieldGroup>
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel>
-                  {status.state === "trial" ? `Trial: ${plural(status.days_left, "day")} left` : "Trial ended"}
-                </FieldLabel>
-                <FieldDescription>
-                  {status.state === "trial"
-                    ? `Everything works during the ${TRIAL_DAYS}-day trial, until ${shortDate(status.ends)}. After that, ${APP_NAME} needs a license.`
-                    : `The ${TRIAL_DAYS}-day trial ended on ${shortDate(status.ended)}.`}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
+            <SettingRow
+              label={status.state === "trial" ? `Trial: ${plural(status.days_left, "day")} left` : "Trial ended"}
+              description={
+                status.state === "trial"
+                  ? `Everything works during the ${TRIAL_DAYS}-day trial, until ${shortDate(status.ends)}. After that, ${APP_NAME} needs a license.`
+                  : `The ${TRIAL_DAYS}-day trial ended on ${shortDate(status.ended)}.`
+              }
+            />
             <FieldSeparator />
             <KeyForm />
           </FieldGroup>
         )}
-      </div>
+      </SettingsBody>
     </>
   );
 }
