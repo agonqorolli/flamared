@@ -22,7 +22,7 @@ The window is shadcn/ui (Radix, "Nova" preset) on Tailwind CSS 4, with the app's
 | `map-bg`, `map-tile`, `map-edge`, `map-folder` | treemap surfaces |
 | `--lens-*` (size/rework low→high, kept, partly, gone, flag, none, text) | map data colors; used through `var()` in MapView's `LENS` |
 
-Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
+Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). The System setting is not a fourth set of tokens: it picks Gray or Light from macOS (`resolveTheme` in `settings.tsx`), and code that colors itself reads the resolved `theme` from `useSettings()`, not `settings.appearance.theme`. **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
 
 **Text sizes** — Tailwind's `xs` (12px) and up, plus three below it, named by use:
 
@@ -42,7 +42,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 
 ## Layout rules
 
-- **12px everywhere**: the screen margin is `p-3` on all four sides; the header is `px-3`; gaps between columns and between cards are `gap-3`; notice banners `mx-3`. Content, header items, toggles and the side column all line up on that 12px edge.
+- **12px everywhere**: the screen margin is `p-3` on all four sides; the header is `px-3` (in the Mac app it is also the title bar: `pl-[88px]` leaves room for the window buttons, the same 14px after them as before them, in px so density doesn't move it, and its empty space drags the window); gaps between columns and between cards are `gap-3`; notice banners `mx-3`. Content, header items, toggles and the side column all line up on that 12px edge.
 - **Every screen has the same skeleton**: optional left list (`w-(--list-w)`, `border-r bg-sidebar`, toggle row `px-3 pt-3`) → main content → `<SideColumn>`. Switching screens must not move the toggle or the side column; check by measuring (see the `preview-and-verify` skill).
 - Lists: section label (`<SectionLabel>`), then its cards 8px apart (`gap-2`), no extra gap between label and first card.
 

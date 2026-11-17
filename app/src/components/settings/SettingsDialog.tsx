@@ -67,11 +67,13 @@ export function SettingsDialog({ open, start, onOpenChange }: { open: boolean; s
   );
 }
 
-// Each theme's look in two swatches: the window and a card on it (theme colors shown as data).
-const THEMES: [AppearanceSettings["theme"], string, string, string][] = [
+// Each theme's look in two swatches: the window and a card on it (theme colors shown as data). System is Gray and
+// Light split corner to corner.
+const THEMES: [AppearanceSettings["theme"], string, string, string | null][] = [
   ["dark", "Dark", "#0D0E11", "#1A1D23"],
   ["gray", "Gray", "#1E2024", "#2E3137"],
   ["light", "Light", "#FFFFFF", "#E6E9ED"],
+  ["system", "System", "linear-gradient(135deg, #1E2024 50%, #FFFFFF 50%)", null],
 ];
 
 function Appearance() {
@@ -85,13 +87,13 @@ function Appearance() {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel>Theme</FieldLabel>
-              <FieldDescription>Gray is the dark theme with softer contrast. Diffs switch to a light code theme in Light.</FieldDescription>
+              <FieldDescription>Gray is the dark theme with softer contrast. System follows macOS: Gray when it's dark, Light when it's light. Diffs switch to a light code theme in Light.</FieldDescription>
             </FieldContent>
             <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={a.theme} onValueChange={(v) => v && setAppearance({ theme: v as AppearanceSettings["theme"] })}>
               {THEMES.map(([id, label, back, card]) => (
                 <ToggleGroupItem key={id} value={id}>
                   <span className="relative size-3.5 shrink-0 overflow-hidden rounded-[4px] border border-foreground/20" style={{ background: back }} aria-hidden>
-                    <span className="absolute right-0 bottom-0 size-2 rounded-tl-[3px]" style={{ background: card }} />
+                    {card && <span className="absolute right-0 bottom-0 size-2 rounded-tl-[3px]" style={{ background: card }} />}
                   </span>
                   {label}
                 </ToggleGroupItem>
@@ -146,9 +148,9 @@ const PREVIEW = [
 ].join("\n");
 
 function DiffStyle() {
-  const { settings, setDiff, resetDiff } = useSettings();
+  const { settings, theme, setDiff, resetDiff } = useSettings();
   const d = settings.diff;
-  const { options, style } = diffOptions(d, settings.appearance);
+  const { options, style } = diffOptions(d, theme);
   const choice = <K extends keyof DiffSettings>(key: K, items: [DiffSettings[K], string][]) => (
     <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={String(d[key])} onValueChange={(v) => v && setDiff({ [key]: items.find(([x]) => String(x) === v)![0] } as Partial<DiffSettings>)}>
       {items.map(([v, label]) => (

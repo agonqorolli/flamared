@@ -34,9 +34,14 @@ interface Props {
   live: { on: boolean; updating: boolean; pending: Waiting | null; set: (on: boolean) => void } | null; // null: no watcher (browser preview)
 }
 
+// In the Mac app the native title bar is hidden and the header takes its place (tauri.conf.json): dragging its empty
+// space moves the window, and its left end leaves room for the window buttons (14px from the edge, set in
+// tauri.conf.json) with the same 14px after them. In px, not spacing units: density mustn't move it.
+const titleBar = "__TAURI_INTERNALS__" in window && navigator.userAgent.includes("Mac");
+
 export function Header({ snap, view, loading, opening, live, onView, onOpenRepo, onOpenFolder, onViewBranch, onRefresh, onSettings }: Props) {
   return (
-    <header className="flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3">
+    <header data-tauri-drag-region="deep" className={cn("flex h-11 shrink-0 items-center gap-3.5 border-b bg-panel px-3", titleBar && "pl-[88px]")}>
       <div className="flex min-w-max flex-1 basis-0 items-center gap-2.5">
         {snap && <RepoPicker snap={snap} onOpenRepo={onOpenRepo} onOpenFolder={onOpenFolder} switching={!!opening} />}
         {snap && <BranchPicker snap={snap} onViewBranch={onViewBranch} disabled={!!opening?.repoChanged} switching={!!opening} />}

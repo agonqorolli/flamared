@@ -1,7 +1,10 @@
 // App settings, kept on this machine: how the app looks (theme, density) and how diffs look.
 // Saved in the app's data folder (see store.ts).
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getItem, setItem } from "./store";
+
+const inTauri = "__TAURI_INTERNALS__" in window;
 
 export const DIFF_THEMES = [
   ["github-dark", "GitHub Dark"],
@@ -45,8 +48,11 @@ export interface DiffSettings {
   fontSize: 11 | 12 | 13 | 14;
 }
 
+// The theme the window shows; the setting can also be "system", which picks one of these.
+export type Theme = "dark" | "gray" | "light";
+
 export interface AppearanceSettings {
-  theme: "dark" | "gray" | "light";
+  theme: Theme | "system";
   density: "compact" | "normal" | "spacious";
 }
 
@@ -70,8 +76,14 @@ const load = (): Settings => {
   }
 };
 
+// System follows macOS: Gray when it's dark (the default dark look), Light when it's light. Once the window's
+// theme is unset (below), the web view's color scheme is macOS's.
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+const resolveTheme = (t: AppearanceSettings["theme"]): Theme => (t === "system" ? (systemDark.matches ? "gray" : "light") : t);
+
 interface Api {
   settings: Settings;
+  theme: Theme; // the setting resolved, for anything that colors itself
   setDiff: (patch: Partial<DiffSettings>) => void;
   resetDiff: () => void;
   setAppearance: (patch: Partial<AppearanceSettings>) => void;
@@ -82,11 +94,15 @@ const Ctx = createContext<Api | null>(null);
 // The theme and density live on <html>: `dark` (shadcn's dark tokens) for Dark and Gray, `gray` on top for Gray,
 // and data-density, which sets the spacing scale (see index.css).
 function applyAppearance(a: AppearanceSettings) {
+  const theme = resolveTheme(a.theme);
   const root = document.documentElement;
-  root.classList.toggle("dark", a.theme !== "light");
-  root.classList.toggle("gray", a.theme === "gray");
+  root.classList.toggle("dark", theme !== "light");
+  root.classList.toggle("gray", theme === "gray");
   root.dataset.density = a.density;
-  root.style.colorScheme = a.theme === "light" ? "light" : "dark";
+  root.style.colorScheme = theme === "light" ? "light" : "dark";
+  // The header doubles as the title bar (see Header.tsx); the window buttons on it follow macOS's appearance unless
+  // told otherwise, so match them to the theme, or leave them to macOS for System.
+  if (inTauri) getCurrentWindow().setTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark").catch(() => {});
 }
 
 // Called once before the first render, so the window opens in the saved theme instead of flashing dark first.
@@ -106,8 +122,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const resetDiff = useCallback(() => save({ ...settings, diff: DEFAULTS.diff }), [settings, save]);
   const setAppearance = useCallback((patch: Partial<AppearanceSettings>) => save({ ...settings, appearance: { ...settings.appearance, ...patch } }), [settings, save]);
   const resetAppearance = useCallback(() => save({ ...settings, appearance: DEFAULTS.appearance }), [settings, save]);
-  useEffect(() => applyAppearance(settings.appearance), [settings.appearance]);
-  return <Ctx.Provider value={{ settings, setDiff, resetDiff, setAppearance, resetAppearance }}>{children}</Ctx.Provider>;
+  const [dark, setDark] = useState(systemDark.matches);
+  useEffect(() => {
+    const onChange = () => setDark(systemDark.matches);
+    systemDark.addEventListener("change", onChange);
+    return () => systemDark.removeEventListener("change", onChange);
+  }, []);
+  useEffect(() => applyAppearance(settings.appearance), [settings.appearance, dark]);
+  const theme = resolveTheme(settings.appearance.theme);
+  return <Ctx.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>{children}</Ctx.Provider>;
 }
 
 export function useSettings() {
