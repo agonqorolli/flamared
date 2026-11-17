@@ -15,13 +15,7 @@ async fn snapshot(repo: String, branch: Option<String>) -> Result<serde_json::Va
 /// The repo a picked folder belongs to (its top folder), or a plain-language reason it can't be opened.
 #[tauri::command]
 fn repo_root(path: String) -> Result<String, String> {
-    let top = data::git::git_or_empty(&path, &["rev-parse", "--show-toplevel"])
-        .trim()
-        .to_string();
-    if top.is_empty() {
-        return Err(format!("{path} isn't inside a git repository."));
-    }
-    Ok(data::paths::realpath(&top))
+    data::git::toplevel(&path).map_err(|_| format!("{path} isn't inside a git repository."))
 }
 
 /// Repos agents have worked in on this machine, most recent first (the app opens the first one).

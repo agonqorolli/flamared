@@ -1,10 +1,10 @@
 //! Everything one screen load needs for a repo: changes grouped by logic, every agent edit that led to them,
 //! and the repo map.
-use super::git::{git, git_or_empty};
-use super::group::{Group, TEST_RE, diff_by_file, group, read_text};
+use super::git::{current_branch, git, git_line, git_or_empty, repo_roots, toplevel, worktrees};
+use super::group::{Group, TEST_RE, diff_by_file, group};
 use super::paths::{basename, dirname, home, join, realpath, relpath, root_of, take};
 use super::sessions::{self, Event, Hunk};
-use super::tree::At;
+use super::tree::{At, read_text};
 use chrono::{DateTime, FixedOffset};
 use indexmap::IndexMap;
 use regex::Regex;
@@ -17,30 +17,6 @@ const MAX_SAY: usize = 400;
 
 fn ts(s: &str) -> Option<DateTime<FixedOffset>> {
     DateTime::parse_from_rfc3339(s.trim()).ok()
-}
-
-/// Same test git uses: a NUL byte in the first 8 KB.
-fn is_binary(top: &str, path: &str) -> bool {
-    use std::io::Read;
-    let mut buf = [0u8; 8000];
-    std::fs::File::open(join(top, path))
-        .and_then(|mut f| f.read(&mut buf))
-        .map(|n| buf[..n].contains(&0))
-        .unwrap_or(false)
-}
-
-/// This checkout plus every worktree of the same repo (Claude Code often works in worktrees).
-pub fn repo_roots(top: &str) -> Vec<String> {
-    let mut roots = vec![top.to_string()];
-    for line in git_or_empty(top, &["worktree", "list", "--porcelain"]).lines() {
-        if let Some(p) = line.strip_prefix("worktree ") {
-            let p = realpath(p.trim());
-            if !roots.contains(&p) {
-                roots.push(p);
-            }
-        }
-    }
-    roots
 }
 
 /// Is an edit still in the current file? Compares its added (or removed) lines with the file as it is now.
@@ -150,7 +126,7 @@ fn file_diff_lines(
     tracked: &HashMap<String, Vec<String>>,
 ) -> Vec<String> {
     if untracked.contains(path) {
-        if is_binary(top, path) {
+        if At::Work.is_binary(top, path) {
             return vec![];
         }
         let Some(text) = read_text(top, path) else {
@@ -322,10 +298,7 @@ fn branches(top: &str, current: &str, session_branches: &HashMap<String, BranchW
     }
     rows.sort_by_key(|r| r.2); // stable: keeps newest first inside each part
     // Branches checked out in other worktrees, read once (not once per branch: repos can have hundreds).
-    let in_worktree: HashSet<String> = git_or_empty(top, &["worktree", "list", "--porcelain"])
-        .lines()
-        .filter_map(|l| l.strip_prefix("branch refs/heads/").map(String::from))
-        .collect();
+    let in_worktree: HashSet<String> = worktrees(top).into_iter().filter_map(|w| w.branch).collect();
     rows.into_iter()
         .map(|(name, at, remote, subject)| {
             let local = if remote {
@@ -376,7 +349,7 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
     }
 
     let base_time = ts(&git_or_empty(top, &["show", "-s", "--format=%cI", base]));
-    let checked_out = git_or_empty(top, &["branch", "--show-current"]).trim().to_string(); // empty when detached
+    let checked_out = current_branch(top); // empty when detached
     // The branch being shown: the checked-out one, or the one picked to view. Agent edits are matched against it.
     let branch = match at {
         At::Work => checked_out.clone(),
@@ -742,23 +715,18 @@ fn default_branch(top: &str) -> Option<String> {
 
 /// The worktree folder where a branch is checked out, if any (Claude Code often works in worktrees).
 fn worktree_of(top: &str, branch: &str) -> Option<String> {
-    let mut path = None;
-    for line in git_or_empty(top, &["worktree", "list", "--porcelain"]).lines() {
-        if let Some(p) = line.strip_prefix("worktree ") {
-            path = Some(p.trim().to_string());
-        } else if line.strip_prefix("branch refs/heads/") == Some(branch) {
-            return path;
-        }
-    }
-    None
+    worktrees(top)
+        .into_iter()
+        .find(|w| w.branch.as_deref() == Some(branch))
+        .map(|w| w.path)
 }
 
 /// Everything a screen load needs for `repo`, showing `branch` (None: the checked-out one). Viewing is read-only:
 /// a branch checked out in a worktree is read from that folder (with its uncommitted changes); any other branch
 /// shows its commits since it split off from the default branch, read from git without touching the checkout.
 pub fn view(repo: &str, branch: Option<&str>) -> Result<Value, String> {
-    let top = realpath(git(repo, &["rev-parse", "--show-toplevel"])?.trim());
-    let checked_out = git_or_empty(&top, &["branch", "--show-current"]).trim().to_string();
+    let top = toplevel(repo)?;
+    let checked_out = current_branch(&top);
     let Some(branch) = branch.filter(|b| *b != checked_out) else {
         return build(&top, "HEAD", &At::Work);
     };
@@ -773,7 +741,7 @@ pub fn view(repo: &str, branch: Option<&str>) -> Result<Value, String> {
 /// merged into it), from the checked-out branch instead.
 fn split_off(top: &str, branch: &str, default: Option<&str>) -> Result<(String, String, String), String> {
     let tip = git(top, &["rev-parse", branch])?.trim().to_string();
-    let split = |other: &str| git_or_empty(top, &["merge-base", other, branch]).trim().to_string();
+    let split = |other: &str| git_line(top, &["merge-base", other, branch]);
     let mut base = default.map(split).unwrap_or_default();
     let mut against = default.unwrap_or("HEAD").to_string();
     if base.is_empty() || base == tip {
@@ -789,7 +757,7 @@ fn split_off(top: &str, branch: &str, default: Option<&str>) -> Result<(String, 
 /// For the repo picker, run when it opens: a repo's checked-out branch and its uncommitted files (as `git status`
 /// lists them, ignored files left out).
 pub fn repo_status(top: &str) -> Value {
-    let branch = git_or_empty(top, &["branch", "--show-current"]).trim().to_string();
+    let branch = current_branch(top);
     let out = git_or_empty(top, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
     let mut changed = Vec::new();
     let mut entries = out.split('\0');
@@ -809,8 +777,8 @@ pub fn repo_status(top: &str) -> Value {
 /// (a worktree's uncommitted files; otherwise the files changed since it split off). The checked-out branch is left
 /// out (the window knows its files), and so is anything past the first 50 branches.
 pub fn branch_files(repo: &str) -> Result<Map<String, Value>, String> {
-    let top = realpath(git(repo, &["rev-parse", "--show-toplevel"])?.trim());
-    let checked_out = git_or_empty(&top, &["branch", "--show-current"]).trim().to_string();
+    let top = toplevel(repo)?;
+    let checked_out = current_branch(&top);
     let default = default_branch(&top);
     let mut out = Map::new();
     let refs = git_or_empty(
@@ -844,7 +812,7 @@ pub fn branch_files(repo: &str) -> Result<Map<String, Value>, String> {
             };
             let against = if against == "HEAD" {
                 if checked_out.is_empty() {
-                    git_or_empty(&top, &["rev-parse", "--short", "HEAD"]).trim().to_string()
+                    git_line(&top, &["rev-parse", "--short", "HEAD"])
                 } else {
                     checked_out.clone()
                 }

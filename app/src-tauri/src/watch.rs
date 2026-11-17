@@ -1,9 +1,9 @@
 //! Live updates: watch the open repo and the agents' session folders, and tell the window when something that
 //! matters changed. Bursts are collected for a moment first, so an agent saving 20 files means one reload.
 //! Watching only reads change notifications (FSEvents on macOS); nothing is written anywhere.
-use crate::data::git::git_or_empty;
+use crate::data::git::{repo_roots, toplevel};
 use crate::data::paths::{join, realpath, root_of};
-use crate::data::{sessions, snapshot};
+use crate::data::sessions;
 use notify::RecursiveMode;
 use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
 use std::path::Path;
@@ -101,11 +101,8 @@ pub fn start(
     session_dirs: Vec<String>,
     on_change: impl Fn() + Send + 'static,
 ) -> Result<Debouncer<notify::RecommendedWatcher>, String> {
-    let top = realpath(git_or_empty(repo, &["rev-parse", "--show-toplevel"]).trim());
-    if top.is_empty() {
-        return Err(format!("{repo} is not a git repository"));
-    }
-    let roots = snapshot::repo_roots(&top);
+    let top = toplevel(repo).map_err(|_| format!("{repo} is not a git repository"))?;
+    let roots = repo_roots(&top);
     let session_dirs: Vec<String> = session_dirs
         .into_iter()
         .filter(|d| Path::new(d).is_dir())
@@ -134,7 +131,7 @@ pub fn start(
 #[tauri::command]
 pub fn watch(app: AppHandle, state: tauri::State<'_, Watching>, repo: String) -> Result<(), String> {
     let dirs = vec![sessions::claude_dir(), join(&sessions::codex_dir(), "sessions")];
-    let top = realpath(git_or_empty(&repo, &["rev-parse", "--show-toplevel"]).trim());
+    let top = toplevel(&repo).unwrap_or_default();
     let debouncer = start(&repo, dirs, move || {
         let _ = app.emit("repo-changed", &top);
     })?;

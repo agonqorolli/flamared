@@ -1,7 +1,17 @@
 //! Where a snapshot reads files from: the working folder (the checked-out branch, with uncommitted changes), or a
 //! commit such as another branch's tip, read straight from git so the checkout is never touched.
-use super::git::git_or_empty;
+use super::git::{git, git_bytes, git_or_empty};
 use super::paths::join;
+
+/// How much of a file is looked at to tell text from binary: a NUL byte in the first 8 KB means binary, as in git.
+const BINARY_CHECK_BYTES: usize = 8000;
+
+/// The text of a file in the working folder, or None when it isn't there.
+pub fn read_text(repo: &str, path: &str) -> Option<String> {
+    std::fs::read(join(repo, path))
+        .ok()
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+}
 
 #[derive(Clone, Debug)]
 pub enum At {
@@ -23,37 +33,26 @@ impl At {
     /// The text of a file, or None when it doesn't exist here.
     pub fn read(&self, repo: &str, path: &str) -> Option<String> {
         match self {
-            At::Work => std::fs::read(join(repo, path))
-                .ok()
-                .map(|b| String::from_utf8_lossy(&b).into_owned()),
-            At::Commit(rev) => {
-                let out = std::process::Command::new("git")
-                    .args(["-C", repo, "show", &format!("{rev}:{path}")])
-                    .output()
-                    .ok()?;
-                out.status
-                    .success()
-                    .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
-            }
+            At::Work => read_text(repo, path),
+            At::Commit(rev) => git(repo, &["show", &format!("{rev}:{path}")]).ok(),
         }
     }
 
-    /// The first bytes of a file, to tell text from binary (a NUL in the first 8 KB, as git does).
+    /// Is this a binary file? A missing file counts as text.
     pub fn is_binary(&self, repo: &str, path: &str) -> bool {
         match self {
             At::Work => {
                 use std::io::Read;
-                let mut buf = [0u8; 8000];
+                let mut start = [0u8; BINARY_CHECK_BYTES];
                 std::fs::File::open(join(repo, path))
-                    .and_then(|mut f| f.read(&mut buf))
-                    .map(|n| buf[..n].contains(&0))
+                    .and_then(|mut file| file.read(&mut start))
+                    .map(|read| start[..read].contains(&0))
                     .unwrap_or(false)
             }
-            At::Commit(rev) => std::process::Command::new("git")
-                .args(["-C", repo, "show", &format!("{rev}:{path}")])
-                .output()
-                .map(|o| o.stdout[..o.stdout.len().min(8000)].contains(&0))
-                .unwrap_or(false),
+            At::Commit(rev) => {
+                let content = git_bytes(repo, &["show", &format!("{rev}:{path}")]);
+                content[..content.len().min(BINARY_CHECK_BYTES)].contains(&0)
+            }
         }
     }
 

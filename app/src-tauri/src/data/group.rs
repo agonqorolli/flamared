@@ -5,7 +5,7 @@
 //! Everything else is grouped by kind (deps, config, infra, docs, assets).
 use super::git::{git, git_or_empty};
 use super::paths::{basename, dirname, join, normpath, splitext};
-use super::tree::At;
+use super::tree::{At, read_text};
 use indexmap::IndexMap;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -86,12 +86,6 @@ pub fn changed_files(repo: &str, base: &str, at: &At) -> Result<IndexMap<String,
         files.insert(p, "A".into());
     }
     Ok(files)
-}
-
-pub fn read_text(repo: &str, path: &str) -> Option<String> {
-    std::fs::read(join(repo, path))
-        .ok()
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 fn read(repo: &str, path: &str, base: &str, status: &str, at: &At) -> String {
