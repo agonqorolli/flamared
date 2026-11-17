@@ -18,6 +18,8 @@ description: What the product is, the decisions already made (and why), what's p
 - **Review marks are notes to yourself**: per file, three states — Looks good / Needs work / Not checked — reset when the agent changes the file again. Plain words on purpose, not Approve/Reject.
 - **Three screens**: Changes (what), Timeline (how/when), Map (where). No separate Review screen.
 - **Commits and pushes** happen only when the user asks.
+- **Distribution: direct download only**, not the Mac App Store. No Developer ID for now, so first launch needs System Settings → Privacy & Security → Open Anyway.
+- **License: custom source-available** (`LICENSE` at the repo root). Public to read, audit and build for your own use. Not allowed: redistributing it, building a competing product from it, or getting around the license check. FSL and PolyForm Perimeter were rejected (one turns into open source after two years, the other allows redistribution).
 
 ## Parked (decided not now)
 

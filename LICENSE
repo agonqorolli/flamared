@@ -1,0 +1,88 @@
+Flamared License
+
+Copyright (c) 2026 Agon Qorolli. All rights reserved except as stated below.
+
+"Flamared" is the name of the software. This
+license covers the software under any later name.
+
+
+1. What this covers
+
+"The Software" means the source code in this repository, the desktop
+application built from it, and any part, copy or modified version of either.
+"You" means the individual person using the Software. "The Author" means the
+copyright holder named above. A "License Key" means a key issued by the Author,
+or by a seller acting for the Author, after purchase.
+
+
+2. Reading the source
+
+The source is public so you can check what the Software does, including that
+your code and agent sessions never leave your machine. You may read, review and
+audit the source, and build and change it for your own use on your own
+machines, subject to the rest of this license.
+
+
+3. Using the Software
+
+You may use the Software free of charge for a trial period of 14 days.
+
+To keep using it after the trial you need a License Key. One License Key covers
+one person on all of that person's own machines. It may not be shared with,
+transferred to or used by anyone else. An organisation needs one License Key
+for each person in it who uses the Software.
+
+These terms apply equally to official builds and to builds you make from the
+source.
+
+
+4. What you may not do
+
+You may not, without the Author's written permission:
+
+  a. distribute, publish, sell, rent, lend or sublicense the Software, or any
+     build of it, modified or not. Linking to the Author's repository, and
+     forks the hosting platform's own terms require be allowed, are fine as
+     long as no builds are offered from them;
+
+  b. use the Software, or any part of its source, design or behaviour, to
+     build, train, or help build a product or service that competes with the
+     Software;
+
+  c. remove, disable, weaken or work around the License Key check or the
+     trial, in an official build or in one you made, or help anyone else do so;
+
+  d. share, publish or generate License Keys;
+
+  e. remove or change this license or any copyright notice in the Software.
+
+
+5. Names and logos
+
+This license gives you no right to use the Author's names, product names or
+logos.
+
+
+6. Other people's code
+
+The Software includes third-party components. Each is covered by its own
+license, and nothing here limits your rights under those licenses for those
+components.
+
+
+7. Ending this license
+
+If you break any of these terms, your rights under this license end
+immediately, including the right to use any License Key you hold. You must then
+stop using the Software and delete any copies and builds of it.
+
+
+8. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. TO THE EXTENT THE LAW
+ALLOWS, IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN
+THE SOFTWARE.

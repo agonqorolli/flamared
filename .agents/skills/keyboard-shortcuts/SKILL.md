@@ -30,7 +30,7 @@ One list drives everything: `app/src/lib/keys.ts`.
 ## Current keys
 
 Everywhere: ⌘1/2/3 screens · ⌘R reload · L Live/Paused (app only) · ⌘O open folder (app only) · ⌘, Settings · ? the shortcuts page · S split/unified diff (not on Map).
-Changes: J/K file · G Looks good · W Needs work (again clears) · A agent messages · T/M jump.
+Changes: J/K file · G Looks good · W Needs work (then opens the next unchecked file; again clears) · A agent messages · T/M jump.
 Timeline: J/K edit · A agent messages · C/M jump (while the file is still changed).
 Map: 1–4 lens · C/T jump selected file · Esc → overview, then out of the zoom one level at a time.
 

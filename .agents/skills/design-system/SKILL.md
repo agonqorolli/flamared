@@ -36,7 +36,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 
 **Spacing and density** — everything is in spacing units (`p-3`, `gap-3`, `w-75`), never px, so Compact / Normal / Spacious (`--spacing` 0.2 / 0.25 / 0.3rem) scales the whole window. Text never scales with density.
 
-**Layout widths** — `--list-w` (the left list, 300px at normal density) and `--side-w` (the right column: 26% of what is left beside the list, 200–220px). Both are used through components/classes below, never recomputed.
+**Layout widths** — `--list-w` (the left list, 300px at normal density) and `--side-w` (the right column: 26% of what is left beside the list, 200–220px) are the defaults. Dragging a `PaneHandle` sets that variable on `:root` and saves it (`lib/panes.ts`); double-click resets it. Both are used through components/classes below, never recomputed.
 
 **Radius** — buttons, toggles, rows: 8px (`rounded-md`, shadcn's small sizes). Cards: `rounded-xl` (side column) / `rounded-lg` (list groups). Map tiles: 2px. Info buttons: full circle.
 
@@ -53,6 +53,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `Eyebrow` | the small uppercase label ("LOGIC GROUPS", "USES · 5", "1 OF 16"); `as="span" \| "h3"` |
 | `SectionLabel` | an Eyebrow row over a list section, with optional ⓘ tip |
 | `SideColumn` | the right column on every screen (`--side-w`) |
+| `PaneHandle` | the drag edge of the left list or the side column; saves the width, double-click resets |
 | `FileCard` | head card of the side column: "5 of 25" + ↑↓ (or "← Overview" on the Map), jump buttons, file name, agent's words |
 | `MiniCard`, `MiniRow` | small titled card and its clickable rows (Uses, Used by, File history, map overview) |
 | `Said` | an agent's or your message: who, when, text, 4 lines then click for all |
