@@ -1,0 +1,2 @@
+# Line width for the Rust side: the same 120 columns as the comments and the window code (Prettier).
+max_width = 120

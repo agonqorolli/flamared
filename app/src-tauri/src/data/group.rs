@@ -20,15 +20,19 @@ static JS_IMPORT: LazyLock<Regex> = LazyLock::new(|| {
 });
 static PY_IMPORT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^\s*(?:from\s+(\.+[\w.]*|[\w.]+)\s+import|import\s+([\w.]+))").unwrap());
-pub static TEST_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\.(test|spec)\.[^.]+$)|(^test_.*\.py$)|(_test\.py$)|(_test\.go$)").unwrap());
+pub static TEST_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(\.(test|spec)\.[^.]+$)|(^test_.*\.py$)|(_test\.py$)|(_test\.go$)").unwrap());
 // Top-level declarations only (Python methods one level deep), so locals don't show up. Covers JS/TS, Python,
 // Rust (pub fn, struct, trait...) and Go (func, type, var).
 static DECL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?: {4})?(?:export\s+)?(?:default\s+)?(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(function|class|const|let|interface|type|enum|def|fn|struct|trait|mod|static|func|var)\s+([A-Za-z_]\w*)").unwrap()
 });
-static RUST_USE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap());
-static RUST_MOD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;").unwrap());
-static GO_IMPORT_ONE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?m)^\s*import\s+(?:[\w.]+\s+)?"([^"]+)""#).unwrap());
+static RUST_USE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap());
+static RUST_MOD: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;").unwrap());
+static GO_IMPORT_ONE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?m)^\s*import\s+(?:[\w.]+\s+)?"([^"]+)""#).unwrap());
 static GO_IMPORT_BLOCK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?s)import\s*\((.*?)\)").unwrap());
 static GO_SPEC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?m)^\s*(?:[\w.]+\s+)?"([^"]+)""#).unwrap());
 static KINDS: LazyLock<Vec<(&str, Regex)>> = LazyLock::new(|| {
@@ -85,7 +89,9 @@ pub fn changed_files(repo: &str, base: &str, at: &At) -> Result<IndexMap<String,
 }
 
 pub fn read_text(repo: &str, path: &str) -> Option<String> {
-    std::fs::read(join(repo, path)).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
+    std::fs::read(join(repo, path))
+        .ok()
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 fn read(repo: &str, path: &str, base: &str, status: &str, at: &At) -> String {
@@ -149,13 +155,16 @@ fn pick(cand: &str, known: &BTreeSet<String>) -> Option<String> {
     }
     // strip a .js extension written for a .ts source
     let (stem, _) = splitext(cand);
-    CODE_EXT.iter().map(|e| format!("{stem}{e}")).find(|c| known.contains(c))
+    CODE_EXT
+        .iter()
+        .map(|e| format!("{stem}{e}"))
+        .find(|c| known.contains(c))
 }
 
 /// Import aliases from a tsconfig.json / jsconfig.json, like "@/*" -> "./src/*". Paths are repo-relative.
 #[derive(Default, Clone)]
 pub struct Aliases {
-    base_url: Option<String>,                   // folder bare imports may be relative to ("baseUrl")
+    base_url: Option<String>,                  // folder bare imports may be relative to ("baseUrl")
     paths: Vec<(String, String, Vec<String>)>, // (prefix before *, suffix after *, targets with * in them)
 }
 
@@ -203,23 +212,49 @@ fn read_aliases(repo: &str, config: &str, depth: u8) -> Option<Aliases> {
     let json: serde_json::Value = serde_json::from_str(&strip_jsonc(&read_text(repo, config)?)).ok()?;
     let dir = dirname(config);
     let opts = json.get("compilerOptions");
-    let base_url = opts.and_then(|o| o.get("baseUrl")).and_then(|b| b.as_str()).map(|b| normpath(&join(dir, b)));
-    let root = base_url.clone().unwrap_or_else(|| if dir.is_empty() { ".".into() } else { dir.to_string() });
+    let base_url = opts
+        .and_then(|o| o.get("baseUrl"))
+        .and_then(|b| b.as_str())
+        .map(|b| normpath(&join(dir, b)));
+    let root = base_url
+        .clone()
+        .unwrap_or_else(|| if dir.is_empty() { ".".into() } else { dir.to_string() });
     let mut paths = Vec::new();
-    for (pattern, targets) in opts.and_then(|o| o.get("paths")).and_then(|p| p.as_object()).into_iter().flatten() {
+    for (pattern, targets) in opts
+        .and_then(|o| o.get("paths"))
+        .and_then(|p| p.as_object())
+        .into_iter()
+        .flatten()
+    {
         let (prefix, suffix) = pattern.split_once('*').unwrap_or((pattern.as_str(), ""));
-        let targets: Vec<String> = targets.as_array().into_iter().flatten().filter_map(|t| t.as_str()).map(|t| normpath(&join(&root, t))).collect();
+        let targets: Vec<String> = targets
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|t| t.as_str())
+            .map(|t| normpath(&join(&root, t)))
+            .collect();
         paths.push((prefix.to_string(), suffix.to_string(), targets));
     }
     if base_url.is_some() || !paths.is_empty() || depth > 2 {
         return Some(Aliases { base_url, paths });
     }
     // Vite-style setups keep the aliases in a referenced tsconfig.app.json.
-    let refs = json.get("references").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+    let refs = json
+        .get("references")
+        .and_then(|r| r.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.iter()
         .filter_map(|r| r.get("path").and_then(|p| p.as_str()))
         .map(|p| normpath(&join(dir, p)))
-        .map(|p| if p.ends_with(".json") { p } else { join(&p, "tsconfig.json") })
+        .map(|p| {
+            if p.ends_with(".json") {
+                p
+            } else {
+                join(&p, "tsconfig.json")
+            }
+        })
         .find_map(|p| read_aliases(repo, &p, depth + 1).filter(|a| a.base_url.is_some() || !a.paths.is_empty()))
         .or(Some(Aliases::default()))
 }
@@ -230,7 +265,10 @@ fn aliases_for<'a>(repo: &str, file: &str, cache: &'a mut HashMap<String, Aliase
     if !cache.contains_key(&start) {
         let mut dir = start.clone();
         let found = loop {
-            if let Some(a) = ["tsconfig.json", "jsconfig.json"].iter().find_map(|n| read_aliases(repo, &join(&dir, n), 0)) {
+            if let Some(a) = ["tsconfig.json", "jsconfig.json"]
+                .iter()
+                .find_map(|n| read_aliases(repo, &join(&dir, n), 0))
+            {
                 break a;
             }
             if dir.is_empty() {
@@ -251,7 +289,11 @@ fn rust_crate(repo: &str, file: &str) -> Option<(String, Vec<String>)> {
     let mut dir = dirname(file).to_string();
     loop {
         if let Some(toml) = read_text(repo, &join(&dir, "Cargo.toml")) {
-            let names = Regex::new(r#"(?m)^\s*name\s*=\s*"([^"]+)""#).unwrap().captures_iter(&toml).map(|m| m[1].replace('-', "_")).collect();
+            let names = Regex::new(r#"(?m)^\s*name\s*=\s*"([^"]+)""#)
+                .unwrap()
+                .captures_iter(&toml)
+                .map(|m| m[1].replace('-', "_"))
+                .collect();
             return Some((join(&dir, "src"), names));
         }
         if dir.is_empty() {
@@ -285,7 +327,9 @@ fn rust_file(src: &str, segs: &[String], known: &BTreeSet<String>) -> Option<Str
 /// `a::{b, c::{d, e}}` -> a::b, a::c::d, a::c::e
 fn expand_use(tree: &str) -> Vec<String> {
     let tree = tree.trim();
-    let Some(open) = tree.find('{') else { return vec![tree.to_string()] };
+    let Some(open) = tree.find('{') else {
+        return vec![tree.to_string()];
+    };
     let prefix = tree[..open].trim_end_matches(':').trim();
     let inner = &tree[open + 1..tree.rfind('}').unwrap_or(tree.len())];
     let (mut parts, mut depth, mut start) = (Vec::new(), 0, 0);
@@ -301,30 +345,55 @@ fn expand_use(tree: &str) -> Vec<String> {
         }
     }
     parts.push(&inner[start..]);
-    parts.into_iter().filter(|p| !p.trim().is_empty()).flat_map(expand_use).map(|p| if prefix.is_empty() { p } else { format!("{prefix}::{p}") }).collect()
+    parts
+        .into_iter()
+        .filter(|p| !p.trim().is_empty())
+        .flat_map(expand_use)
+        .map(|p| if prefix.is_empty() { p } else { format!("{prefix}::{p}") })
+        .collect()
 }
 
 fn rust_imports(repo: &str, file: &str, text: &str, known: &BTreeSet<String>) -> Vec<String> {
-    let Some((src, names)) = rust_crate(repo, file) else { return vec![] };
+    let Some((src, names)) = rust_crate(repo, file) else {
+        return vec![];
+    };
     let here = rust_module(file, &src);
     let mut out = Vec::new();
     // `use` lines, plus paths written inline like `crate::data::git::git(…)` or `app_lib::run()`.
     // Inline matches skip lines that are comments, and `a::{…}` (those come from `use` lines, expanded above).
-    let code: String = text.lines().filter(|l| !l.trim_start().starts_with("//")).collect::<Vec<_>>().join("\n");
+    let code: String = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
     let mut paths: Vec<String> = RUST_USE.captures_iter(text).flat_map(|m| expand_use(&m[1])).collect();
     for root in std::iter::once("crate".to_string()).chain(names.iter().cloned()) {
         let rx = Regex::new(&format!(r"\b({}(?:::\w+)+)(::\{{)?", regex::escape(&root))).unwrap();
-        paths.extend(rx.captures_iter(&code).filter(|m| m.get(2).is_none()).map(|m| m[1].to_string()));
+        paths.extend(
+            rx.captures_iter(&code)
+                .filter(|m| m.get(2).is_none())
+                .map(|m| m[1].to_string()),
+        );
     }
     {
         for path in paths {
             let path = path.split(" as ").next().unwrap_or(&path).trim().to_string();
-            let mut segs: Vec<String> = path.split("::").map(|s| s.trim().to_string()).filter(|s| !s.is_empty() && s != "*").collect();
+            let mut segs: Vec<String> = path
+                .split("::")
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty() && s != "*")
+                .collect();
             let mut base: Vec<String> = match segs.first().map(String::as_str) {
                 Some("crate") => vec![],
                 Some(n) if names.iter().any(|x| x == n) => vec![],
-                Some("self") => match &here { Some(h) => h.clone(), None => continue },
-                Some("super") => match &here { Some(h) => h.clone(), None => continue },
+                Some("self") => match &here {
+                    Some(h) => h.clone(),
+                    None => continue,
+                },
+                Some("super") => match &here {
+                    Some(h) => h.clone(),
+                    None => continue,
+                },
                 _ => continue, // std or another crate
             };
             let lead = segs.remove(0);
@@ -378,7 +447,11 @@ fn go_imports(repo: &str, file: &str, text: &str, known: &BTreeSet<String>) -> V
         specs.extend(GO_SPEC.captures_iter(&block[1]).map(|m| m[1].to_string()));
     }
     let package_files = |pkg: &str| -> Vec<String> {
-        known.iter().filter(|k| k.ends_with(".go") && !k.ends_with("_test.go") && dirname(k) == pkg).cloned().collect()
+        known
+            .iter()
+            .filter(|k| k.ends_with(".go") && !k.ends_with("_test.go") && dirname(k) == pkg)
+            .cloned()
+            .collect()
     };
     let mut out = package_files(dirname(file)); // same package
     for spec in specs {
@@ -402,7 +475,11 @@ fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>, aliases: &Alias
                 base = dirname(&base).to_string();
             }
             let rest = spec.trim_start_matches('.').replace('.', "/");
-            if rest.is_empty() { base } else { normpath(&join(&base, &rest)) }
+            if rest.is_empty() {
+                base
+            } else {
+                normpath(&join(&base, &rest))
+            }
         } else {
             normpath(&join(dirname(importer), spec))
         }
@@ -411,13 +488,22 @@ fn resolve(spec: &str, importer: &str, known: &BTreeSet<String>, aliases: &Alias
     } else {
         // Not relative: an alias from tsconfig/jsconfig ("@/components/x"), a path from its baseUrl, or a package.
         for (prefix, suffix, targets) in &aliases.paths {
-            if let Some(mid) = spec.strip_prefix(prefix.as_str()).and_then(|r| r.strip_suffix(suffix.as_str())) {
-                if let Some(hit) = targets.iter().find_map(|t| pick(&normpath(&t.replacen('*', mid, 1)), known)) {
+            if let Some(mid) = spec
+                .strip_prefix(prefix.as_str())
+                .and_then(|r| r.strip_suffix(suffix.as_str()))
+            {
+                if let Some(hit) = targets
+                    .iter()
+                    .find_map(|t| pick(&normpath(&t.replacen('*', mid, 1)), known))
+                {
                     return Some(hit);
                 }
             }
         }
-        return aliases.base_url.as_ref().and_then(|b| pick(&normpath(&join(b, spec)), known));
+        return aliases
+            .base_url
+            .as_ref()
+            .and_then(|b| pick(&normpath(&join(b, spec)), known));
     };
     if let Some(hit) = pick(&cand, known) {
         return Some(hit);
@@ -527,7 +613,11 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
     let u0 = diff_by_file(repo, &u0_args);
     let mut texts: HashMap<String, String> = HashMap::new(); // each changed code file's text, read once
     let mut alias_cache: HashMap<String, Aliases> = HashMap::new(); // tsconfig/jsconfig aliases per folder
-    let code: Vec<String> = files.keys().filter(|p| CODE_EXT.contains(&splitext(p).1)).cloned().collect();
+    let code: Vec<String> = files
+        .keys()
+        .filter(|p| CODE_EXT.contains(&splitext(p).1))
+        .cloned()
+        .collect();
     let known: BTreeSet<String> = code.iter().cloned().collect();
     let tests: BTreeSet<String> = code.iter().filter(|p| TEST_RE.is_match(basename(p))).cloned().collect();
     let src: Vec<String> = code.iter().filter(|p| !tests.contains(*p)).cloned().collect();
@@ -535,7 +625,10 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
     let mut adj: HashMap<String, BTreeSet<String>> = HashMap::new();
     let mut importers: HashMap<String, BTreeSet<String>> = HashMap::new();
     for p in &code {
-        let text = texts.entry(p.clone()).or_insert_with(|| read(repo, p, base, &files[p], at)).clone();
+        let text = texts
+            .entry(p.clone())
+            .or_insert_with(|| read(repo, p, base, &files[p], at))
+            .clone();
         if files[p] == "A" && !stats.contains_key(p) {
             stats.insert(p.clone(), (text.lines().count() as u64, 0)); // untracked: numstat doesn't see it
         }
@@ -545,8 +638,21 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
             go_imports(repo, p, &text, &known)
         } else {
             let rx = if p.ends_with(".py") { &*PY_IMPORT } else { &*JS_IMPORT };
-            let aliases = if p.ends_with(".py") { Aliases::default() } else { aliases_for(repo, p, &mut alias_cache).clone() };
-            rx.captures_iter(&text).flat_map(|caps| caps.iter().skip(1).flatten().map(|s| s.as_str().to_string()).collect::<Vec<_>>()).filter_map(|s| resolve(&s, p, &known, &aliases)).collect()
+            let aliases = if p.ends_with(".py") {
+                Aliases::default()
+            } else {
+                aliases_for(repo, p, &mut alias_cache).clone()
+            };
+            rx.captures_iter(&text)
+                .flat_map(|caps| {
+                    caps.iter()
+                        .skip(1)
+                        .flatten()
+                        .map(|s| s.as_str().to_string())
+                        .collect::<Vec<_>>()
+                })
+                .filter_map(|s| resolve(&s, p, &known, &aliases))
+                .collect()
         };
         for t in targets {
             if &t != p {
@@ -572,11 +678,24 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
     }
     let registries: BTreeSet<String> = src
         .iter()
-        .filter(|p| !shared.contains(*p) && imports_of.get(*p).map_or(0, |s| s.difference(&shared).count()) >= REGISTRY_MIN_IMPORTS)
+        .filter(|p| {
+            !shared.contains(*p)
+                && imports_of.get(*p).map_or(0, |s| s.difference(&shared).count()) >= REGISTRY_MIN_IMPORTS
+        })
         .cloned()
         .collect();
-    let used_by: HashMap<&String, Vec<String>> =
-        shared.iter().map(|h| (h, importers.get(h).map(|s| s.iter().cloned().collect()).unwrap_or_default())).collect();
+    let used_by: HashMap<&String, Vec<String>> = shared
+        .iter()
+        .map(|h| {
+            (
+                h,
+                importers
+                    .get(h)
+                    .map(|s| s.iter().cloned().collect())
+                    .unwrap_or_default(),
+            )
+        })
+        .collect();
     for h in shared.iter().chain(registries.iter()) {
         for m in adj.remove(h).unwrap_or_default() {
             if let Some(s) = adj.get_mut(&m) {
@@ -604,7 +723,11 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         comps.push(comp);
     }
 
-    let comp_of: HashMap<&String, usize> = comps.iter().enumerate().flat_map(|(i, c)| c.iter().map(move |p| (p, i))).collect();
+    let comp_of: HashMap<&String, usize> = comps
+        .iter()
+        .enumerate()
+        .flat_map(|(i, c)| c.iter().map(move |p| (p, i)))
+        .collect();
     let mut attached: HashMap<usize, Vec<String>> = HashMap::new();
     let mut loose_tests = Vec::new();
     for t in &tests {
@@ -628,7 +751,10 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         let hub = c
             .iter()
             .fold(None::<(&String, (usize, u64))>, |best, p| {
-                let key = (adj.get(p).map_or(0, |s| s.iter().filter(|m| cset.contains(m)).count()), lines(p));
+                let key = (
+                    adj.get(p).map_or(0, |s| s.iter().filter(|m| cset.contains(m)).count()),
+                    lines(p),
+                );
                 match best {
                     Some((_, bk)) if bk >= key => best,
                     _ => Some((p, key)),
@@ -647,8 +773,11 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         files_sorted.sort();
         let mut tests_sorted = attached.get(&i).cloned().unwrap_or_default();
         tests_sorted.sort();
-        let uses: BTreeSet<String> =
-            shared.iter().filter(|h| c.iter().any(|p| used_by[h].contains(p))).map(|h| stem(h)).collect();
+        let uses: BTreeSet<String> = shared
+            .iter()
+            .filter(|h| c.iter().any(|p| used_by[h].contains(p)))
+            .map(|h| stem(h))
+            .collect();
         let all = c.iter().chain(tests_sorted.iter());
         let (add, rem) = all.fold((0, 0), |(a, d), p| {
             let (x, y) = stats.get(p).copied().unwrap_or((0, 0));
@@ -659,7 +788,11 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
             shared: shared.contains(&hub),
             registry: registries.contains(&hub),
             used_by: used_by.get(&hub).map_or(0, |v| v.len()),
-            imports: if registries.contains(&hub) { imports_of.get(&hub).map_or(0, |s| s.difference(&shared).count()) } else { 0 },
+            imports: if registries.contains(&hub) {
+                imports_of.get(&hub).map_or(0, |s| s.difference(&shared).count())
+            } else {
+                0
+            },
             hub,
             files: files_sorted,
             tests: tests_sorted,
@@ -676,8 +809,18 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         let kind = KINDS.iter().find(|(_, rx)| rx.is_match(p)).map_or("other", |(k, _)| k);
         support.entry(kind.to_string()).or_default().push(p.clone());
     }
-    let importers = importers.into_iter().map(|(t, ps)| (t, ps.into_iter().collect())).collect();
-    Ok(Grouping { files, groups, loose_tests, support, stats, importers })
+    let importers = importers
+        .into_iter()
+        .map(|(t, ps)| (t, ps.into_iter().collect()))
+        .collect();
+    Ok(Grouping {
+        files,
+        groups,
+        loose_tests,
+        support,
+        stats,
+        importers,
+    })
 }
 
 #[cfg(test)]
@@ -692,22 +835,54 @@ mod tests {
     }
     #[test]
     fn aliases() {
-        let known: BTreeSet<String> = ["app/src/components/Said.tsx", "app/src/lib/utils.ts", "app/src/lib/index.ts"].iter().map(|s| s.to_string()).collect();
-        let a = Aliases { base_url: None, paths: vec![("@/".into(), "".into(), vec!["app/src/*".into()])] };
-        assert_eq!(resolve("@/components/Said", "app/src/App.tsx", &known, &a).as_deref(), Some("app/src/components/Said.tsx"));
-        assert_eq!(resolve("@/lib", "app/src/App.tsx", &known, &a).as_deref(), Some("app/src/lib/index.ts"));
+        let known: BTreeSet<String> = [
+            "app/src/components/Said.tsx",
+            "app/src/lib/utils.ts",
+            "app/src/lib/index.ts",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let a = Aliases {
+            base_url: None,
+            paths: vec![("@/".into(), "".into(), vec!["app/src/*".into()])],
+        };
+        assert_eq!(
+            resolve("@/components/Said", "app/src/App.tsx", &known, &a).as_deref(),
+            Some("app/src/components/Said.tsx")
+        );
+        assert_eq!(
+            resolve("@/lib", "app/src/App.tsx", &known, &a).as_deref(),
+            Some("app/src/lib/index.ts")
+        );
         assert_eq!(resolve("react", "app/src/App.tsx", &known, &a), None);
-        let b = Aliases { base_url: Some("app/src".into()), paths: vec![] };
-        assert_eq!(resolve("lib/utils", "app/src/App.tsx", &known, &b).as_deref(), Some("app/src/lib/utils.ts"));
+        let b = Aliases {
+            base_url: Some("app/src".into()),
+            paths: vec![],
+        };
+        assert_eq!(
+            resolve("lib/utils", "app/src/App.tsx", &known, &b).as_deref(),
+            Some("app/src/lib/utils.ts")
+        );
     }
     #[test]
     fn use_trees() {
-        assert_eq!(expand_use("crate::data::{git, paths::{realpath, join}}"), vec!["crate::data::git", "crate::data::paths::realpath", "crate::data::paths::join"]);
+        assert_eq!(
+            expand_use("crate::data::{git, paths::{realpath, join}}"),
+            vec![
+                "crate::data::git",
+                "crate::data::paths::realpath",
+                "crate::data::paths::join"
+            ]
+        );
         assert_eq!(expand_use("super::git::git_or_empty"), vec!["super::git::git_or_empty"]);
     }
     #[test]
     fn rust_modules() {
-        assert_eq!(rust_module("app/src/data/group.rs", "app/src"), Some(vec!["data".into(), "group".into()]));
+        assert_eq!(
+            rust_module("app/src/data/group.rs", "app/src"),
+            Some(vec!["data".into(), "group".into()])
+        );
         assert_eq!(rust_module("app/src/data/mod.rs", "app/src"), Some(vec!["data".into()]));
         assert_eq!(rust_module("app/src/lib.rs", "app/src"), Some(vec![]));
         assert_eq!(rust_module("app/examples/dump.rs", "app/src"), None);

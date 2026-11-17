@@ -4,7 +4,8 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-static PYTHON: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"^python(?:3)?\s+-\s+<<\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?\s*$"#).unwrap());
+static PYTHON: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"^python(?:3)?\s+-\s+<<\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?\s*$"#).unwrap());
 
 /// Only a directly invoked Python heredoc is understood. Other shell programs, dynamic paths,
 /// control flow and failed commands are deliberately left out rather than guessed at.
@@ -13,7 +14,9 @@ pub fn written_paths(cmd: &str, output: &str, exit: Option<i64>) -> Vec<String> 
         return vec![];
     }
     let mut lines = cmd.lines();
-    let Some(header) = lines.next().and_then(|l| PYTHON.captures(l.trim())) else { return vec![] };
+    let Some(header) = lines.next().and_then(|l| PYTHON.captures(l.trim())) else {
+        return vec![];
+    };
     let mut body = String::new();
     let mut closed = false;
     for line in lines {
@@ -24,7 +27,9 @@ pub fn written_paths(cmd: &str, output: &str, exit: Option<i64>) -> Vec<String> 
         body.push_str(line);
         body.push('\n');
     }
-    if !closed { return vec![]; }
+    if !closed {
+        return vec![];
+    }
     python_writes(&body)
 }
 
@@ -43,19 +48,31 @@ fn statements(code: &str) -> Vec<Vec<Token>> {
     let (mut out, mut stmt) = (Vec::new(), Vec::new());
     while i < chars.len() {
         let c = chars[i];
-        if start && matches!(c, ' ' | '\t') { indented = true; }
+        if start && matches!(c, ' ' | '\t') {
+            indented = true;
+        }
         if c == '#' {
-            while i < chars.len() && chars[i] != '\n' { i += 1; }
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
             continue;
         }
         if (c == '\n' || c == ';') && depth == 0 {
-            if !indented && !stmt.is_empty() { out.push(std::mem::take(&mut stmt)); }
+            if !indented && !stmt.is_empty() {
+                out.push(std::mem::take(&mut stmt));
+            }
             stmt.clear();
-            if c == '\n' { start = true; indented = false; }
+            if c == '\n' {
+                start = true;
+                indented = false;
+            }
             i += 1;
             continue;
         }
-        if c.is_whitespace() { i += 1; continue; }
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
         start = false;
         if matches!(c, '\'' | '"') {
             let triple = chars.get(i + 1) == Some(&c) && chars.get(i + 2) == Some(&c);
@@ -71,26 +88,43 @@ fn statements(code: &str) -> Vec<Vec<Token>> {
                 }
                 if chars[i] == '\\' {
                     i += 1;
-                    if i >= chars.len() { break; }
+                    if i >= chars.len() {
+                        break;
+                    }
                     // Unknown escape sequences cannot form a literal path.
-                    match chars[i] { '\\' | '\'' | '"' => text.push(chars[i]), _ => text.push('\0') }
-                } else { text.push(chars[i]); }
+                    match chars[i] {
+                        '\\' | '\'' | '"' => text.push(chars[i]),
+                        _ => text.push('\0'),
+                    }
+                } else {
+                    text.push(chars[i]);
+                }
                 i += 1;
             }
-            if !closed { return vec![]; }
+            if !closed {
+                return vec![];
+            }
             stmt.push(Token::Text(text));
         } else if c.is_alphabetic() || c == '_' {
             let from = i;
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') { i += 1; }
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
             stmt.push(Token::Name(chars[from..i].iter().collect()));
         } else {
-            if matches!(c, '(' | '[' | '{') { depth += 1; }
-            if matches!(c, ')' | ']' | '}') { depth = depth.saturating_sub(1); }
+            if matches!(c, '(' | '[' | '{') {
+                depth += 1;
+            }
+            if matches!(c, ')' | ']' | '}') {
+                depth = depth.saturating_sub(1);
+            }
             stmt.push(Token::Punct(c));
             i += 1;
         }
     }
-    if depth == 0 && !indented && !stmt.is_empty() { out.push(stmt); }
+    if depth == 0 && !indented && !stmt.is_empty() {
+        out.push(stmt);
+    }
     out
 }
 
@@ -98,7 +132,9 @@ fn literal(tokens: &[Token], vars: &HashMap<String, String>) -> Option<String> {
     match tokens {
         [Token::Text(s)] if !s.is_empty() && !s.contains(['\0', '\n', '\r']) => Some(s.clone()),
         [Token::Name(n)] => vars.get(n).cloned(),
-        [Token::Name(n), Token::Punct('('), arg, Token::Punct(')')] if n == "Path" => literal(std::slice::from_ref(arg), vars),
+        [Token::Name(n), Token::Punct('('), arg, Token::Punct(')')] if n == "Path" => {
+            literal(std::slice::from_ref(arg), vars)
+        }
         _ => None,
     }
 }
@@ -112,13 +148,19 @@ fn python_writes(code: &str) -> Vec<String> {
             return vec![];
         }
         if let [Token::Name(name), Token::Punct(op), Token::Punct('='), ..] = stmt.as_slice() {
-            if matches!(op, '+' | '-' | '*' | '/' | '%' | '|' | '&' | '^') { vars.remove(name); }
+            if matches!(op, '+' | '-' | '*' | '/' | '%' | '|' | '&' | '^') {
+                vars.remove(name);
+            }
         }
         if let [Token::Name(name), Token::Punct('='), rhs @ ..] = stmt.as_slice() {
-            if name == "open" || name == "Path" { return vec![]; }
+            if name == "open" || name == "Path" {
+                return vec![];
+            }
             let value = literal(rhs, &vars);
             vars.remove(name);
-            if let Some(value) = value { vars.insert(name.clone(), value); }
+            if let Some(value) = value {
+                vars.insert(name.clone(), value);
+            }
             continue;
         }
         // open(path, 'w').write(...) / append / exclusive creation, with optional binary mode.
@@ -130,7 +172,9 @@ fn python_writes(code: &str) -> Vec<String> {
                 .and_then(|i| literal(&stmt[..i], &vars)),
         };
         if let Some(path) = path {
-            if !out.contains(&path) { out.push(path); }
+            if !out.contains(&path) {
+                out.push(path);
+            }
         }
     }
     out
@@ -154,7 +198,21 @@ mod tests {
         let cmd = "python - <<'PY'\np='old.ts'\np=get_path()\nopen(p,'w').write('x')\nif False:\n  open('conditional.ts','w').write('x');open('also.ts','w').write('x')\ndef unused():\n  open('function.ts','w').write('x')\nPY";
         assert!(written_paths(cmd, "", Some(0)).is_empty());
         assert!(written_paths("cat <<'PY'\nopen('example.ts','w').write('x')\nPY", "", Some(0)).is_empty());
-        assert!(written_paths("python - <<'PY'\nopen('conditional.ts','w').write('x') if False else None\nPY", "", Some(0)).is_empty());
-        assert!(written_paths("python - <<'PY'\np='old';p += suffix;open(p,'w').write('x')\nPY", "", Some(0)).is_empty());
+        assert!(
+            written_paths(
+                "python - <<'PY'\nopen('conditional.ts','w').write('x') if False else None\nPY",
+                "",
+                Some(0)
+            )
+            .is_empty()
+        );
+        assert!(
+            written_paths(
+                "python - <<'PY'\np='old';p += suffix;open(p,'w').write('x')\nPY",
+                "",
+                Some(0)
+            )
+            .is_empty()
+        );
     }
 }

@@ -14,8 +14,17 @@ fn key_file() -> PathBuf {
 }
 
 fn signer() -> SigningKey {
-    let bytes = std::fs::read(key_file()).unwrap_or_else(|_| fail(&format!("No signing key at {}. Run new-keypair first.", key_file().display())));
-    SigningKey::from_bytes(&bytes.try_into().unwrap_or_else(|_| fail("The signing key file is damaged.")))
+    let bytes = std::fs::read(key_file()).unwrap_or_else(|_| {
+        fail(&format!(
+            "No signing key at {}. Run new-keypair first.",
+            key_file().display()
+        ))
+    });
+    SigningKey::from_bytes(
+        &bytes
+            .try_into()
+            .unwrap_or_else(|_| fail("The signing key file is damaged.")),
+    )
 }
 
 fn fail(msg: &str) -> ! {
@@ -29,10 +38,15 @@ fn main() {
         Some("new-keypair") => {
             let path = key_file();
             if path.exists() {
-                fail(&format!("{} already exists. Keys made with it would stop working if it were replaced.", path.display()));
+                fail(&format!(
+                    "{} already exists. Keys made with it would stop working if it were replaced.",
+                    path.display()
+                ));
             }
             let mut seed = [0u8; 32];
-            std::fs::File::open("/dev/urandom").and_then(|mut f| f.read_exact(&mut seed)).expect("random bytes");
+            std::fs::File::open("/dev/urandom")
+                .and_then(|mut f| f.read_exact(&mut seed))
+                .expect("random bytes");
             std::fs::create_dir_all(path.parent().unwrap()).expect("key folder");
             std::fs::write(&path, seed).expect("write key");
             use std::os::unix::fs::PermissionsExt;
@@ -42,14 +56,29 @@ fn main() {
             println!("Public key for src/license.rs:\nconst PUBLIC_KEY: [u8; 32] = {public:?};");
         }
         Some("issue") => {
-            let (Some(name), Some(email)) = (args.get(1), args.get(2)) else { fail("usage: issue \"<name>\" <email> [order]") };
+            let (Some(name), Some(email)) = (args.get(1), args.get(2)) else {
+                fail("usage: issue \"<name>\" <email> [order]")
+            };
             let issued = chrono::Local::now().format("%Y-%m-%d").to_string();
-            let id = args.get(3).cloned().unwrap_or_else(|| chrono::Local::now().format("%Y%m%d%H%M%S").to_string());
+            let id = args
+                .get(3)
+                .cloned()
+                .unwrap_or_else(|| chrono::Local::now().format("%Y%m%d%H%M%S").to_string());
             let signer = signer();
-            let key = encode(&Holder { name: name.clone(), email: email.clone(), id, issued }, |r| signer.sign(r).to_bytes());
+            let key = encode(
+                &Holder {
+                    name: name.clone(),
+                    email: email.clone(),
+                    id,
+                    issued,
+                },
+                |r| signer.sign(r).to_bytes(),
+            );
             match verify(&key) {
                 Ok(_) => println!("{key}"),
-                Err(_) => fail("Made a key, but the app wouldn't accept it: the public key in src/license.rs doesn't match this signing key."),
+                Err(_) => fail(
+                    "Made a key, but the app wouldn't accept it: the public key in src/license.rs doesn't match this signing key.",
+                ),
             }
         }
         Some("check") => match verify(&args[1..].join("")) {

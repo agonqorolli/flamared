@@ -21,7 +21,11 @@ pub fn splitext(p: &str) -> (&str, &str) {
 }
 
 pub fn join(a: &str, b: &str) -> String {
-    if a.is_empty() || b.starts_with('/') { b.to_string() } else { format!("{}/{}", a.trim_end_matches('/'), b) }
+    if a.is_empty() || b.starts_with('/') {
+        b.to_string()
+    } else {
+        format!("{}/{}", a.trim_end_matches('/'), b)
+    }
 }
 
 /// os.path.normpath for relative repo paths: folds "." and "..".
@@ -31,13 +35,23 @@ pub fn normpath(p: &str) -> String {
         match part {
             "" | "." => {}
             ".." => {
-                if matches!(out.last(), Some(l) if *l != "..") { out.pop(); } else if !p.starts_with('/') { out.push(".."); }
+                if matches!(out.last(), Some(l) if *l != "..") {
+                    out.pop();
+                } else if !p.starts_with('/') {
+                    out.push("..");
+                }
             }
             x => out.push(x),
         }
     }
     let s = out.join("/");
-    if p.starts_with('/') { format!("/{s}") } else if s.is_empty() { ".".into() } else { s }
+    if p.starts_with('/') {
+        format!("/{s}")
+    } else if s.is_empty() {
+        ".".into()
+    } else {
+        s
+    }
 }
 
 /// os.path.realpath: resolves links of the parts that exist (a deleted file still gets its folder resolved).
@@ -47,9 +61,10 @@ pub fn realpath(p: &str) -> String {
     }
     let path = Path::new(p);
     match (path.parent(), path.file_name()) {
-        (Some(parent), Some(name)) if !parent.as_os_str().is_empty() => {
-            Path::new(&realpath(&parent.to_string_lossy())).join(name).to_string_lossy().into_owned()
-        }
+        (Some(parent), Some(name)) if !parent.as_os_str().is_empty() => Path::new(&realpath(&parent.to_string_lossy()))
+            .join(name)
+            .to_string_lossy()
+            .into_owned(),
         _ => p.to_string(),
     }
 }
@@ -64,7 +79,10 @@ pub fn root_of<'a>(path: &str, roots: &'a [String]) -> Option<&'a str> {
 }
 
 pub fn relpath(path: &str, root: &str) -> String {
-    path.strip_prefix(root).map(|s| s.trim_start_matches('/').to_string()).filter(|s| !s.is_empty()).unwrap_or_else(|| ".".into())
+    path.strip_prefix(root)
+        .map(|s| s.trim_start_matches('/').to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| ".".into())
 }
 
 pub fn home() -> String {

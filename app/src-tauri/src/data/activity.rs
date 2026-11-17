@@ -6,7 +6,7 @@
 //! "Waiting for you" is a best guess (a slow command looks the same), so the window says "probably".
 use super::paths::realpath;
 use super::sessions;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::{Read, Seek, SeekFrom};
 use std::time::{Duration, SystemTime};
 
@@ -27,16 +27,24 @@ pub fn agents_now(repo_of: impl Fn(&str) -> Option<String>) -> Vec<Value> {
     let now = SystemTime::now();
     let mut out: Vec<(SystemTime, Value)> = Vec::new();
     for f in sessions::session_files() {
-        let Some(at) = std::fs::metadata(&f).and_then(|m| m.modified()).ok() else { continue };
+        let Some(at) = std::fs::metadata(&f).and_then(|m| m.modified()).ok() else {
+            continue;
+        };
         let age = now.duration_since(at).unwrap_or_default();
         if age > RECENT {
             continue;
         }
         let s = sessions::parse(&f);
         let Some(turn) = s.turns.last() else { continue };
-        let Some(repo) = turn.cwd.as_deref().and_then(|c| repo_of(&realpath(c))) else { continue };
+        let Some(repo) = turn.cwd.as_deref().and_then(|c| repo_of(&realpath(c))) else {
+            continue;
+        };
         let records = tail_records(&f);
-        let state = if sessions::is_codex(&f) { codex_state(&records, age) } else { claude_state(&records, age) };
+        let state = if sessions::is_codex(&f) {
+            codex_state(&records, age)
+        } else {
+            claude_state(&records, age)
+        };
         let at_iso = chrono::DateTime::<chrono::Local>::from(at).to_rfc3339();
         out.push((
             at,
@@ -49,13 +57,21 @@ pub fn agents_now(repo_of: impl Fn(&str) -> Option<String>) -> Vec<Value> {
 
 /// Your latest real prompt: a turn you stopped records "[Request interrupted…]" as its prompt, so that one is skipped.
 fn last_prompt(s: &sessions::Session) -> String {
-    let p = s.turns.iter().rev().map(|t| t.prompt.trim()).find(|p| !p.is_empty() && !p.starts_with("[Request interrupted")).unwrap_or("");
+    let p = s
+        .turns
+        .iter()
+        .rev()
+        .map(|t| t.prompt.trim())
+        .find(|p| !p.is_empty() && !p.starts_with("[Request interrupted"))
+        .unwrap_or("");
     p.chars().take(200).collect()
 }
 
 /// The last records of a session file, oldest first (a partly cut first line is skipped).
 fn tail_records(path: &str) -> Vec<Value> {
-    let Ok(mut f) = std::fs::File::open(path) else { return vec![] };
+    let Ok(mut f) = std::fs::File::open(path) else {
+        return vec![];
+    };
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
     let start = len.saturating_sub(TAIL);
     if f.seek(SeekFrom::Start(start)).is_err() {
@@ -75,19 +91,36 @@ fn tail_records(path: &str) -> Vec<Value> {
 
 fn claude_state(records: &[Value], age: Duration) -> &'static str {
     // The last message (agent or you); everything else (snapshots, titles, costs) doesn't say what's happening.
-    let Some(last) = records.iter().rev().find(|r| matches!(r["type"].as_str(), Some("assistant" | "user")) && r["isMeta"] != true) else {
+    let Some(last) = records
+        .iter()
+        .rev()
+        .find(|r| matches!(r["type"].as_str(), Some("assistant" | "user")) && r["isMeta"] != true)
+    else {
         return "finished";
     };
     let content = &last["message"]["content"];
     let blocks = content.as_array().map(Vec::as_slice).unwrap_or_default();
     let has = |kind: &str| blocks.iter().any(|b| b["type"] == kind);
-    let text = content.as_str().map(str::to_string).unwrap_or_else(|| blocks.iter().filter_map(|b| b["text"].as_str()).collect());
+    let text = content
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| blocks.iter().filter_map(|b| b["text"].as_str()).collect());
     if last["type"] == "assistant" {
         if has("tool_use") {
             // A call with no result yet: running it, or (quiet for a while) waiting for your approval.
-            return if age < QUIET { "working" } else if age < STALE { "waiting" } else { "finished" };
+            return if age < QUIET {
+                "working"
+            } else if age < STALE {
+                "waiting"
+            } else {
+                "finished"
+            };
         }
-        return if last["message"]["stop_reason"].is_null() && age < BUSY { "working" } else { "finished" };
+        return if last["message"]["stop_reason"].is_null() && age < BUSY {
+            "working"
+        } else {
+            "finished"
+        };
     }
     // Your side: a tool result (the agent continues) or a prompt (the agent starts); stopped by you means finished.
     if text.contains("[Request interrupted") {
@@ -146,9 +179,15 @@ mod tests {
     #[test]
     fn codex() {
         let ev = |t: &str| json!({"type": "event_msg", "payload": {"type": t}});
-        assert_eq!(codex_state(&[ev("task_started"), ev("task_complete")], secs(5)), "finished");
+        assert_eq!(
+            codex_state(&[ev("task_started"), ev("task_complete")], secs(5)),
+            "finished"
+        );
         assert_eq!(codex_state(&[ev("exec_approval_request")], secs(300)), "waiting");
-        assert_eq!(codex_state(&[ev("task_started"), ev("token_count")], secs(30)), "working");
+        assert_eq!(
+            codex_state(&[ev("task_started"), ev("token_count")], secs(30)),
+            "working"
+        );
         assert_eq!(codex_state(&[ev("task_started")], secs(900)), "finished");
     }
 }

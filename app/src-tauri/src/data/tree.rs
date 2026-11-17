@@ -23,10 +23,17 @@ impl At {
     /// The text of a file, or None when it doesn't exist here.
     pub fn read(&self, repo: &str, path: &str) -> Option<String> {
         match self {
-            At::Work => std::fs::read(join(repo, path)).ok().map(|b| String::from_utf8_lossy(&b).into_owned()),
+            At::Work => std::fs::read(join(repo, path))
+                .ok()
+                .map(|b| String::from_utf8_lossy(&b).into_owned()),
             At::Commit(rev) => {
-                let out = std::process::Command::new("git").args(["-C", repo, "show", &format!("{rev}:{path}")]).output().ok()?;
-                out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+                let out = std::process::Command::new("git")
+                    .args(["-C", repo, "show", &format!("{rev}:{path}")])
+                    .output()
+                    .ok()?;
+                out.status
+                    .success()
+                    .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
             }
         }
     }
@@ -37,7 +44,10 @@ impl At {
             At::Work => {
                 use std::io::Read;
                 let mut buf = [0u8; 8000];
-                std::fs::File::open(join(repo, path)).and_then(|mut f| f.read(&mut buf)).map(|n| buf[..n].contains(&0)).unwrap_or(false)
+                std::fs::File::open(join(repo, path))
+                    .and_then(|mut f| f.read(&mut buf))
+                    .map(|n| buf[..n].contains(&0))
+                    .unwrap_or(false)
             }
             At::Commit(rev) => std::process::Command::new("git")
                 .args(["-C", repo, "show", &format!("{rev}:{path}")])
@@ -50,7 +60,10 @@ impl At {
     /// Files git doesn't track yet; only the working folder has any.
     pub fn untracked(&self, repo: &str) -> Vec<String> {
         match self {
-            At::Work => git_or_empty(repo, &["ls-files", "--others", "--exclude-standard"]).lines().map(String::from).collect(),
+            At::Work => git_or_empty(repo, &["ls-files", "--others", "--exclude-standard"])
+                .lines()
+                .map(String::from)
+                .collect(),
             At::Commit(_) => vec![],
         }
     }
@@ -59,7 +72,10 @@ impl At {
     /// commit its stored size in bytes / 40, which keeps the same proportions without reading every file.
     pub fn files_sized(&self, repo: &str, count: impl Fn(&str) -> u64) -> Vec<(String, u64)> {
         match self {
-            At::Work => git_or_empty(repo, &["ls-files"]).lines().map(|p| (p.to_string(), count(p))).collect(),
+            At::Work => git_or_empty(repo, &["ls-files"])
+                .lines()
+                .map(|p| (p.to_string(), count(p)))
+                .collect(),
             At::Commit(rev) => git_or_empty(repo, &["ls-tree", "-r", "-l", rev])
                 .lines()
                 .filter_map(|l| {

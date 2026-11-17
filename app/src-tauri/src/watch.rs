@@ -5,7 +5,7 @@ use crate::data::git::git_or_empty;
 use crate::data::paths::{join, realpath, root_of};
 use crate::data::{sessions, snapshot};
 use notify::RecursiveMode;
-use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
+use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -21,7 +21,9 @@ pub struct Watching(Mutex<Option<Debouncer<notify::RecommendedWatcher>>>);
 /// The index (staging), logs and objects don't change what the app shows.
 fn git_meta_matters(rel: &str) -> bool {
     let rel = rel.strip_prefix(".git/").unwrap_or(rel);
-    let rel = rel.split_once("worktrees/").map_or(rel, |(_, r)| r.split_once('/').map_or(r, |x| x.1));
+    let rel = rel
+        .split_once("worktrees/")
+        .map_or(rel, |(_, r)| r.split_once('/').map_or(r, |x| x.1));
     !rel.ends_with(".lock") && (rel == "HEAD" || rel == "packed-refs" || rel.starts_with("refs/"))
 }
 
@@ -48,7 +50,11 @@ fn matters(paths: &[String], roots: &[String], session_dirs: &[String]) -> bool 
     }
     // Files git ignores (node_modules, build output...) never show up in the change, so they don't count.
     for root in roots {
-        let rels: Vec<&str> = work.iter().filter(|(r, _)| r == root).map(|(_, p)| p.as_str()).collect();
+        let rels: Vec<&str> = work
+            .iter()
+            .filter(|(r, _)| r == root)
+            .map(|(_, p)| p.as_str())
+            .collect();
         if rels.is_empty() {
             continue;
         }
@@ -78,19 +84,33 @@ fn check_ignore(root: &str, rels: &[&str]) -> Vec<String> {
     }
     child
         .wait_with_output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).split('\0').filter(|s| !s.is_empty()).map(String::from).collect())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .split('\0')
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
 /// Watch `repo` (and its worktrees) plus `session_dirs`, calling `on_change` after each burst of changes that
 /// matters. Dropping the returned watcher stops it.
-pub fn start(repo: &str, session_dirs: Vec<String>, on_change: impl Fn() + Send + 'static) -> Result<Debouncer<notify::RecommendedWatcher>, String> {
+pub fn start(
+    repo: &str,
+    session_dirs: Vec<String>,
+    on_change: impl Fn() + Send + 'static,
+) -> Result<Debouncer<notify::RecommendedWatcher>, String> {
     let top = realpath(git_or_empty(repo, &["rev-parse", "--show-toplevel"]).trim());
     if top.is_empty() {
         return Err(format!("{repo} is not a git repository"));
     }
     let roots = snapshot::repo_roots(&top);
-    let session_dirs: Vec<String> = session_dirs.into_iter().filter(|d| Path::new(d).is_dir()).map(|d| realpath(&d)).collect();
+    let session_dirs: Vec<String> = session_dirs
+        .into_iter()
+        .filter(|d| Path::new(d).is_dir())
+        .map(|d| realpath(&d))
+        .collect();
     let (r, s) = (roots.clone(), session_dirs.clone());
     let mut debouncer = new_debouncer(QUIET, move |res: DebounceEventResult| {
         let Ok(events) = res else { return };
@@ -101,7 +121,10 @@ pub fn start(repo: &str, session_dirs: Vec<String>, on_change: impl Fn() + Send 
     })
     .map_err(|e| e.to_string())?;
     for dir in roots.iter().chain(&session_dirs) {
-        debouncer.watcher().watch(Path::new(dir), RecursiveMode::Recursive).map_err(|e| format!("can't watch {dir}: {e}"))?;
+        debouncer
+            .watcher()
+            .watch(Path::new(dir), RecursiveMode::Recursive)
+            .map_err(|e| format!("can't watch {dir}: {e}"))?;
     }
     Ok(debouncer)
 }

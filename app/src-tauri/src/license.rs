@@ -13,7 +13,10 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 /// The public half of the signing key. Made with `cargo run --example license -- new-keypair`.
-const PUBLIC_KEY: [u8; 32] = [58, 219, 44, 3, 145, 130, 22, 149, 55, 4, 183, 43, 147, 9, 240, 76, 228, 171, 9, 83, 80, 136, 112, 252, 46, 169, 119, 197, 220, 248, 5, 145];
+const PUBLIC_KEY: [u8; 32] = [
+    58, 219, 44, 3, 145, 130, 22, 149, 55, 4, 183, 43, 147, 9, 240, 76, 228, 171, 9, 83, 80, 136, 112, 252, 46, 169,
+    119, 197, 220, 248, 5, 145,
+];
 pub const TRIAL_DAYS: i64 = 14;
 const DAY: i64 = 24 * 60 * 60;
 
@@ -41,7 +44,8 @@ pub fn verify(key: &str) -> Result<Holder, String> {
 }
 
 fn verify_with(key: &str, public: &[u8; 32]) -> Result<Holder, String> {
-    let bad = || "That isn't a valid license key. Copy the whole key from your purchase email and try again.".to_string();
+    let bad =
+        || "That isn't a valid license key. Copy the whole key from your purchase email and try again.".to_string();
     let key: String = key.chars().filter(|c| !c.is_whitespace()).collect();
     let (record, sig) = key.split_once('.').ok_or_else(bad)?;
     let record = B64.decode(record).map_err(|_| bad())?;
@@ -78,7 +82,10 @@ fn status_at(saved: &mut Saved, now: i64) -> Status {
     }
     let ends = started + TRIAL_DAYS * DAY;
     match ends - now {
-        left if left > 0 => Status::Trial { days_left: (left + DAY - 1) / DAY, ends },
+        left if left > 0 => Status::Trial {
+            days_left: (left + DAY - 1) / DAY,
+            ends,
+        },
         _ => Status::Ended { ended: ends },
     }
 }
@@ -90,7 +97,11 @@ fn file(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn load(app: &AppHandle) -> Saved {
-    file(app).ok().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    file(app)
+        .ok()
+        .and_then(|f| std::fs::read_to_string(f).ok())
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
 }
 
 // Same as state.json: a temporary file renamed over the old one, so a crash never leaves half a file.
@@ -141,7 +152,12 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
 
     fn holder() -> Holder {
-        Holder { name: "Ada".into(), email: "ada@example.com".into(), id: "1".into(), issued: "2026-11-16".into() }
+        Holder {
+            name: "Ada".into(),
+            email: "ada@example.com".into(),
+            id: "1".into(),
+            issued: "2026-11-16".into(),
+        }
     }
 
     #[test]
@@ -151,7 +167,11 @@ mod tests {
         let key = encode(&holder(), |r| signer.sign(r).to_bytes());
         assert_eq!(verify_with(&key, &public), Ok(holder()));
         // Wrapped across lines in an email: still fine.
-        let wrapped: String = key.chars().enumerate().flat_map(|(i, c)| if i % 40 == 39 { vec![c, '\n', ' '] } else { vec![c] }).collect();
+        let wrapped: String = key
+            .chars()
+            .enumerate()
+            .flat_map(|(i, c)| if i % 40 == 39 { vec![c, '\n', ' '] } else { vec![c] })
+            .collect();
         assert_eq!(verify_with(&wrapped, &public), Ok(holder()));
         // Someone else's name with the old signature, a key from another signing key, junk: all refused.
         let (_, sig) = key.split_once('.').unwrap();
@@ -169,10 +189,28 @@ mod tests {
     fn trial() {
         let mut s = Saved::default();
         let t0 = 1_800_000_000;
-        assert_eq!(status_at(&mut s, t0), Status::Trial { days_left: 14, ends: t0 + 14 * DAY });
+        assert_eq!(
+            status_at(&mut s, t0),
+            Status::Trial {
+                days_left: 14,
+                ends: t0 + 14 * DAY
+            }
+        );
         assert_eq!(s.trial_started, Some(t0));
-        assert_eq!(status_at(&mut s, t0 + DAY), Status::Trial { days_left: 13, ends: t0 + 14 * DAY });
-        assert_eq!(status_at(&mut s, t0 + 13 * DAY + 1), Status::Trial { days_left: 1, ends: t0 + 14 * DAY });
+        assert_eq!(
+            status_at(&mut s, t0 + DAY),
+            Status::Trial {
+                days_left: 13,
+                ends: t0 + 14 * DAY
+            }
+        );
+        assert_eq!(
+            status_at(&mut s, t0 + 13 * DAY + 1),
+            Status::Trial {
+                days_left: 1,
+                ends: t0 + 14 * DAY
+            }
+        );
         assert_eq!(status_at(&mut s, t0 + 14 * DAY), Status::Ended { ended: t0 + 14 * DAY });
         // Turning the clock back doesn't bring the trial back.
         assert_eq!(status_at(&mut s, t0 + 2 * DAY), Status::Ended { ended: t0 + 14 * DAY });

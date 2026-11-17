@@ -15,7 +15,9 @@ async fn snapshot(repo: String, branch: Option<String>) -> Result<serde_json::Va
 /// The repo a picked folder belongs to (its top folder), or a plain-language reason it can't be opened.
 #[tauri::command]
 fn repo_root(path: String) -> Result<String, String> {
-    let top = data::git::git_or_empty(&path, &["rev-parse", "--show-toplevel"]).trim().to_string();
+    let top = data::git::git_or_empty(&path, &["rev-parse", "--show-toplevel"])
+        .trim()
+        .to_string();
     if top.is_empty() {
         return Err(format!("{path} isn't inside a git repository."));
     }
@@ -25,14 +27,24 @@ fn repo_root(path: String) -> Result<String, String> {
 /// Repos agents have worked in on this machine, most recent first (the app opens the first one).
 #[tauri::command]
 async fn repos() -> Result<Vec<serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(|| data::snapshot::known_repos(None)).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(|| data::snapshot::known_repos(None))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// For the repo picker when it opens: each repo's checked-out branch and uncommitted files, read in parallel.
 #[tauri::command]
 async fn repo_status(repos: Vec<String>) -> Result<Vec<serde_json::Value>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        std::thread::scope(|s| repos.iter().map(|r| s.spawn(move || data::snapshot::repo_status(r))).collect::<Vec<_>>().into_iter().filter_map(|h| h.join().ok()).collect())
+        std::thread::scope(|s| {
+            repos
+                .iter()
+                .map(|r| s.spawn(move || data::snapshot::repo_status(r)))
+                .collect::<Vec<_>>()
+                .into_iter()
+                .filter_map(|h| h.join().ok())
+                .collect()
+        })
     })
     .await
     .map_err(|e| e.to_string())
@@ -41,7 +53,9 @@ async fn repo_status(repos: Vec<String>) -> Result<Vec<serde_json::Value>, Strin
 /// For the branch picker when it opens: how many files each branch changed.
 #[tauri::command]
 async fn branch_files(repo: String) -> Result<serde_json::Map<String, serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(move || data::snapshot::branch_files(&repo)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || data::snapshot::branch_files(&repo))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,7 +65,19 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(watch::Watching::default())
         .manage(state::State::default())
-        .invoke_handler(tauri::generate_handler![snapshot, repos, repo_root, repo_status, branch_files, watch::watch, state::state_load, state::state_save, license::license_status, license::license_activate, license::license_remove])
+        .invoke_handler(tauri::generate_handler![
+            snapshot,
+            repos,
+            repo_root,
+            repo_status,
+            branch_files,
+            watch::watch,
+            state::state_load,
+            state::state_save,
+            license::license_status,
+            license::license_activate,
+            license::license_remove
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

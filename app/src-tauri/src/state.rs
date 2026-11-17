@@ -35,7 +35,12 @@ pub fn state_load(app: AppHandle, state: tauri::State<'_, State>) -> Map<String,
 /// Save one value (None removes it). Writes a temporary file and renames it over the old one, so a crash mid-write
 /// never leaves a half-written file.
 #[tauri::command]
-pub fn state_save(app: AppHandle, state: tauri::State<'_, State>, key: String, value: Option<String>) -> Result<(), String> {
+pub fn state_save(
+    app: AppHandle,
+    state: tauri::State<'_, State>,
+    key: String,
+    value: Option<String>,
+) -> Result<(), String> {
     let mut slot = state.0.lock().unwrap();
     let map = loaded(&app, &mut slot);
     match value {
