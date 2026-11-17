@@ -1,7 +1,8 @@
 //! Everything one screen load needs for a repo: changes grouped by logic, every agent edit that led to them,
 //! and the repo map.
+use super::diff::diff_by_file;
 use super::git::{current_branch, git, git_line, git_or_empty, repo_roots, toplevel, worktrees};
-use super::group::{Group, TEST_RE, diff_by_file, group};
+use super::group::{Group, TEST_RE, group};
 use super::paths::{basename, dirname, home, join, realpath, relpath, root_of, take};
 use super::sessions::{self, Event, Hunk};
 use super::tree::{At, read_text};
@@ -595,9 +596,7 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Value, String> {
         .map(|(k, ps)| json!({"kind": k, "files": ps.iter().filter(|p| keep.contains_key(*p)).map(&finfo).collect::<Vec<_>>()}))
         .filter(|s| s["files"].as_array().is_some_and(|f| !f.is_empty()))
         .collect();
-    let mut whole_args = vec!["diff", "-M"];
-    whole_args.extend(at.diff_args(base));
-    let whole = diff_by_file(top, &whole_args);
+    let whole = diff_by_file(top, at, &["-M"], base);
     let diff_lines: HashMap<&String, Vec<String>> = keep
         .keys()
         .map(|p| (p, file_diff_lines(top, p, &untracked, &whole)))

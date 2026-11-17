@@ -2,6 +2,7 @@
 //! Read-only for the repo and for every agent's folder. No AI, no network.
 pub mod activity;
 mod cache;
+pub mod diff;
 pub mod git;
 pub mod group;
 pub mod paths;

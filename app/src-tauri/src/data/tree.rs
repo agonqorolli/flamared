@@ -22,12 +22,16 @@ pub enum At {
 }
 
 impl At {
-    /// The arguments that end a `git diff <base> …` for this source: nothing (working folder) or the commit.
-    pub fn diff_args<'a>(&'a self, base: &'a str) -> Vec<&'a str> {
-        match self {
-            At::Work => vec![base],
-            At::Commit(rev) => vec![base, rev.as_str()],
+    /// The `git diff` command that compares `base` with this source: the options, then the base alone (against
+    /// the working folder) or the base and the commit.
+    pub fn diff_command<'a>(&'a self, options: &[&'a str], base: &'a str) -> Vec<&'a str> {
+        let mut command = vec!["diff"];
+        command.extend_from_slice(options);
+        command.push(base);
+        if let At::Commit(rev) = self {
+            command.push(rev);
         }
+        command
     }
 
     /// The text of a file, or None when it doesn't exist here.
