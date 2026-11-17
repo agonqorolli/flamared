@@ -1,5 +1,5 @@
 import { Kbd } from "@/components/ui/kbd";
-import { keyParts, type KeyId } from "@/lib/keys";
+import { type KeyId, keyParts } from "@/lib/keys";
 import { cn } from "@/lib/utils";
 
 // A button's key, pinned to its corner while ⌘ is held (lib/keys.ts useKeyHints). The button must be positioned

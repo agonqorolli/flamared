@@ -2,6 +2,7 @@
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import reactHooks from "eslint-plugin-react-hooks";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
@@ -10,10 +11,16 @@ export default defineConfig(
   tseslint.configs.recommended,
   {
     files: ["**/*.{ts,tsx}"],
-    plugins: { "react-hooks": reactHooks },
+    plugins: { "react-hooks": reactHooks, "simple-import-sort": simpleImportSort },
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
+      // Plain statements: no comma expressions, no `return void (x = y)`, no `!` to silence the type checker.
+      "no-sequences": ["error", { allowInParentheses: false }],
+      "no-void": ["error", { allowAsStatement: true }],
+      "@typescript-eslint/no-non-null-assertion": "error",
+      // Imports in one block: packages, then our own modules (@/...), then the files next door; a stylesheet last.
+      "simple-import-sort/imports": ["error", { groups: [["^node:", "^@?\\w", "^", "^\\.", "^\\u0000"]] }],
     },
   },
   {
