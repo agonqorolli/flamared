@@ -223,7 +223,7 @@ function DiffStyle() {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {DIFF_THEMES.map(([id, label]) => (
+                  {DIFF_THEMES.map(({ id, label }) => (
                     <SelectItem key={id} value={id}>
                       {label}
                     </SelectItem>

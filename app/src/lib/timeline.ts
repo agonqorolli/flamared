@@ -1,5 +1,7 @@
+// The Timeline screen's list, built from a snapshot: agent turns and commits in order, and every edit in them.
 import { day } from "./format";
-import type { Snapshot, TimelineEdit, TimelineEvent } from "./types";
+import { fileHeader, hunkHeader } from "./patch";
+import type { Snapshot, TimelineCommit, TimelineEdit, TimelineEvent, TimelineSession, TimelineTurn } from "./types";
 
 export type TimelineRow = { kind: "say"; text: string } | { kind: "edit"; edit: TimelineEdit; index: number };
 
@@ -24,6 +26,11 @@ export interface Timeline {
   paths: Set<string>; // files with at least one agent edit
 }
 
+// A turn or a commit, with the time that places it in the list.
+type Entry =
+  | { at: number; kind: "turn"; session: TimelineSession; turn: TimelineTurn; index: number }
+  | { at: number; kind: "commit"; commit: TimelineCommit };
+
 // Milliseconds since 1970: times come in different forms (agents write UTC, git writes your local offset), so they
 // are compared as times, never as text.
 export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
@@ -31,79 +38,74 @@ export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
 // Agent turns and commits, latest first, with a day label whenever the day changes. A turn sits where its latest
 // activity is, so the turn an agent is working in now stays on top. Inside a turn the latest event comes first too.
 export function buildTimeline(snap: Snapshot): Timeline {
-  type Session = Snapshot["timeline"]["sessions"][number];
-  type Raw = {
-    at: number;
-    turn?: Session["turns"][number];
-    ti?: number;
-    session?: Session;
-    commit?: Snapshot["timeline"]["commits"][number];
-  };
-  const raw: Raw[] = [];
-  for (const s of snap.timeline.sessions)
-    s.turns.forEach((t, ti) => {
-      const latest = Math.max(ms(t.at), ...t.events.map((e) => (e.k === "edit" ? ms(e.at) : 0)));
-      raw.push({ at: latest, turn: t, ti, session: s });
+  const entries: Entry[] = [];
+  for (const session of snap.timeline.sessions) {
+    session.turns.forEach((turn, index) => {
+      const latest = Math.max(ms(turn.at), ...turn.events.map((event) => (event.k === "edit" ? ms(event.at) : 0)));
+      entries.push({ at: latest, kind: "turn", session, turn, index });
     });
-  for (const c of snap.timeline.commits) raw.push({ at: ms(c.at), commit: c });
-  raw.sort((a, b) => b.at - a.at);
+  }
+  for (const commit of snap.timeline.commits) entries.push({ at: ms(commit.at), kind: "commit", commit });
+  entries.sort((a, b) => b.at - a.at);
 
   const items: TimelineItem[] = [];
   const edits: TimelineEdit[] = [];
   let lastDay = "";
-  for (const it of raw) {
-    const d = it.at ? day(new Date(it.at).toISOString()) : "";
-    if (d !== lastDay) {
-      items.push({ kind: "day", label: d || "Unknown day" });
-      lastDay = d;
+  for (const entry of entries) {
+    const at = entry.at ? new Date(entry.at).toISOString() : null;
+    const entryDay = day(at);
+    if (entryDay !== lastDay) {
+      items.push({ kind: "day", label: entryDay || "Unknown day" });
+      lastDay = entryDay;
     }
-    if (it.commit) {
-      items.push({ kind: "commit", sha: it.commit.sha, subject: it.commit.subject, at: it.commit.at });
+    if (entry.kind === "commit") {
+      const { sha, subject, at } = entry.commit;
+      items.push({ kind: "commit", sha, subject, at });
       continue;
     }
-    const t = it.turn!;
+    const { session, turn } = entry;
     // Edits and the agent's messages; the commands it ran (tests, lookups) are left out of the list.
-    const rows = [...t.events].reverse().flatMap((e: TimelineEvent): TimelineRow[] => {
-      if (e.k === "say") return [{ kind: "say", text: e.t }];
-      if (e.k === "run") return [];
-      return [{ kind: "edit", edit: e, index: edits.push(e) - 1 }];
+    const rows = [...turn.events].reverse().flatMap((event: TimelineEvent): TimelineRow[] => {
+      if (event.k === "say") return [{ kind: "say", text: event.t }];
+      if (event.k === "run") return [];
+      return [{ kind: "edit", edit: event, index: edits.push(event) - 1 }];
     });
     items.push({
       kind: "turn",
-      key: `${it.session!.id}-${it.ti}`,
-      at: t.at,
-      latest: it.at ? new Date(it.at).toISOString() : null,
-      agent: it.session!.agent,
-      title: it.session!.title,
-      prompt: t.prompt,
-      edits: t.events.filter((e) => e.k === "edit").length,
+      key: `${session.id}-${entry.index}`,
+      at: turn.at,
+      latest: at,
+      agent: session.agent,
+      title: session.title,
+      prompt: turn.prompt,
+      edits: turn.events.filter((event) => event.k === "edit").length,
       rows,
     });
   }
-  return { items, edits, paths: new Set(edits.map((e) => e.path)) };
+  return { items, edits, paths: new Set(edits.map((edit) => edit.path)) };
 }
 
 // One recorded edit as a patch the diff component can read (its hunks only, with counts worked out).
-export function editPatch(e: TimelineEdit): string | null {
-  if (!e.hunks.length) return null;
-  const a = e.new ? "/dev/null" : `a/${e.from ?? e.path}`;
-  const b = e.del ? "/dev/null" : `b/${e.path}`;
-  const hunks = e.hunks.map((h) => {
-    const real = h.lines.filter((l) => !l.startsWith("\\")); // "\ No newline at end of file"
-    const old = real.filter((l) => !l.startsWith("+")).length;
-    const neu = real.filter((l) => !l.startsWith("-")).length;
-    return `@@ -${h.o ?? 1},${old} +${h.n ?? 1},${neu} @@\n${h.lines.join("\n")}`;
-  });
-  return `diff --git a/${e.path} b/${e.path}\n--- ${a}\n+++ ${b}\n${hunks.join("\n")}\n`;
+export function editPatch(edit: TimelineEdit): string | null {
+  if (!edit.hunks.length) return null;
+  const hunks = edit.hunks.map(
+    (hunk) => `${hunkHeader(hunk.o ?? 1, hunk.n ?? 1, hunk.lines)}\n${hunk.lines.join("\n")}`,
+  );
+  return `${fileHeader(edit.path, { added: edit.new, deleted: edit.del, from: edit.from })}${hunks.join("\n")}\n`;
 }
 
 // The status letter of one edit: deleted, moved, created or changed the file.
-export const editStatus = (e: TimelineEdit) =>
-  (e.del ? "D" : e.from ? "R" : e.new ? "A" : "M") as "D" | "R" | "A" | "M";
-export const editStatusTip = (e: TimelineEdit) =>
-  e.inferred
-    ? "Write found in the agent's command; no diff recorded"
-    : { A: "Created the file", D: "Deleted the file", R: `Moved from ${e.from}`, M: "Changed the file" }[editStatus(e)];
+export function editStatus(edit: TimelineEdit): "D" | "R" | "A" | "M" {
+  if (edit.del) return "D";
+  if (edit.from) return "R";
+  return edit.new ? "A" : "M";
+}
+
+export function editStatusTip(edit: TimelineEdit) {
+  if (edit.inferred) return "Write found in the agent's command; no diff recorded";
+  const tips = { A: "Created the file", D: "Deleted the file", R: `Moved from ${edit.from}`, M: "Changed the file" };
+  return tips[editStatus(edit)];
+}
 
 // A stable name for one edit across reloads (the list position changes as new edits arrive).
-export const editKey = (e: TimelineEdit) => `${e.step}|${e.at}|${e.path}`;
+export const editKey = (edit: TimelineEdit) => `${edit.step}|${edit.at}|${edit.path}`;

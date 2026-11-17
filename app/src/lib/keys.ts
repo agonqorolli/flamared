@@ -83,30 +83,31 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
 ];
 
 // "⌘ 1", "J", "Esc": the parts of a key as shown.
-export const keyParts = (id: KeyId): string[] => {
-  const k: Key = KEYS[id];
-  const name = k.label ?? (k.key.length === 1 ? k.key.toUpperCase() : k.key);
-  return k.mod ? ["⌘", name] : [name];
-};
+export function keyParts(id: KeyId): string[] {
+  const key: Key = KEYS[id];
+  const name = key.label ?? (key.key.length === 1 ? key.key.toUpperCase() : key.key);
+  return key.mod ? ["⌘", name] : [name];
+}
 // For a button's hover text: "Show in Map (M)".
 export const hint = (id: KeyId) => keyParts(id).join("");
 
 // Is this the shortcut? Plain keys don't count while typing in a field or with a dialog or menu open, so they
 // never get in the way; ⌘ keys always do.
-export function is(e: KeyboardEvent, id: KeyId): boolean {
-  const k: Key = KEYS[id];
-  if (k.mod) return (e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === k.key;
-  if (e.metaKey || e.ctrlKey || e.altKey) return false;
-  if (k.key.length === 1 ? e.key.toLowerCase() !== k.key : e.key !== k.key) return false;
-  return !busy(e);
+export function is(event: KeyboardEvent, id: KeyId): boolean {
+  const key: Key = KEYS[id];
+  if (key.mod) return (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === key.key;
+  if (event.metaKey || event.ctrlKey || event.altKey) return false;
+  const pressed = key.key.length === 1 ? event.key.toLowerCase() : event.key; // a letter counts in either case
+  if (pressed !== key.key) return false;
+  return !isBusy(event);
 }
 
-function busy(e: KeyboardEvent) {
-  const t = e.target instanceof Element ? e.target : null;
-  if (t?.closest("input, textarea, select, [contenteditable=true], [cmdk-root]")) return true;
-  return !!document.querySelector(
-    "[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open]",
-  );
+// Typing in a field, or a dialog, menu or list is open.
+function isBusy(event: KeyboardEvent) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest("input, textarea, select, [contenteditable=true], [cmdk-root]")) return true;
+  const open = "[role=dialog][data-state=open], [role=menu][data-state=open], [role=listbox][data-state=open]";
+  return !!document.querySelector(open);
 }
 
 type Actions = Partial<Record<KeyId, (() => void) | false | "" | null | undefined>>;
@@ -116,46 +117,54 @@ type Actions = Partial<Record<KeyId, (() => void) | false | "" | null | undefine
 export function useKeys(on: boolean, actions: Actions) {
   useEffect(() => {
     if (!on) return;
-    const onKey = (e: KeyboardEvent) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       for (const [id, run] of Object.entries(actions) as [KeyId, Actions[KeyId]][]) {
-        if (run && is(e, id)) {
-          e.preventDefault();
+        if (run && is(event, id)) {
+          event.preventDefault();
           run();
           return;
         }
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   });
 }
+
+// How long ⌘ is held before the key badges show.
+const HINT_DELAY_MS = 250;
 
 // Hold ⌘ to see each button's key next to it. Shown after a short hold, so ⌘R and the other ⌘ shortcuts don't flash
 // them; gone on release, on any other key, or when the window loses focus.
 export function useKeyHints() {
   useEffect(() => {
+    const root = document.documentElement;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const show = (on: boolean) => {
+    const hide = () => {
       clearTimeout(timer);
-      document.documentElement.toggleAttribute("data-key-hints", on);
+      root.toggleAttribute("data-key-hints", false);
     };
-    const down = (e: KeyboardEvent) => {
-      if (e.key !== "Meta") return show(false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Meta") {
+        hide();
+        return;
+      }
       clearTimeout(timer);
-      timer = setTimeout(() => document.documentElement.toggleAttribute("data-key-hints", true), 250);
+      timer = setTimeout(() => root.toggleAttribute("data-key-hints", true), HINT_DELAY_MS);
     };
-    const up = (e: KeyboardEvent) => (e.key === "Meta" || !e.metaKey) && show(false);
-    const off = () => show(false);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", off);
-    window.addEventListener("mousedown", off);
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Meta" || !event.metaKey) hide();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", hide);
+    window.addEventListener("mousedown", hide);
     return () => {
-      off();
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", off);
-      window.removeEventListener("mousedown", off);
+      hide();
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", hide);
+      window.removeEventListener("mousedown", hide);
     };
   }, []);
 }

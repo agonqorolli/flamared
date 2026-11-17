@@ -13,9 +13,9 @@ export function SurvivalTag({ survives }: { survives: Survival | null }) {
   return (
     <span
       className={cn("shrink-0 rounded-full px-1.5 py-px text-micro whitespace-nowrap", TONE[survives])}
-      title={SURVIVAL[survives][1]}
+      title={SURVIVAL[survives].tip}
     >
-      {SURVIVAL[survives][0]}
+      {SURVIVAL[survives].label}
     </span>
   );
 }

@@ -1,26 +1,27 @@
 // App settings, kept on this machine: how the app looks (theme, density) and how diffs look.
 // Saved in the app's data folder (see store.ts).
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { inTauri, setWindowTheme } from "./api";
-import { getItem, setItem } from "./store";
+import { getJson, setJson } from "./store";
 
 export const DIFF_THEMES = [
-  ["github-dark", "GitHub Dark"],
-  ["github-dark-dimmed", "GitHub Dark Dimmed"],
-  ["github-dark-default", "GitHub Dark Default"],
-  ["pierre-dark", "Pierre Dark"],
-  ["one-dark-pro", "One Dark Pro"],
-  ["vitesse-dark", "Vitesse Dark"],
-  ["tokyo-night", "Tokyo Night"],
-  ["catppuccin-mocha", "Catppuccin Mocha"],
-  ["dracula", "Dracula"],
-  ["nord", "Nord"],
-  ["night-owl", "Night Owl"],
-  ["min-dark", "Min Dark"],
+  { id: "github-dark", label: "GitHub Dark" },
+  { id: "github-dark-dimmed", label: "GitHub Dark Dimmed" },
+  { id: "github-dark-default", label: "GitHub Dark Default" },
+  { id: "pierre-dark", label: "Pierre Dark" },
+  { id: "one-dark-pro", label: "One Dark Pro" },
+  { id: "vitesse-dark", label: "Vitesse Dark" },
+  { id: "tokyo-night", label: "Tokyo Night" },
+  { id: "catppuccin-mocha", label: "Catppuccin Mocha" },
+  { id: "dracula", label: "Dracula" },
+  { id: "nord", label: "Nord" },
+  { id: "night-owl", label: "Night Owl" },
+  { id: "min-dark", label: "Min Dark" },
 ] as const;
+export type DiffTheme = (typeof DIFF_THEMES)[number]["id"];
 
 // The light counterpart of each dark theme, used when the app is in Light mode.
-export const LIGHT_THEME: Record<(typeof DIFF_THEMES)[number][0], string> = {
+export const LIGHT_THEME: Record<DiffTheme, string> = {
   "github-dark": "github-light",
   "github-dark-dimmed": "github-light",
   "github-dark-default": "github-light-default",
@@ -36,7 +37,7 @@ export const LIGHT_THEME: Record<(typeof DIFF_THEMES)[number][0], string> = {
 };
 
 export interface DiffSettings {
-  theme: (typeof DIFF_THEMES)[number][0];
+  theme: DiffTheme;
   layout: "unified" | "split";
   longLines: "scroll" | "wrap";
   inline: "word-alt" | "word" | "char" | "none"; // highlighting of the changed part inside a line
@@ -73,23 +74,41 @@ export const DEFAULTS: Settings = {
   },
 };
 
-const KEY = "settings";
-const load = (): Settings => {
-  try {
-    const saved = JSON.parse(getItem(KEY) || "{}");
-    return { appearance: { ...DEFAULTS.appearance, ...saved.appearance }, diff: { ...DEFAULTS.diff, ...saved.diff } };
-  } catch {
-    return DEFAULTS;
-  }
-};
+const SETTINGS_KEY = "settings";
+
+// What is saved, with the default for anything that isn't.
+function load(): Settings {
+  const saved = getJson<Partial<Settings>>(SETTINGS_KEY, {});
+  return { appearance: { ...DEFAULTS.appearance, ...saved.appearance }, diff: { ...DEFAULTS.diff, ...saved.diff } };
+}
 
 // System follows macOS: Gray when it's dark (the default dark look), Light when it's light. Once the window's
 // theme is unset (below), the web view's color scheme is macOS's.
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
-const resolveTheme = (t: AppearanceSettings["theme"]): Theme =>
-  t === "system" ? (systemDark.matches ? "gray" : "light") : t;
+function resolveTheme(setting: AppearanceSettings["theme"]): Theme {
+  if (setting !== "system") return setting;
+  return systemDark.matches ? "gray" : "light";
+}
 
-interface Api {
+// The theme and density live on <html>: `dark` (shadcn's dark tokens) for Dark and Gray, `gray` on top for Gray,
+// and data-density, which sets the spacing scale (see index.css).
+function applyAppearance(appearance: AppearanceSettings) {
+  const theme = resolveTheme(appearance.theme);
+  const windowTheme = theme === "light" ? "light" : "dark";
+  const root = document.documentElement;
+  root.classList.toggle("dark", theme !== "light");
+  root.classList.toggle("gray", theme === "gray");
+  root.dataset.density = appearance.density;
+  root.style.colorScheme = windowTheme;
+  // The header doubles as the title bar (see Header.tsx); the window buttons on it follow macOS's appearance unless
+  // told otherwise, so match them to the theme, or leave them to macOS for System.
+  if (inTauri) setWindowTheme(appearance.theme === "system" ? null : windowTheme).catch(() => {});
+}
+
+// Called once before the first render, so the window opens in the saved theme instead of flashing dark first.
+export const applySavedAppearance = () => applyAppearance(load().appearance);
+
+interface SettingsApi {
   settings: Settings;
   theme: Theme; // the setting resolved, for anything that colors itself
   setDiff: (patch: Partial<DiffSettings>) => void;
@@ -97,34 +116,13 @@ interface Api {
   setAppearance: (patch: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
 }
-const Ctx = createContext<Api | null>(null);
+const SettingsContext = createContext<SettingsApi | null>(null);
 
-// The theme and density live on <html>: `dark` (shadcn's dark tokens) for Dark and Gray, `gray` on top for Gray,
-// and data-density, which sets the spacing scale (see index.css).
-function applyAppearance(a: AppearanceSettings) {
-  const theme = resolveTheme(a.theme);
-  const root = document.documentElement;
-  root.classList.toggle("dark", theme !== "light");
-  root.classList.toggle("gray", theme === "gray");
-  root.dataset.density = a.density;
-  root.style.colorScheme = theme === "light" ? "light" : "dark";
-  // The header doubles as the title bar (see Header.tsx); the window buttons on it follow macOS's appearance unless
-  // told otherwise, so match them to the theme, or leave them to macOS for System.
-  if (inTauri) setWindowTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark").catch(() => {});
-}
-
-// Called once before the first render, so the window opens in the saved theme instead of flashing dark first.
-export const applySavedAppearance = () => applyAppearance(load().appearance);
-
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
+export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState(load);
   const save = useCallback((next: Settings) => {
     setSettings(next);
-    try {
-      setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* kept for this session only */
-    }
+    setJson(SETTINGS_KEY, next);
   }, []);
   const setDiff = useCallback(
     (patch: Partial<DiffSettings>) => save({ ...settings, diff: { ...settings.diff, ...patch } }),
@@ -136,23 +134,26 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [settings, save],
   );
   const resetAppearance = useCallback(() => save({ ...settings, appearance: DEFAULTS.appearance }), [settings, save]);
-  const [dark, setDark] = useState(systemDark.matches);
+
+  // Applied again when macOS switches between light and dark, for the System setting.
+  const [systemIsDark, setSystemIsDark] = useState(systemDark.matches);
   useEffect(() => {
-    const onChange = () => setDark(systemDark.matches);
+    const onChange = () => setSystemIsDark(systemDark.matches);
     systemDark.addEventListener("change", onChange);
     return () => systemDark.removeEventListener("change", onChange);
   }, []);
-  useEffect(() => applyAppearance(settings.appearance), [settings.appearance, dark]);
+  useEffect(() => applyAppearance(settings.appearance), [settings.appearance, systemIsDark]);
+
   const theme = resolveTheme(settings.appearance.theme);
   return (
-    <Ctx.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>
+    <SettingsContext.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>
       {children}
-    </Ctx.Provider>
+    </SettingsContext.Provider>
   );
 }
 
 export function useSettings() {
-  const v = useContext(Ctx);
-  if (!v) throw new Error("useSettings needs a SettingsProvider");
-  return v;
+  const settings = useContext(SettingsContext);
+  if (!settings) throw new Error("useSettings needs a SettingsProvider");
+  return settings;
 }

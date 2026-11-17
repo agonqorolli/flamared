@@ -1,4 +1,7 @@
+// The Changes screen's list, built from a snapshot: sections of blocks (groups) of file rows, and a file's diff as
+// a patch the diff component can read.
 import { plural, type TipKey } from "@/lib/format";
+import { fileHeader, hunkHeader } from "@/lib/patch";
 import { ms } from "@/lib/timeline";
 import type { FileInfo, GroupItem, Snapshot } from "@/lib/types";
 
@@ -24,126 +27,114 @@ export interface Section {
   blocks: Block[];
 }
 
-const sum = (fs: FileInfo[], k: "add" | "rem") => fs.reduce((a, f) => a + f[k], 0);
+const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/;
+
+const sum = (files: FileInfo[], count: "add" | "rem") => files.reduce((total, file) => total + file[count], 0);
+
+// The file with the agent's latest message, whatever the section.
+const latestWords = (files: FileInfo[]) =>
+  files.filter((file) => file.words).sort((a, b) => ms(b.words_at) - ms(a.words_at))[0];
 
 // The Changes list: logic groups, shared, wiring, loose files by folder, lone tests, then non-code files.
 export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[] } {
-  const S = snap.story;
+  const { logic, shared, wiring, loose, loose_tests: looseTests, support } = snap.story;
   const rows: Row[] = [];
-  // The agent's latest message about any file in the block, whatever the section.
-  const latestWords = (fs: FileInfo[]) => fs.filter((f) => f.words).sort((x, y) => ms(y.words_at) - ms(x.words_at))[0];
+
+  // One block of the list; its files take the next positions in the flat list.
   const block = (
     key: string,
     name: string,
     sub: string,
     files: FileInfo[],
     tests: FileInfo[],
-    extra: Partial<Block> = {},
-  ): Block => ({
-    key,
-    name,
-    sub,
-    add: sum([...files, ...tests], "add"),
-    rem: sum([...files, ...tests], "rem"),
-    words: latestWords([...files, ...tests])?.words ?? null,
-    words_agent: latestWords([...files, ...tests])?.words_agent ?? null,
-    lonely: false,
-    ...extra,
-    rows: [...files, ...tests].map((f) => {
-      const row = { file: f, group: name, index: rows.length };
-      rows.push(row);
-      return row;
-    }),
-  });
-  // Several one-file groups shown as one block (shared files, loose files in a folder).
-  const merge = (key: string, name: string, sub: string, list: GroupItem[], extra: Partial<Block> = {}) =>
-    block(
+    lonely = false,
+  ): Block => {
+    const all = [...files, ...tests];
+    const latest = latestWords(all);
+    return {
       key,
       name,
       sub,
-      list.flatMap((g) => g.files),
-      list.flatMap((g) => g.tests),
-      extra,
-    );
+      add: sum(all, "add"),
+      rem: sum(all, "rem"),
+      words: latest?.words ?? null,
+      words_agent: latest?.words_agent ?? null,
+      lonely,
+      rows: all.map((file) => {
+        const row = { file, group: name, index: rows.length };
+        rows.push(row);
+        return row;
+      }),
+    };
+  };
+  // Several one-file groups shown as one block (shared files, loose files in a folder).
+  const merged = (key: string, name: string, sub: string, groups: GroupItem[], lonely = false) => {
+    const files = groups.flatMap((group) => group.files);
+    const tests = groups.flatMap((group) => group.tests);
+    return block(key, name, sub, files, tests, lonely);
+  };
 
   const sections: Section[] = [];
-  if (S.logic.length)
-    sections.push({
-      label: "Logic groups",
-      tip: "logic",
-      blocks: S.logic.map((g, i) =>
-        block(
-          `logic-${i}`,
-          g.name,
-          plural(g.files.length, "file") + (g.tests.length ? ` + ${plural(g.tests.length, "test")}` : ""),
-          g.files,
-          g.tests,
-        ),
-      ),
+  if (logic.length) {
+    const blocks = logic.map((group, i) => {
+      const tests = group.tests.length ? ` + ${plural(group.tests.length, "test")}` : "";
+      return block(`logic-${i}`, group.name, plural(group.files.length, "file") + tests, group.files, group.tests);
     });
-  if (S.shared.length)
+    sections.push({ label: "Logic groups", tip: "logic", blocks });
+  }
+  if (shared.length) {
+    const sub = `${shared.length} files used by 3+ changed files`;
     sections.push({
       label: "Shared building blocks",
       tip: "shared",
-      blocks: [merge("shared", "shared", `${S.shared.length} files used by 3+ changed files`, S.shared)],
+      blocks: [merged("shared", "shared", sub, shared)],
     });
-  if (S.wiring.length)
-    sections.push({
-      label: "Wiring",
-      tip: "wiring",
-      blocks: [merge("wiring", "wiring", `${S.wiring.length} files using 4+ changed files`, S.wiring)],
+  }
+  if (wiring.length) {
+    const sub = `${wiring.length} files using 4+ changed files`;
+    sections.push({ label: "Wiring", tip: "wiring", blocks: [merged("wiring", "wiring", sub, wiring)] });
+  }
+  if (loose.length) {
+    const blocks = loose.map(({ folder, files: groups }, i) => {
+      const name = folder.split("/").slice(-2).join("/");
+      const usesNothing = groups.every((group) => !group.uses.length);
+      return merged(`loose-${i}`, name, plural(groups.length, "file"), groups, usesNothing);
     });
-  if (S.loose.length)
-    sections.push({
-      label: "Other changes, by folder",
-      tip: "loose",
-      blocks: S.loose.map((L, i) => {
-        const b = merge(`loose-${i}`, L.folder.split("/").slice(-2).join("/"), plural(L.files.length, "file"), L.files);
-        return { ...b, lonely: L.files.every((g) => !g.uses.length) };
-      }),
-    });
+    sections.push({ label: "Other changes, by folder", tip: "loose", blocks });
+  }
   // Tests whose source file didn't change and that use nothing changed would otherwise be lost.
-  if (S.loose_tests.length)
+  if (looseTests.length) {
+    const sub = `${plural(looseTests.length, "test file")} whose source didn't change`;
     sections.push({
       label: "Tests on their own",
       tip: "tests",
-      blocks: [
-        block(
-          "tests",
-          "tests",
-          `${plural(S.loose_tests.length, "test file")} whose source didn't change`,
-          [],
-          S.loose_tests,
-        ),
-      ],
+      blocks: [block("tests", "tests", sub, [], looseTests)],
     });
-  if (S.support.length)
-    sections.push({
-      label: "Supporting changes",
-      tip: "support",
-      blocks: S.support.map((s) => block(`support-${s.kind}`, s.kind, plural(s.files.length, "file"), s.files, [])),
-    });
+  }
+  if (support.length) {
+    const blocks = support.map(({ kind, files }) =>
+      block(`support-${kind}`, kind, plural(files.length, "file"), files, []),
+    );
+    sections.push({ label: "Supporting changes", tip: "support", blocks });
+  }
   return { sections, rows };
 }
 
 // A unified patch the diff component can read; our diffs are hunks only, without file headers.
 // Long diffs are cut at 400 lines, so each hunk header's line counts are worked out again from what is left.
-export function toPatch(f: FileInfo, diff: string): { patch: string; more: string | null } {
+export function toPatch(file: FileInfo, diff: string): { patch: string; more: string | null } {
   const lines = diff.split("\n");
-  const more = lines.length && lines[lines.length - 1].startsWith("… ") ? lines.pop()! : null;
+  // A diff that was cut ends with a line saying how many more lines there are.
+  const wasCut = lines[lines.length - 1].startsWith("… ");
+  const more = wasCut ? (lines.pop() ?? null) : null;
   for (let i = 0; i < lines.length; i++) {
-    const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(lines[i]);
-    if (!m) continue;
-    let old = 0,
-      neu = 0;
-    for (let j = i + 1; j < lines.length && !lines[j].startsWith("@@"); j++) {
-      if (lines[j].startsWith("\\")) continue; // "\ No newline at end of file"
-      if (!lines[j].startsWith("+")) old++;
-      if (!lines[j].startsWith("-")) neu++;
-    }
-    lines[i] = `@@ -${m[1]},${old} +${m[2]},${neu} @@${m[3]}`;
+    const header = HUNK_HEADER.exec(lines[i]);
+    if (!header) continue;
+    const [, oldStart, newStart, context] = header;
+    let end = i + 1;
+    while (end < lines.length && !lines[end].startsWith("@@")) end++;
+    lines[i] = hunkHeader(oldStart, newStart, lines.slice(i + 1, end), context);
   }
-  const a = f.status === "A" ? "/dev/null" : `a/${f.path}`;
-  const b = f.status === "D" ? "/dev/null" : `b/${f.path}`;
-  return { patch: `diff --git a/${f.path} b/${f.path}\n--- ${a}\n+++ ${b}\n${lines.join("\n")}\n`, more };
+  const header = fileHeader(file.path, { added: file.status === "A", deleted: file.status === "D" });
+  return { patch: `${header}${lines.join("\n")}\n`, more };
 }

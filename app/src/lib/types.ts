@@ -73,20 +73,48 @@ export interface TimelineEdit {
   via: string | null;
   agent: string;
   step: string;
-  survives: "kept" | "partly" | "gone" | "undone" | null;
+  survives: "kept" | "partly" | "gone" | "undone" | null; // is the edit still in the file?
   tool: string;
   inferred?: boolean; // a literal shell write target; no historical diff was recorded
   new: boolean;
   del: boolean;
   from: string | null;
   say: string | null;
-  hunks: { o: number | null; n: number | null; lines: string[] }[];
+  hunks: Hunk[];
+}
+
+// One block of an edit's diff: where it starts in the old (`o`) and the new (`n`) file, and its lines.
+export interface Hunk {
+  o: number | null;
+  n: number | null;
+  lines: string[];
 }
 export type TimelineEvent =
   | { k: "say"; t: string }
   | { k: "run"; cmd: string; desc: string | null; test: boolean; passed: number | null; failed: boolean }
   | TimelineEdit;
 
+export interface TimelineTurn {
+  at: string | null;
+  prompt: string;
+  branch: string | null;
+  events: TimelineEvent[];
+}
+
+export interface TimelineSession {
+  id: string;
+  title: string;
+  agent: string;
+  turns: TimelineTurn[];
+}
+
+export interface TimelineCommit {
+  sha: string;
+  at: string;
+  subject: string;
+}
+
+// How the sessions were matched to the change. Not shown in the window.
 export interface SessionLink {
   branch: string;
   base: string;
@@ -119,13 +147,8 @@ export interface Snapshot {
   };
   diffs: Record<string, string>;
   timeline: {
-    sessions: {
-      id: string;
-      title: string;
-      agent: string;
-      turns: { at: string | null; prompt: string; branch: string | null; events: TimelineEvent[] }[];
-    }[];
-    commits: { sha: string; at: string; subject: string }[];
+    sessions: TimelineSession[];
+    commits: TimelineCommit[];
     link: SessionLink;
   };
   map: { files: [string, number][]; flags: Record<string, string[]>; groups: Record<string, string> };

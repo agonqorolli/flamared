@@ -22,8 +22,8 @@ export function SectionLabel({ children, tip }: { children: React.ReactNode; tip
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="max-w-64 flex-col items-start gap-1 normal-case">
-            <b className="font-semibold">{TIPS[tip][0]}</b>
-            <span>{TIPS[tip][1]}</span>
+            <b className="font-semibold">{TIPS[tip].title}</b>
+            <span>{TIPS[tip].text}</span>
           </TooltipContent>
         </Tooltip>
       )}

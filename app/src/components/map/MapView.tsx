@@ -417,7 +417,7 @@ function Selected({
   const s = keptShare(x.sv);
   const svText = (Object.entries(x.sv) as [Survival, number][])
     .filter(([, n]) => n)
-    .map(([k, n]) => `${n} ${SURVIVAL[k][0]}`)
+    .map(([k, n]) => `${n} ${SURVIVAL[k].label}`)
     .join(" · ");
   return (
     <>

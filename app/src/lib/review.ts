@@ -1,58 +1,52 @@
-// Marks on each changed file, "Looks good" (saved as approved) or "Needs work" (rejected), kept per repo, branch and base.
-// A mark stores a fingerprint of the file's change; when the agent changes the file again the fingerprint
-// no longer matches, so the file is back to not checked.
+// Marks on each changed file, "Looks good" (saved as approved) or "Needs work" (rejected), kept per repo, branch
+// and base. A mark stores a fingerprint of the file's change; when the agent changes the file again the
+// fingerprint no longer matches, so the file is back to not checked.
 // Saved in the app's data folder (see store.ts).
 import { useCallback, useState } from "react";
+import { getJson, setJson } from "./store";
 import type { FileInfo, Snapshot } from "./types";
-import { getItem, setItem } from "./store";
 
 export type ReviewState = "approved" | "rejected";
+// path -> the mark, and the fingerprint of the change it was made on
 type Marks = Record<string, { state: ReviewState; sig: string }>;
 
-const keyOf = (s: Snapshot) => `review:${s.path}:${s.branch}:${s.base}`;
-const fingerprint = (f: FileInfo, diff: string) => {
-  const t = f.status + diff;
-  let h = 0;
-  for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) | 0;
-  return h.toString(36);
-};
-const read = (key: string): Marks => {
-  try {
-    return JSON.parse(getItem(key) || "{}");
-  } catch {
-    return {};
-  }
-};
+const storageKey = (snap: Snapshot) => `review:${snap.path}:${snap.branch}:${snap.base}`;
+const readMarks = (key: string) => getJson<Marks>(key, {});
+
+// A short hash of a file's status and diff: different whenever the file's change is.
+function fingerprint(file: FileInfo, diff: string) {
+  const text = file.status + diff;
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) | 0;
+  return hash.toString(36);
+}
 
 export function useReview(snap: Snapshot) {
-  const key = keyOf(snap);
-  const [marks, setMarks] = useState<{ key: string; marks: Marks }>(() => ({ key, marks: read(key) }));
-  const current = marks.key === key ? marks.marks : read(key);
+  const key = storageKey(snap);
+  const [saved, setSaved] = useState<{ key: string; marks: Marks }>(() => ({ key, marks: readMarks(key) }));
+  // Another repo or branch has its own marks.
+  const marks = saved.key === key ? saved.marks : readMarks(key);
 
   // The mark for a given version of the file's change (by default its latest).
   const stateOf = useCallback(
-    (f: FileInfo, diff?: string): ReviewState | null => {
-      const m = current[f.path];
-      return m && m.sig === fingerprint(f, diff ?? snap.diffs[f.path] ?? "") ? m.state : null;
+    (file: FileInfo, diff?: string): ReviewState | null => {
+      const mark = marks[file.path];
+      return mark && mark.sig === fingerprint(file, diff ?? snap.diffs[file.path] ?? "") ? mark.state : null;
     },
-    [current, snap],
+    [marks, snap],
   );
 
   // Setting the active state again clears it. `shown` is the diff you were looking at, when it is older than the
   // file's latest: the mark then holds for what you saw, and the newer change still shows as not checked.
   const toggle = useCallback(
-    (f: FileInfo, state: ReviewState | null, shown?: string) => {
-      const next = { ...current };
-      if (!state || stateOf(f, shown) === state) delete next[f.path];
-      else next[f.path] = { state, sig: fingerprint(f, shown ?? snap.diffs[f.path] ?? "") };
-      try {
-        setItem(key, JSON.stringify(next));
-      } catch {
-        /* kept for this session only */
-      }
-      setMarks({ key, marks: next });
+    (file: FileInfo, state: ReviewState | null, shown?: string) => {
+      const next = { ...marks };
+      if (!state || stateOf(file, shown) === state) delete next[file.path];
+      else next[file.path] = { state, sig: fingerprint(file, shown ?? snap.diffs[file.path] ?? "") };
+      setJson(key, next);
+      setSaved({ key, marks: next });
     },
-    [current, key, snap, stateOf],
+    [marks, key, snap, stateOf],
   );
 
   return { stateOf, toggle };

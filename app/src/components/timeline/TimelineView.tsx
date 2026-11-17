@@ -353,7 +353,7 @@ function EditDetail({
               key={j}
               on={j === index}
               onClick={() => onSelect(j)}
-              title={`${day(x.at)} ${time(x.at)}${x.survives ? ` · ${SURVIVAL[x.survives][0]}` : ""}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}\n${x.say ? `“${x.say}”` : "No message"}`}
+              title={`${day(x.at)} ${time(x.at)}${x.survives ? ` · ${SURVIVAL[x.survives].label}` : ""}${x.inferred ? " · No diff recorded" : ` · +${x.add} −${x.rem}`}\n${x.say ? `“${x.say}”` : "No message"}`}
             >
               <span className="min-w-0 flex-1 truncate text-faint">
                 {multiDay ? `${day(x.at)} ` : ""}

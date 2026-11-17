@@ -8,55 +8,70 @@ export interface Waiting {
   details: string[]; // everything, for the tooltip
 }
 
-const n = (k: number, one: string, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
+// How `next` differs from `prev`, counted.
+interface Difference {
+  switched: string | null; // the branch switched to
+  commits: number; // new commits in the list
+  moved: boolean; // HEAD moved without a new commit in the list
+  added: number; // files that weren't changed before
+  changed: number; // files changed again
+  gone: number; // files no longer changed: committed, reverted or deleted untracked
+  edits: number; // new agent edits
+  talk: boolean; // new agent messages without edits
+}
 
-export function whatChanged(prev: Snapshot, next: Snapshot): Waiting | null {
+function difference(prev: Snapshot, next: Snapshot): Difference {
   const before = new Set(Object.keys(prev.diffs));
   const after = Object.keys(next.diffs);
-  const added = after.filter((p) => !before.has(p)).length;
-  const changed = after.filter((p) => before.has(p) && prev.diffs[p] !== next.diffs[p]).length;
-  const gone = [...before].filter((p) => !(p in next.diffs)).length; // committed, reverted or deleted untracked
-  const known = new Set(prev.timeline.commits.map((c) => c.sha));
-  const commits = next.timeline.commits.filter((c) => !known.has(c.sha)).length;
+  const knownCommits = new Set(prev.timeline.commits.map((commit) => commit.sha));
+  const commits = next.timeline.commits.filter((commit) => !knownCommits.has(commit.sha)).length;
   const switched = prev.branch !== next.branch ? next.branch : null;
-  const oldEdits = new Set(buildTimeline(prev).edits.map(editKey));
-  const edits = buildTimeline(next).edits.filter((e) => !oldEdits.has(editKey(e))).length;
-  const said = (s: Snapshot) =>
-    s.timeline.sessions.reduce(
-      (a, x) => a + x.turns.reduce((b, t) => b + t.events.filter((e) => e.k === "say").length, 0),
-      0,
-    );
-  const talk = !edits && said(next) > said(prev); // messages without edits (commands aren't shown, so they don't count)
-  // HEAD moved without a new commit in the list: with the usual base (HEAD itself) that is how a commit shows up;
-  // it can also be an amend, pull or reset, which the snapshot can't tell apart.
-  const moved = !switched && !commits && prev.head !== next.head;
+  const knownEdits = new Set(buildTimeline(prev).edits.map(editKey));
+  const edits = buildTimeline(next).edits.filter((edit) => !knownEdits.has(editKey(edit))).length;
+  // Messages are counted over all sessions; commands aren't shown, so they don't count.
+  const messages = (snap: Snapshot) =>
+    snap.timeline.sessions
+      .flatMap((session) => session.turns)
+      .reduce((count, turn) => count + turn.events.filter((event) => event.k === "say").length, 0);
+  return {
+    switched,
+    commits,
+    // With the usual base (HEAD itself) this is how a commit shows up; it can also be an amend, pull or reset, which
+    // the snapshot can't tell apart.
+    moved: !switched && !commits && prev.head !== next.head,
+    added: after.filter((path) => !before.has(path)).length,
+    changed: after.filter((path) => before.has(path) && prev.diffs[path] !== next.diffs[path]).length,
+    gone: [...before].filter((path) => !(path in next.diffs)).length,
+    edits,
+    talk: !edits && messages(next) > messages(prev),
+  };
+}
 
+// The one thing that matters most, most important first.
+function headline({ switched, commits, moved, added, changed, gone, edits }: Difference): string {
+  const files = added + changed;
+  if (switched) return `switched to ${switched}`;
+  if ((commits || moved) && gone) return `${plural(gone, "file")} committed`;
+  if (commits) return plural(commits, "new commit");
+  if (moved) return "new commit";
+  if (files) return `${plural(files, "file")} changed`;
+  if (gone) return `${plural(gone, "file")} no longer changed`;
+  if (edits) return plural(edits, "new agent edit");
+  return "new agent activity";
+}
+
+export function whatChanged(prev: Snapshot, next: Snapshot): Waiting | null {
+  const diff = difference(prev, next);
+  const { switched, commits, moved, added, changed, gone, edits, talk } = diff;
   const details: string[] = [];
   if (switched) details.push(`Switched to ${switched}`);
-  if (commits) details.push(`${n(commits, "new commit")}`);
+  if (commits) details.push(plural(commits, "new commit"));
   if (moved) details.push(`HEAD moved to ${next.head}: a new commit, or an amend, pull or reset`);
-  if (added) details.push(`${n(added, "new changed file")}`);
-  if (changed) details.push(`${n(changed, "file")} changed again`);
-  if (gone) details.push(`${n(gone, "file")} no longer changed${commits || moved ? " (committed)" : ""}`);
-  if (edits) details.push(`${plural(edits, "new agent edit")}`);
+  if (added) details.push(plural(added, "new changed file"));
+  if (changed) details.push(`${plural(changed, "file")} changed again`);
+  if (gone) details.push(`${plural(gone, "file")} no longer changed${commits || moved ? " (committed)" : ""}`);
+  if (edits) details.push(plural(edits, "new agent edit"));
   if (talk) details.push("New agent messages");
   if (!details.length) return null;
-
-  const files = added + changed;
-  const label = switched
-    ? `switched to ${switched}`
-    : (commits || moved) && gone
-      ? `${n(gone, "file")} committed`
-      : commits
-        ? n(commits, "new commit")
-        : moved
-          ? "new commit"
-          : files
-            ? `${n(files, "file")} changed`
-            : gone
-              ? `${n(gone, "file")} no longer changed`
-              : edits
-                ? plural(edits, "new agent edit")
-                : "new agent activity";
-  return { label, details };
+  return { label: headline(diff), details };
 }
