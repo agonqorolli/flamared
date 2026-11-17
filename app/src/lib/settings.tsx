@@ -1,10 +1,8 @@
 // App settings, kept on this machine: how the app looks (theme, density) and how diffs look.
 // Saved in the app's data folder (see store.ts).
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { inTauri, setWindowTheme } from "./api";
 import { getItem, setItem } from "./store";
-
-const inTauri = "__TAURI_INTERNALS__" in window;
 
 export const DIFF_THEMES = [
   ["github-dark", "GitHub Dark"],
@@ -112,10 +110,7 @@ function applyAppearance(a: AppearanceSettings) {
   root.style.colorScheme = theme === "light" ? "light" : "dark";
   // The header doubles as the title bar (see Header.tsx); the window buttons on it follow macOS's appearance unless
   // told otherwise, so match them to the theme, or leave them to macOS for System.
-  if (inTauri)
-    getCurrentWindow()
-      .setTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark")
-      .catch(() => {});
+  if (inTauri) setWindowTheme(a.theme === "system" ? null : theme === "light" ? "light" : "dark").catch(() => {});
 }
 
 // Called once before the first render, so the window opens in the saved theme instead of flashing dark first.

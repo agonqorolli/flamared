@@ -1,60 +1,75 @@
 // What the app remembers between launches: settings, review marks, Live/Paused, recent repos.
 // In the app it lives in state.json in the app's data folder (src-tauri/src/state.rs), read once at start so
 // reads stay instant; in a plain browser (development preview) it falls back to localStorage.
-import { invoke } from "@tauri-apps/api/core";
+import { inTauri, loadState, saveState } from "./api";
 
-const inTauri = "__TAURI_INTERNALS__" in window;
 let cache: Record<string, string> = {};
 
-const fromLocalStorage = () => {
-  const out: Record<string, string> = {};
+function fromLocalStorage() {
+  const saved: Record<string, string> = {};
   try {
     for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k) out[k] = localStorage.getItem(k) ?? "";
+      const key = localStorage.key(i);
+      if (key) saved[key] = localStorage.getItem(key) ?? "";
     }
   } catch {
     /* storage blocked: start empty */
   }
-  return out;
-};
+  return saved;
+}
 
 // Call once before the first render. The first time in the app, whatever the window had saved in its own
 // storage is carried over into the file.
 export async function initStore() {
-  if (!inTauri) return void (cache = fromLocalStorage());
+  if (!inTauri) {
+    cache = fromLocalStorage();
+    return;
+  }
   try {
-    cache = await invoke<Record<string, string>>("state_load");
+    cache = await loadState();
   } catch {
     cache = {};
   }
   if (!Object.keys(cache).length) {
-    const old = fromLocalStorage();
-    for (const [k, v] of Object.entries(old)) setItem(k, v);
+    for (const [key, value] of Object.entries(fromLocalStorage())) setItem(key, value);
   }
 }
 
 export const getItem = (key: string): string | null => cache[key] ?? null;
-export const keys = () => Object.keys(cache);
 
 export function setItem(key: string, value: string) {
   cache[key] = value;
-  if (inTauri) invoke("state_save", { key, value }).catch((e) => console.warn("Couldn't save", key, e));
-  else
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      /* kept for this session only */
-    }
+  if (inTauri) {
+    saveState(key, value).catch((e) => console.warn("Couldn't save", key, e));
+    return;
+  }
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* kept for this session only */
+  }
 }
 
 export function removeItem(key: string) {
   delete cache[key];
-  if (inTauri) invoke("state_save", { key, value: null }).catch(() => {});
-  else
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      /* nothing to remove */
-    }
+  if (inTauri) {
+    saveState(key, null).catch(() => {});
+    return;
+  }
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* nothing to remove */
+  }
 }
+
+// A value saved as JSON; `fallback` when nothing is saved or what is saved can't be read.
+export function getJson<T>(key: string, fallback: T): T {
+  try {
+    return JSON.parse(getItem(key) || "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export const setJson = (key: string, value: unknown) => setItem(key, JSON.stringify(value));

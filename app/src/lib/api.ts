@@ -1,25 +1,39 @@
+// Everything the window asks of the Rust side, one function per command. This is the only file that imports
+// @tauri-apps or knows a command's name; the Rust end of each is in src-tauri/src (commands.rs, watch.rs, state.rs,
+// license.rs).
+//
+// Outside the Tauri window (a plain browser in development) there is no Rust side. The dev server hands out one
+// saved snapshot instead, and the modules with a stand-in of their own (store.ts, license.tsx) check `inTauri`.
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { BranchFiles, RepoRow, RepoStatus, Snapshot } from "./types";
-import { getItem, setItem } from "./store";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import type { BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
 
-// Outside the Tauri window (a plain browser in development) the dev server hands out a saved snapshot.
-const inTauri = "__TAURI_INTERNALS__" in window;
-const saved = () =>
-  fetch("/__snapshot.json").then((r) =>
-    r.ok ? (r.json() as Promise<Snapshot>) : Promise.reject("No saved snapshot (set SNAPSHOT_FILE)"),
-  );
+export const inTauri = "__TAURI_INTERNALS__" in window;
+
+async function savedSnapshot(): Promise<Snapshot> {
+  const response = await fetch("/__snapshot.json");
+  if (!response.ok) throw "No saved snapshot (set SNAPSHOT_FILE)";
+  return response.json();
+}
+
+// --- A repo's data (commands.rs)
 
 // `branch`: another branch to view read-only; none for the checked-out one.
 export const loadSnapshot = (repo: string, branch: string | null = null) =>
-  inTauri ? invoke<Snapshot>("snapshot", { repo, branch }) : saved();
-export const loadRepos = () => (inTauri ? invoke<RepoRow[]>("repos") : saved().then((s) => s.repos));
-export const canPickFolder = inTauri;
+  inTauri ? invoke<Snapshot>("snapshot", { repo, branch }) : savedSnapshot();
+
+export const loadRepos = () => (inTauri ? invoke<RepoRow[]>("repos") : savedSnapshot().then((snap) => snap.repos));
+
 // Read when a picker opens; the browser preview has no git, so nothing comes back there.
 export const loadRepoStatus = (repos: string[]) =>
   inTauri ? invoke<RepoStatus[]>("repo_status", { repos }) : Promise.resolve([]);
 export const loadBranchFiles = (repo: string) =>
   inTauri ? invoke<Record<string, BranchFiles>>("branch_files", { repo }) : Promise.resolve({});
+
+export const canPickFolder = inTauri;
 
 // The native folder picker; resolves to the picked folder's repo (its top folder), null when cancelled, or throws
 // a plain-language reason when the folder isn't in a git repo.
@@ -29,19 +43,29 @@ export async function pickRepoFolder(): Promise<string | null> {
   return invoke<string>("repo_root", { path: folder });
 }
 
-// The last repo opened, and the repos opened recently (they stay in the repo picker even with no agent sessions).
-const LAST_REPO = "last-repo";
-const RECENT = "recent-repos";
-export const lastRepo = () => getItem(LAST_REPO);
-export const recentRepos = (): { path: string; at: string }[] => {
-  try {
-    return JSON.parse(getItem(RECENT) || "[]");
-  } catch {
-    return [];
-  }
-};
-export const rememberRepo = (path: string) => {
-  setItem(LAST_REPO, path);
-  const rest = recentRepos().filter((r) => r.path !== path);
-  setItem(RECENT, JSON.stringify([{ path, at: new Date().toISOString() }, ...rest].slice(0, 12)));
-};
+// --- Live updates (watch.rs). Only in the app.
+
+// Watch a repo's folder and the agents' session folders, replacing any earlier watch.
+export const watchRepo = (repo: string) => invoke<void>("watch", { repo });
+// Called after each burst of changes that matters; resolves to a function that stops listening.
+export const onRepoChanged = (handler: () => void) => listen<string>("repo-changed", handler);
+
+// --- Saved state (state.rs). Only in the app.
+
+export const loadState = () => invoke<Record<string, string>>("state_load");
+// `null` removes the value.
+export const saveState = (key: string, value: string | null) => invoke<void>("state_save", { key, value });
+
+// --- License (license.rs). Only in the app.
+
+export const licenseStatus = () => invoke<LicenseStatus>("license_status");
+export const activateLicense = (key: string) => invoke<LicenseStatus>("license_activate", { key });
+export const removeLicense = () => invoke<LicenseStatus>("license_remove");
+
+// --- The window and the system
+
+// The window buttons' look; `null` leaves it to macOS.
+export const setWindowTheme = (theme: "light" | "dark" | null) => getCurrentWindow().setTheme(theme);
+
+// Opens a web page in the default browser (in the browser preview, a new tab).
+export const openInBrowser = (url: string) => openUrl(url).catch(() => window.open(url, "_blank"));

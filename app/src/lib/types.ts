@@ -1,4 +1,5 @@
-// The shape of src-tauri/src/data/snapshot.rs `build` output.
+// The shapes the Rust side sends: the snapshot and the picker rows (src-tauri/src/data/snapshot/model.rs), and the
+// license (src-tauri/src/license.rs). Change the two sides together.
 
 export type Status = "A" | "M" | "D" | "R" | "T" | "U" | "C";
 
@@ -129,3 +130,16 @@ export interface Snapshot {
   };
   map: { files: [string, number][]; flags: Record<string, string[]>; groups: Record<string, string> };
 }
+
+// Who a license belongs to.
+export interface Holder {
+  name: string;
+  email: string;
+  id: string;
+  issued: string; // YYYY-MM-DD
+}
+
+export type LicenseStatus =
+  | { state: "licensed"; holder: Holder }
+  | { state: "trial"; days_left: number; ends: number } // ends: seconds since 1970
+  | { state: "ended"; ended: number };

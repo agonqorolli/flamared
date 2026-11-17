@@ -27,7 +27,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Spinner } from "@/components/ui/spinner";
-import { canPickFolder, loadBranchFiles, loadRepoStatus, recentRepos } from "@/lib/api";
+import { canPickFolder, inTauri, loadBranchFiles, loadRepoStatus } from "@/lib/api";
+import { recentRepos } from "@/lib/repos";
 import { base, plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BranchFiles, BranchRow, RepoRow, RepoStatus, Snapshot } from "@/lib/types";
@@ -56,7 +57,7 @@ interface Props {
 // In the Mac app the native title bar is hidden and the header takes its place (tauri.conf.json): dragging its empty
 // space moves the window, and its left end leaves room for the window buttons (14px from the edge, set in
 // tauri.conf.json) with the same 14px after them. In px, not spacing units: density mustn't move it.
-const titleBar = "__TAURI_INTERNALS__" in window && navigator.userAgent.includes("Mac");
+const titleBar = inTauri && navigator.userAgent.includes("Mac");
 
 export function Header({
   snap,

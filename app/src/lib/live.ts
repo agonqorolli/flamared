@@ -1,23 +1,15 @@
 // The open repo's data, kept current: loads it, reloads when the Rust side reports a change (Live), and remembers
 // which files and edits are new since you last looked, so the screens can mark them.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
-import { lastRepo, loadRepos, loadSnapshot, rememberRepo } from "./api";
+import { inTauri, loadRepos, loadSnapshot, onRepoChanged, watchRepo } from "./api";
+import { lastRepo, rememberRepo } from "./repos";
 import { buildTimeline, editKey } from "./timeline";
 import { whatChanged, type Waiting } from "./waiting";
 import type { Snapshot } from "./types";
 import { getItem, setItem } from "./store";
 
-const inTauri = "__TAURI_INTERNALS__" in window;
 const LIVE_KEY = "live";
-const readLive = () => {
-  try {
-    return getItem(LIVE_KEY) !== "off";
-  } catch {
-    return true;
-  }
-};
+const readLive = () => getItem(LIVE_KEY) !== "off";
 
 export interface Opening {
   repoChanged: boolean;
@@ -111,7 +103,7 @@ export function useLiveRepo() {
       } else {
         setFresh(NONE);
         // Watch the folder the data came from (a branch checked out in a worktree is read from there).
-        if (inTauri) invoke("watch", { repo: s.path }).catch((e) => console.warn("Live updates unavailable:", e));
+        if (inTauri) watchRepo(s.path).catch((e) => console.warn("Live updates unavailable:", e));
       }
       current.current = { repo: path, branch, snap: s };
       setSnap(s);
@@ -211,7 +203,7 @@ export function useLiveRepo() {
   liveRef.current = live;
   useEffect(() => {
     if (!inTauri) return;
-    const off = listen<string>("repo-changed", () => {
+    const off = onRepoChanged(() => {
       const r = current.current.repo;
       if (!r) return;
       if (liveRef.current) pull(r, current.current.branch, true);

@@ -16,4 +16,15 @@ export default defineConfig(
       "react-hooks/exhaustive-deps": "error",
     },
   },
+  {
+    // The window talks to the Rust side in one place.
+    files: ["**/*.{ts,tsx}"],
+    ignores: ["src/lib/api.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ group: ["@tauri-apps/*"], message: "Call the Rust side through lib/api.ts." }] },
+      ],
+    },
+  },
 );
