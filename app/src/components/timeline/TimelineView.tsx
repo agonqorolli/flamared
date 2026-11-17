@@ -12,16 +12,14 @@ import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { Said } from "@/components/Said";
-import { SessionsInfo } from "./SessionsInfo";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, plural, SURVIVAL, time } from "@/lib/format";
 import { editKey, editPatch, ms, editStatus, editStatusTip, type Timeline, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import { hint, useKeys } from "@/lib/keys";
-import type { Snapshot, TimelineEdit } from "@/lib/types";
+import type { TimelineEdit } from "@/lib/types";
 
 interface Props {
-  snap: Snapshot;
   timeline: Timeline;
   active: boolean;
   focus: { path: string; n: number } | null; // "Show in Timeline" from another screen: the file's latest edit
@@ -33,7 +31,7 @@ interface Props {
 }
 
 // Timeline: every agent edit in order (latest first) with the agent's words, commands and your prompts around it.
-export function TimelineView({ snap, timeline, active, focus, inChanges, onShowInChanges, onShowInMap, fresh, onSeen }: Props) {
+export function TimelineView({ timeline, active, focus, inChanges, onShowInChanges, onShowInMap, fresh, onSeen }: Props) {
   const { items, edits } = timeline;
   const hasWords = items.some((it) => it.kind === "turn" && it.rows.some((r) => r.kind === "say"));
   // The selection follows the edit, so new edits arriving at the top don't move you.
@@ -80,7 +78,6 @@ export function TimelineView({ snap, timeline, active, focus, inChanges, onShowI
           </ToggleGroup>
           <span className="flex items-center gap-1 text-xs text-faint">
             {plural(edits.length, "edit")}
-            <SessionsInfo snap={snap} />
           </span>
         </div>
         <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">

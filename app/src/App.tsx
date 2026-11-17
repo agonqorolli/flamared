@@ -157,7 +157,6 @@ function Workspace() {
             </div>
             <div className={cn("flex min-h-0 min-w-0 flex-1", view !== "timeline" && "hidden")}>
               <TimelineView
-                snap={snap}
                 timeline={timeline!}
                 active={!opening && view === "timeline"}
                 focus={focus?.view === "timeline" ? focus : null}
