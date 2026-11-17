@@ -29,12 +29,14 @@ Facts measured on real sessions:
 
 ## The Rust layer (`app/src-tauri/src/data/`)
 
-- `snapshot.rs` — `build(top, base, at)` is one screen load; `view(repo, branch)` picks how to show a branch; `known_repos`, `branches`. Output shape: `app/src/lib/types.ts`.
+- `snapshot/` — `build(top, base, at)` in `mod.rs` is one screen load; `view(repo, branch)` picks how to show a branch. One file per part: `timeline.rs` (which turns and edits belong to the change), `story.rs` (the Changes sections), `diffs.rs`, `flags.rs`, `map.rs`. `model.rs` declares everything sent to the window as typed structs; its mirror is `app/src/lib/types.ts`.
+- `repos.rs`, `branches.rs` — the repo and branch pickers' data (`known_repos`, `repo_status`, `branches`, `branch_files`), and what a viewed branch is compared with (`split_off`).
 - `tree.rs` — `At::Work` (working folder, uncommitted + untracked) or `At::Commit(rev)` (another branch, read via `git show` without touching the checkout).
-- `git.rs`, `paths.rs` — git calls and path helpers. One whole-repo `git diff` split per file (`diff_by_file`).
-- `group.rs` — grouping by imports (TS/JS incl. tsconfig/jsconfig aliases, Python, Rust `use`/`mod`/`crate::`, Go via go.mod; same-folder Go files are one package).
-- `sessions.rs` — the Claude Code and Codex parsers.
-- `watch.rs` — live updates; `state.rs`, `license.rs` sit beside `data/`.
+- `git.rs`, `paths.rs`, `cache.rs` — git calls and the repeated questions (`current_branch`, `toplevel`, `worktrees`), path helpers, and remembering what was read from a file until it changes.
+- `diff.rs` — what git says changed: the files, their line counts, and one whole-repo `git diff` split per file (`diff_by_file`).
+- `group/` — grouping by imports: clustering in `mod.rs`, imports per language in `imports.rs` (TS/JS, Python), `tsconfig.rs` (tsconfig/jsconfig aliases), `rust.rs` (`use`/`mod`/`crate::`), `go.rs` (via go.mod; same-folder Go files are one package), and `symbols.rs`.
+- `sessions/` — the shared `Session` model in `mod.rs`, one parser per agent (`claude.rs`, `codex.rs`), and `codex_shell.rs`.
+- Beside `data/`: `commands.rs` (the repo data commands, thin wrappers), `watch.rs` (live updates), `state.rs`, `license.rs`, `app_data.rs` (the app's own JSON files).
 
 Performance: reload ≈0.4 s, first load ≈1.7 s on a 121-file change. Parsed session files and map line counts are cached by (mtime, size); the worktree list is read once per reload.
 

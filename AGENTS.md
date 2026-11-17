@@ -6,6 +6,7 @@ Detailed project knowledge lives in skills under `.agents/skills/` (`.claude/ski
 
 | Working on | Load |
 | --- | --- |
+| Writing or changing any code in `app/` (Rust or the window) | `code-patterns` |
 | Anything people see in `app/src` (screens, cards, labels, colors, spacing, a new shadcn component) | `design-system` (and `shadcn` for the components themselves) |
 | `app/src-tauri/src/data/`, agent adapters, imports per language, live watching | `agent-data` |
 | Adding or changing a keyboard shortcut | `keyboard-shortcuts` |
@@ -25,15 +26,15 @@ Use `pnpm`, not npm or yarn.
 ```bash
 cd app && pnpm install
 cd app && pnpm tauri dev                 # the app, with the Rust side
-cd app && npx tsc --noEmit -p .          # after every frontend change
-cd app/src-tauri && cargo test --lib     # after Rust changes
+cd app && pnpm format && pnpm lint && npx tsc --noEmit -p .                       # after every frontend change
+cd app/src-tauri && cargo fmt && cargo clippy --all-targets && cargo test --lib   # after Rust changes
 ```
 
 The browser preview (no Rust side, from a saved snapshot) is in the `preview-and-verify` skill.
 
 ## Rules
 
-- Never commit straight to `main`; work on a branch. Commit only when asked.
+- Work on `main`; no branch is needed. Commit only when asked.
 - Never print, paste or commit the license signing key (`~/.flamared-keys/`).
 - Commit messages: one short imperative line in plain words, like the existing history ("Add live updates: watch the repo and agent sessions").
 - Settled product questions are in `product-decisions`; check there before reopening one.

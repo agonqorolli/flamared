@@ -20,7 +20,7 @@ The window is shadcn/ui (Radix, "Nova" preset) on Tailwind CSS 4, with the app's
 | `warn` | flags, "not connected", partly kept |
 | `ai`, `ai-foreground`, `ai-bg` | the agent's own color (agent-neutral violet) |
 | `map-bg`, `map-tile`, `map-edge`, `map-folder` | treemap surfaces |
-| `--lens-*` (size/rework low→high, kept, partly, gone, flag, none, text) | map data colors; used through `var()` in MapView's `LENS` |
+| `--lens-*` (size/rework low→high, kept, partly, gone, flag, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
 
 Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). The System setting is not a fourth set of tokens: it picks Gray or Light from macOS (`resolveTheme` in `settings.tsx`), and code that colors itself reads the resolved `theme` from `useSettings()`, not `settings.appearance.theme`. **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
 
@@ -52,9 +52,13 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 |---|---|
 | `Eyebrow` | the small uppercase label ("LOGIC GROUPS", "USES · 5", "1 OF 16"); `as="span" \| "h3"` |
 | `SectionLabel` | an Eyebrow row over a list section, with optional ⓘ tip |
+| `ListPane`, `AgentToggle` | the left list of Changes and Timeline (`--list-w`): the toggle row, the scrolling list, the drag edge; and its "Files / Files + Agent" toggle |
+| `ListRow`, `FreshDot` | one row of a left list, highlighted and scrolled into view when selected (`SELECTED_ROW` is that look, for other lists); the "new since you looked" dot |
 | `SideColumn` | the right column on every screen (`--side-w`) |
 | `PaneHandle` | the drag edge of the left list or the side column; saves the width, double-click resets |
 | `FileCard` | head card of the side column: "5 of 25" + ↑↓ (or "← Overview" on the Map), jump buttons, file name, agent's words |
+| `JumpButton` | the icon button that shows the same file on another screen (`to="timeline"`) |
+| `InfoButton` | the small ⓘ; wrap it in a tooltip's or popover's trigger |
 | `MiniCard`, `MiniRow` | small titled card and its clickable rows (Uses, Used by, File history, map overview) |
 | `Said` | an agent's or your message: who, when, text, 4 lines then click for all |
 | `StatusLetter`, `Counts` | A/M/D… letter and +n −n |
@@ -62,8 +66,9 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `KeyHint` | a button's shortcut badge, shown while ⌘ is held (see the `keyboard-shortcuts` skill) |
 | `BranchEmpty` | the centered no-changes placeholder for every branch, whether read from a working folder or a preview |
 | `settings/SectionHead` | title + one line under it, for a Settings section |
+| `settings/SettingRow` | `SettingRow` (a setting's name and line on the left, its control on the right), `Choice` (a few values side by side), `SettingsBody`, `ResetButton` |
 
-Jump buttons to other screens are `variant="outline" size="icon-xs"` with the nav icons: Changes `FileDiffIcon`, Timeline `ClockIcon`, Map `MapIcon`, in that order, top right of the card.
+Jump buttons to other screens (`JumpButton`) are `variant="outline" size="icon-xs"` with the nav icons from `lib/views.ts`: Changes `FileDiffIcon`, Timeline `ClockIcon`, Map `MapIcon`, in that order, top right of the card.
 
 ## shadcn components
 
@@ -71,7 +76,7 @@ Jump buttons to other screens are `variant="outline" size="icon-xs"` with the na
 - **After adding, change its `import { cn } from "cn"` to `"@/lib/utils"`.** `lib/utils.ts` configures `cn` with the app's theme names; the plain package reads `text-micro` as a color and drops it next to `text-faint`. Any new text size or tracking token must be added to that config too.
 - Our changes to shadcn files: Button and Toggle are `relative` (for KeyHint); joined toggle-group ends use `rounded-*-md` (8px, like buttons); Command and Select items use `cursor-pointer` (shadcn sets `cursor-default`, which beats the global hand-cursor rule — check any new list-like component for the same); Command's built-in trailing check is `hidden` unless checked (it used to take space as an invisible extra line). Lists mark the current item like the selected row in the Changes and Timeline lists (`bg-selection-bg`, a 2px `--selection` bar on the left), not a checkmark or a badge; hover stays gray, and open with it as the keyboard position (`<Command defaultValue>`); the only badge in these rows is the agent session count on the right, filled with a see-through tint (`bg-foreground/10`) so it stays visible on the gray hover row (`bg-muted` would vanish into it).
 
-## Repo and branch pickers (`Header.tsx`)
+## Repo and branch pickers (`components/header/`)
 
 Repo row: name · **N changed files** badge (gray; uncommitted files, the same count the Changes screen shows above its list) / the folder (shortened in the middle). Branch row: name · a badge that says what is counted: **N changed files** for uncommitted edits (the checked-out branch, or a branch in another working folder), **N files vs main** for a branch compared since it split off, naming the real branch it is compared with (the default branch, or the checked-out one for the default branch itself; a short commit id when none is checked out). The badge truncates at `max-w-48`, full text in its tooltip. Its second line is the last commit's subject, bare (no label, no icon, no tooltip), on one truncated line. "Files", not "changes": changes are counted in lines elsewhere. The current one is highlighted like a selected list row.
 

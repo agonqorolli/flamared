@@ -18,8 +18,8 @@ description: How to run the app and check a change actually works — the deskto
 
 ## Checks
 
-- `cd app && npx tsc --noEmit -p .` after every frontend change.
-- `cd app/src-tauri && cargo test --lib` after Rust changes.
+- `cd app && pnpm format && pnpm lint && npx tsc --noEmit -p .` after every frontend change (Prettier, ESLint, types).
+- `cd app/src-tauri && cargo fmt && cargo clippy --all-targets && cargo test --lib` after Rust changes. Clippy must come back with no warnings.
 
 ## Seeing what's really on screen
 
