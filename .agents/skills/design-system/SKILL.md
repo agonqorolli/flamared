@@ -21,7 +21,7 @@ The window is shadcn/ui (Radix, "Nova" preset) on Tailwind CSS 4, with the app's
 | `ai`, `ai-foreground`, `ai-bg` | the agent's own color (agent-neutral violet) |
 | `map-bg`, `map-tile`, `map-edge`, `map-folder` | treemap surfaces |
 | `--lens-*` (size/rework low→high, kept, partly, gone, flag, tested, checked, failed, unchecked, approved, rejected, changed, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
-| `logo-flame-top`, `logo-flame`, `logo-flame-bottom`, `logo-line` | the logo's flame gradient and green code line, the same in every theme (copied from the app icon); only the loading logo uses them |
+| `logo-flame`, `logo-line` | the logo's flat flame red and green code line, the same in every theme (copied from the app icon); only the loading logo uses them |
 
 Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). The System setting is not a fourth set of tokens: it picks Gray or Light from macOS (`resolveTheme` in `settings.tsx`), and code that colors itself reads the resolved `theme` from `useSettings()`, not `settings.appearance.theme`. **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
 

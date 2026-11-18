@@ -32,6 +32,7 @@
     --color-map-edge: var(--map-edge);
     --color-map-folder: var(--map-folder);
     --color-lens-text: var(--lens-text);
+    --color-logo-flame: var(--logo-flame);
     --color-logo-line: var(--logo-line);
     /* The loading logo: green types across one code line of the flame, then fades as the next line starts
        (components/loading/LogoLoader.tsx staggers the lines). */
@@ -270,13 +271,11 @@
     --side-w: clamp(200px, calc((100vw - var(--list-w) - var(--spacing) * 6) * 0.26), 220px);
 }
 
-/* The logo's colors, the same in every theme, as in the app icon (src-tauri/icons/app-icon.svg): the flame's
-   gradient from top to bottom and its green code line. */
+/* The logo's colors, the same in every theme, as in the app icon (src-tauri/icons/app-icon.svg): the flat flame
+   and its green code line. */
 :root {
-    --logo-flame-top: #FF4A44;
-    --logo-flame: #F5333F;
-    --logo-flame-bottom: #E0213A;
-    --logo-line: #56D364;
+    --logo-flame: #FF453A;
+    --logo-line: #3DDC84;
 }
 
 /* Density: Tailwind sizes padding, gaps and heights from one spacing unit, so changing it makes the whole window

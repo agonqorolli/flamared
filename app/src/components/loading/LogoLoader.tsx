@@ -3,11 +3,12 @@ import { cn } from "@/lib/utils";
 
 // The flame of the app icon (src-tauri/icons/app-icon.svg), in its own coordinates: the outline that clips
 // everything, the solid top, and the code lines below it.
-const VIEW_BOX = "300 200 440 630";
+const VIEW_BOX = "300 190 440 640";
 const OUTLINE =
-  "M528 214 C 548 318, 712 392, 712 580 C 712 714, 622 812, 512 812 C 402 812, 312 718, 312 598 " +
-  "C 312 506, 360 446, 408 402 C 404 468, 428 512, 470 532 C 446 418, 470 300, 528 214 Z";
-const TOP = { x: 300, y: 200, width: 440, height: 370 };
+  "M312 612 A 200 200 0 0 0 712 612 C 712 500, 680 420, 640 350 C 610 300, 590 260, 583 218 " +
+  "C 581 207, 575 206, 568 214 C 519 271, 470 350, 462 420 C 459 448, 461 466, 466 482 " +
+  "C 430 460, 397 428, 390 366 C 389 356, 384 355, 378 362 C 340 409, 312 500, 312 612 Z";
+const TOP = { x: 300, y: 190, width: 440, height: 350 };
 
 // One stretch of a code line, and when the green starts typing across it, in seconds into the animation's loop
 // (--animate-logo-type in index.css). A line's first stretch starts left of the flame so its rounded end is hidden,
@@ -22,12 +23,11 @@ interface Stretch {
 }
 
 const STRETCHES: Stretch[] = [
-  { x: 277, y: 590, width: 319, height: 46, delay: 0 },
-  { x: 614, y: 590, width: 126, height: 46, delay: 0.3 },
-  { x: 277, y: 654, width: 463, height: 46, delay: 0.7 },
-  { x: 277, y: 718, width: 193, height: 46, delay: 1.4, green: true },
-  { x: 488, y: 718, width: 252, height: 46, delay: 1.7, green: true },
-  { x: 280, y: 782, width: 460, height: 40, delay: 2.1 },
+  { x: 280, y: 572, width: 296, height: 64, delay: 0 },
+  { x: 608, y: 572, width: 140, height: 64, delay: 0.3 },
+  { x: 280, y: 668, width: 168, height: 64, delay: 0.8, green: true },
+  { x: 480, y: 668, width: 268, height: 64, delay: 1.1, green: true },
+  { x: 280, y: 764, width: 460, height: 66, delay: 1.6 },
 ];
 
 // The loading animation: the logo stands still while green types across its code lines, one after another. With
@@ -35,7 +35,6 @@ const STRETCHES: Stretch[] = [
 export function LogoLoader({ label, className }: { label: string; className?: string }) {
   // useId can contain characters that break url(#…) references, so keep only the safe ones.
   const id = useId().replace(/[^\w-]/g, "");
-  const flame = `url(#${id}-flame)`;
   return (
     <svg
       role="status"
@@ -44,19 +43,14 @@ export function LogoLoader({ label, className }: { label: string; className?: st
       className={cn("h-12 motion-reduce:animate-pulse", className)}
     >
       <defs>
-        <linearGradient id={`${id}-flame`} gradientUnits="userSpaceOnUse" x1="0" y1="214" x2="0" y2="812">
-          <stop offset="0" className="[stop-color:var(--logo-flame-top)]" />
-          <stop offset="0.6" className="[stop-color:var(--logo-flame)]" />
-          <stop offset="1" className="[stop-color:var(--logo-flame-bottom)]" />
-        </linearGradient>
         <clipPath id={`${id}-outline`}>
           <path d={OUTLINE} />
         </clipPath>
       </defs>
       <g clipPath={`url(#${id}-outline)`}>
-        <rect {...TOP} fill={flame} />
+        <rect {...TOP} className="fill-logo-flame" />
         {STRETCHES.map((stretch, index) => (
-          <rect key={`line-${index}`} {...lineShape(stretch)} fill={flame} />
+          <rect key={`line-${index}`} {...lineShape(stretch)} className="fill-logo-flame" />
         ))}
         {STRETCHES.map((stretch, index) => (
           <rect
