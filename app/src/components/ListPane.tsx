@@ -17,12 +17,14 @@ interface Props {
 export function ListPane({ label, toggle, count, children }: Props) {
   return (
     <nav aria-label={label} className="@container relative flex w-(--list-w) shrink-0 flex-col border-r bg-sidebar">
-      <div className="flex items-center justify-between gap-2 px-3 pt-3">
+      {/* pb-2 keeps scrolled cards from running up against the toggle; the first section label gives that 8px back
+          (pt-4 → pt-2), so the list starts where it did before scrolling. */}
+      <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
         {toggle}
         {count}
       </div>
       {/* Radix sizes the content as a table, which lets long text push past the edge; keep it a block. */}
-      <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block">
+      <ScrollArea className="min-h-0 flex-1 px-3 [&_[data-slot=scroll-area-viewport]>div]:!block [&_section:first-child>div:first-child]:pt-2">
         {children}
       </ScrollArea>
       <PaneHandle pane="list" className="-right-1 w-2" />

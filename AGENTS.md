@@ -12,6 +12,7 @@ Detailed project knowledge lives in skills under `.agents/skills/` (`.claude/ski
 | Adding or changing a keyboard shortcut | `keyboard-shortcuts` |
 | License keys, the trial, `license.rs`, `lib/license.tsx` | `license-keys` |
 | Running the app or proving a change works | `preview-and-verify` |
+| The version, building and publishing a release, the updater and its signing key | `releases` |
 | Scope, wording, behavior, "why is it like this", what's next | `product-decisions` |
 | Keeping the skills true after main moves | `skill-upkeep` |
 

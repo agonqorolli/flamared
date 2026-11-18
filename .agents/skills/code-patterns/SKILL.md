@@ -81,6 +81,8 @@ pub async fn repo_status(repos: Vec<String>) -> Result<Vec<RepoStatus>, String> 
 
 Adding a command: the function and its `#[tauri::command]`, its name in `generate_handler!` (`lib.rs`), a function in `api.ts`, and its types in `model.rs` / `types.ts`.
 
+**The window runs under a Content Security Policy** (`app.security.csp` in `tauri.conf.json`): scripts, fonts and images from the app itself only. Styles allow `'unsafe-inline'` (the diff library writes `style` attributes and `<style>` nodes; `dangerousDisableAssetCspModification` keeps Tauri's nonces from cancelling that) and scripts allow `'wasm-unsafe-eval'` (its highlighter). Loading anything from the web means adding it there.
+
 ## React (`app/src`)
 
 **Every screen has the same file set**: `XView.tsx` (state and keys), `XList.tsx` (the left list), the detail beside it, and `model.ts` (what is worked out from the snapshot). Components render; `model.ts` and `lib/` compute:

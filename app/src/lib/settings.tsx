@@ -1,4 +1,4 @@
-// App settings, kept on this machine: how the app looks (theme, density) and how diffs look.
+// App settings, kept on this machine: how the app looks (theme, density), how diffs look, and checking for updates.
 // Saved in the app's data folder (see store.ts).
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { inTauri, setWindowTheme } from "./api";
@@ -55,9 +55,14 @@ export interface AppearanceSettings {
   density: "compact" | "normal" | "spacious";
 }
 
+export interface UpdateSettings {
+  checkOnStart: boolean; // look for a new version each time the app opens
+}
+
 export interface Settings {
   appearance: AppearanceSettings;
   diff: DiffSettings;
+  updates: UpdateSettings;
 }
 
 export const DEFAULTS: Settings = {
@@ -72,6 +77,7 @@ export const DEFAULTS: Settings = {
     lineNumbers: true,
     fontSize: 12,
   },
+  updates: { checkOnStart: true },
 };
 
 const SETTINGS_KEY = "settings";
@@ -79,7 +85,11 @@ const SETTINGS_KEY = "settings";
 // What is saved, with the default for anything that isn't.
 function load(): Settings {
   const saved = getJson<Partial<Settings>>(SETTINGS_KEY, {});
-  return { appearance: { ...DEFAULTS.appearance, ...saved.appearance }, diff: { ...DEFAULTS.diff, ...saved.diff } };
+  return {
+    appearance: { ...DEFAULTS.appearance, ...saved.appearance },
+    diff: { ...DEFAULTS.diff, ...saved.diff },
+    updates: { ...DEFAULTS.updates, ...saved.updates },
+  };
 }
 
 // System follows macOS: Gray when it's dark (the default dark look), Light when it's light. Once the window's
@@ -115,6 +125,7 @@ interface SettingsApi {
   resetDiff: () => void;
   setAppearance: (patch: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
+  setUpdates: (patch: Partial<UpdateSettings>) => void;
 }
 const SettingsContext = createContext<SettingsApi | null>(null);
 
@@ -134,6 +145,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings, save],
   );
   const resetAppearance = useCallback(() => save({ ...settings, appearance: DEFAULTS.appearance }), [settings, save]);
+  const setUpdates = useCallback(
+    (patch: Partial<UpdateSettings>) => save({ ...settings, updates: { ...settings.updates, ...patch } }),
+    [settings, save],
+  );
 
   // Applied again when macOS switches between light and dark, for the System setting.
   const [systemIsDark, setSystemIsDark] = useState(systemDark.matches);
@@ -146,7 +161,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const theme = resolveTheme(settings.appearance.theme);
   return (
-    <SettingsContext.Provider value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance }}>
+    <SettingsContext.Provider
+      value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance, setUpdates }}
+    >
       {children}
     </SettingsContext.Provider>
   );

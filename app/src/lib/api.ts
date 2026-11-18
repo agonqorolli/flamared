@@ -4,11 +4,14 @@
 //
 // Outside the Tauri window (a plain browser in development) there is no Rust side. The dev server hands out one
 // saved snapshot instead, and the modules with a stand-in of their own (store.ts, license.tsx) check `inTauri`.
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 import type { BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -61,6 +64,23 @@ export const saveState = (key: string, value: string | null) => invoke<void>("st
 export const licenseStatus = () => invoke<LicenseStatus>("license_status");
 export const activateLicense = (key: string) => invoke<LicenseStatus>("license_activate", { key });
 export const removeLicense = () => invoke<LicenseStatus>("license_remove");
+
+// --- Updates (tauri-plugin-updater; where to look is in tauri.conf.json). Only in the app.
+
+export const appVersion = () => getVersion();
+
+// Looks for a newer version and, when there is one, downloads and installs it, calling `onFound` with its version
+// before the download starts. Resolves to that version, or null when this is the newest. The installed version
+// runs from the next start (`restartApp`).
+export async function installUpdate(onFound: (version: string) => void): Promise<string | null> {
+  const update = await check();
+  if (!update) return null;
+  onFound(update.version);
+  await update.downloadAndInstall();
+  return update.version;
+}
+
+export const restartApp = () => relaunch();
 
 // --- The window and the system
 

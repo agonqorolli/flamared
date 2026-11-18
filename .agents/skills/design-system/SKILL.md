@@ -34,9 +34,9 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 
 `tracking-label` (0.06em) goes with uppercase labels — use `<Eyebrow>` rather than writing it out.
 
-**Spacing and density** — everything is in spacing units (`p-3`, `gap-3`, `w-75`), never px, so Compact / Normal / Spacious (`--spacing` 0.2 / 0.25 / 0.3rem) scales the whole window. Text never scales with density.
+**Spacing and density** — everything is in spacing units (`p-3`, `gap-3`, `w-75`), never px, so Compact / Normal / Spacious (`--spacing` 3 / 4 / 5px) scales the whole window. Text never scales with density, so neither do the widths of the panes that hold it (below).
 
-**Layout widths** — `--list-w` (the left list, 300px at normal density) and `--side-w` (the right column: 26% of what is left beside the list, 200–220px) are the defaults. Dragging a `PaneHandle` sets that variable on `:root` and saves it (`lib/panes.ts`); double-click resets it. Both are used through components/classes below, never recomputed.
+**Layout widths** — `--list-w` (the left list, 300px) and `--side-w` (the right column: 26% of what is left beside the list, 200–220px) are the defaults, in px at every density: the text in them doesn't scale, and a roomier density mustn't take the room from the diff. Dragging a `PaneHandle` sets that variable on `:root` and saves it (`lib/panes.ts`); double-click resets it. Both are used through components/classes below, never recomputed.
 
 **Radius** — buttons, toggles, rows: 8px (`rounded-md`, shadcn's small sizes). Cards: `rounded-xl` (side column) / `rounded-lg` (list groups). Map tiles: 2px. Info buttons: full circle.
 

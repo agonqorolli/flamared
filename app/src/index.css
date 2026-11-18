@@ -238,18 +238,20 @@
 }
 
 /* Screen layout: the list on the left (Changes, Timeline) and the side column on the right. The side column takes
-   26% of what is left beside the list, within 200–220px at normal density, so it sits in the same place on every
-   screen, including the Map, which has no list. 6 spacing units: the 12px margin on each side. Dragging either edge
-   replaces the variable on :root with a fixed width (lib/panes.ts). */
+   26% of what is left beside the list, within 200–220px, so it sits in the same place on every screen, including the
+   Map, which has no list. The widths are in px, not spacing units: they hold text, which stays the same size at every
+   density, and a roomier density must not take the room from the diff. 6 spacing units: the margin on each side.
+   Dragging either edge replaces the variable on :root with a fixed width (lib/panes.ts). */
 :root {
-    --list-w: calc(var(--spacing) * 75);
-    --side-w: clamp(calc(var(--spacing) * 50), calc((100vw - var(--list-w) - var(--spacing) * 6) * 0.26), calc(var(--spacing) * 55));
+    --list-w: 300px;
+    --side-w: clamp(200px, calc((100vw - var(--list-w) - var(--spacing) * 6) * 0.26), 220px);
 }
 
 /* Density: Tailwind sizes padding, gaps and heights from one spacing unit, so changing it makes the whole window
-   tighter or roomier while text stays the same size. */
-:root[data-density="compact"] { --spacing: 0.2rem; }
-:root[data-density="spacious"] { --spacing: 0.3rem; }
+   tighter or roomier while text stays the same size. 3px / 4px (Tailwind's own) / 5px: a quarter less or more, in
+   whole pixels. */
+:root[data-density="compact"] { --spacing: 0.1875rem; }
+:root[data-density="spacious"] { --spacing: 0.3125rem; }
 
 @layer base {
   * {

@@ -14,6 +14,7 @@ import { BranchPicker } from "./BranchPicker";
 import { type Live, LiveToggle } from "./LiveToggle";
 import { RepoPicker } from "./RepoPicker";
 import { TrialNote } from "./TrialNote";
+import { UpdateNote } from "./UpdateNote";
 
 interface Props {
   snap: Snapshot | null;
@@ -83,6 +84,7 @@ export function Header({
         </TabsList>
       </Tabs>
       <div className="flex flex-1 basis-0 justify-end gap-1.5">
+        <UpdateNote />
         <TrialNote onOpen={() => onSettings("license")} />
         {live && snap && <LiveToggle {...live} />}
         <Button

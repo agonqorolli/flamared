@@ -14,6 +14,7 @@ const readLive = () => getItem(LIVE_KEY) !== "off";
 // A repo or branch is being opened; the screens dim until it is there.
 export interface Opening {
   repoChanged: boolean;
+  label: string; // what is opening: the repo's folder name, or the branch
 }
 
 export interface Fresh {
@@ -93,7 +94,7 @@ export function useLiveRepo() {
       failed.current = null;
       setError(null);
       setPending(null);
-      setOpening(switching ? { repoChanged } : null);
+      setOpening(switching ? { repoChanged, label } : null);
     }
     try {
       const next = await loadSnapshot(path, branch);

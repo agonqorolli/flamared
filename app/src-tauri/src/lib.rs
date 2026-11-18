@@ -12,6 +12,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // Updates: where to look and the key they must be signed with are in tauri.conf.json ("plugins.updater").
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(watch::Watching::default())
         .manage(state::State::default())
         .invoke_handler(tauri::generate_handler![

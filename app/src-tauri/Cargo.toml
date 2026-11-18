@@ -1,6 +1,6 @@
 [package]
 name = "flamared"
-version = "0.1.0"
+version = "1.0.0"
 description = "Check the code changes AI coding agents make"
 authors = ["agonqorolli"]
 edition = "2024"
@@ -30,6 +30,8 @@ notify-debouncer-mini = "0.7.0"
 tauri-plugin-dialog = "2.8.4"
 ed25519-dalek = "3.0.0"
 base64 = "0.23.1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -3,6 +3,8 @@ import { APP_NAME } from "@/brand";
 import { BranchEmpty } from "@/components/BranchEmpty";
 import { Header } from "@/components/header/Header";
 import { TrialEnded } from "@/components/license/TrialEnded";
+import { LoadingHints } from "@/components/loading/LoadingHints";
+import { useLoadingScreen } from "@/components/loading/useLoadingScreen";
 import { type Focus, Screens } from "@/components/Screens";
 import { SettingsDialog, type SettingsSection } from "@/components/settings/SettingsDialog";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
@@ -16,6 +18,7 @@ import { LicenseProvider, useLicense } from "@/lib/license";
 import { useLiveRepo } from "@/lib/live";
 import { SettingsProvider, useSettings } from "@/lib/settings";
 import type { LicenseStatus } from "@/lib/types";
+import { UpdatesProvider } from "@/lib/updates";
 import { cn } from "@/lib/utils";
 import type { View } from "@/lib/views";
 
@@ -23,11 +26,13 @@ import type { View } from "@/lib/views";
 export default function App({ license }: { license: LicenseStatus }) {
   return (
     <SettingsProvider>
-      <LicenseProvider initial={license}>
-        <TooltipProvider delayDuration={200}>
-          <Gate />
-        </TooltipProvider>
-      </LicenseProvider>
+      <UpdatesProvider>
+        <LicenseProvider initial={license}>
+          <TooltipProvider delayDuration={200}>
+            <Gate />
+          </TooltipProvider>
+        </LicenseProvider>
+      </UpdatesProvider>
     </SettingsProvider>
   );
 }
@@ -102,6 +107,10 @@ function Workspace() {
   });
 
   const hasChanges = !!snap && Object.keys(snap.diffs).length > 0;
+  // While a repo or branch opens, the loading screen takes the screens' place, and stays until its first hint has
+  // been read; a failed load shows its error right away.
+  const loadingScreen = useLoadingScreen(opening);
+  const loadingShown = !error && (!!opening || !!loadingScreen);
   return (
     <div className="flex h-full flex-col">
       <Header
@@ -120,16 +129,13 @@ function Workspace() {
       <SettingsDialog open={settingsOpen} start={settingsAt} onOpenChange={setSettingsOpen} />
       {notice && <Notice text={notice} onDismiss={() => setNotice(null)} />}
       {error && snap && <Notice text={error} onRetry={retry} onDismiss={dismissError} />}
-      <div
-        inert={!!opening && !!snap}
-        aria-busy={!!opening}
-        className={cn("flex min-h-0 flex-1 flex-col", opening && snap && "opacity-50")}
-      >
-        {!snap && error && <CouldNotRead error={error} onRetry={retry} />}
-        {!snap && !error && <NoRepo loading={loading} />}
-        {snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
-        {snap && hasChanges && (
-          <Screens snap={snap} view={view} active={!opening} focus={focus} fresh={fresh} onSeen={seen} onJump={jump} />
+      <div aria-busy={!!opening} className="flex min-h-0 flex-1 flex-col">
+        {loadingShown && loadingScreen && <LoadingHints screen={loadingScreen} />}
+        {!loadingShown && !snap && error && <CouldNotRead error={error} onRetry={retry} />}
+        {!loadingShown && !snap && !error && <NoRepo loading={loading} />}
+        {!loadingShown && snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
+        {!loadingShown && snap && hasChanges && (
+          <Screens snap={snap} view={view} active focus={focus} fresh={fresh} onSeen={seen} onJump={jump} />
         )}
       </div>
     </div>
