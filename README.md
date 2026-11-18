@@ -2,13 +2,37 @@
 
 A desktop app for checking the uncommitted code changes AI coding agents (Claude Code, Codex) make: what changed, grouped by logic, with the agent's own words next to each edit. Free of AI processing; everything stays on your machine.
 
-The app lives in `app/` (Tauri + React). See [app/README.md](app/README.md).
-
 Three screens built from a real repo and the agent sessions on this machine:
 
 - **Changes**: every committable file, grouped by how the files import each other, and a review mark on each file (Looks good / Needs work / Not checked) that resets when the agent changes the file again.
-- **Timeline**: every agent edit in order, with the agent's message before it and whether it survived.
-- **Map**: the whole repo as a treemap, changed files highlighted.
+- **Timeline**: every agent edit in order, with the agent's message before it, whether it survived, and the checks it ran (tests, types, lint, build).
+- **Map**: the whole repo as a treemap, colored by one of six lenses: change size, rework, still in final, checked, reviewed and flags.
+
+## Download
+
+macOS only for now. Get the `.dmg` from the [latest release](https://github.com/agonqorolli/flamared/releases/latest), open it and drag Flamared to Applications.
+
+## First launch
+
+Flamared isn't signed with an Apple Developer ID yet, so macOS blocks it the first time:
+
+1. Open Flamared. macOS says it can't verify the app; click **Done**.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Next to "Flamared was blocked", click **Open Anyway**, then confirm with your password or Touch ID.
+
+You only do this once. After that it opens like any other app.
+
+## Trial and license
+
+Everything works for 14 days. After that Flamared needs a license: one payment, no subscription. Paste the key from your purchase email in **Settings → License**. The key is checked on your Mac; nothing is sent anywhere. To move to another Mac, choose **Remove from this Mac** there and enter the key on the new one.
+
+## Updates
+
+Flamared checks for a new version when it starts, downloads it in the background and shows **Restart to update** in the header. The check asks GitHub for the latest version number and sends nothing about your code. Turn it off in **Settings → Updates**.
+
+## Building from source
+
+The app lives in `app/` (Tauri + React). See [app/README.md](app/README.md). The source is public to read, audit and build for your own use; see [LICENSE](LICENSE) for what isn't allowed.
 
 ## Skills
 
