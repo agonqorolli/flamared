@@ -100,7 +100,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       const usesNothing = groups.every((group) => !group.uses.length);
       return merged(`loose-${i}`, name, plural(groups.length, "file"), groups, usesNothing);
     });
-    sections.push({ label: "Other changes, by folder", tip: "loose", blocks });
+    sections.push({ label: "Files on their own", tip: "loose", blocks });
   }
   // Tests whose source file didn't change and that use nothing changed would otherwise be lost.
   if (looseTests.length) {

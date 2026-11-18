@@ -41,8 +41,8 @@ export const TIPS = {
     text: "Changed files that use 4 or more other changed files, like an index or a root file that registers everything. Kept apart for the same reason.",
   },
   loose: {
-    title: "Not connected",
-    text: "Code files that neither use nor are used by any other changed file, grouped by their folder.",
+    title: "Not part of a group",
+    text: "Code files that aren’t grouped with any other changed file, listed by their folder. They may still use a shared building block or a wiring file.",
   },
   tests: {
     title: "Tests without their source",
