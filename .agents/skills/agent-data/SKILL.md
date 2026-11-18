@@ -16,6 +16,8 @@ Everything is read-only: the app reads git and the agents' session files and nev
 | Codex rollout | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | FileChange items with `unified_diff` (update) or `content` (add). Never read `~/.codex/auth.json`. |
 | git | the repo | Ground truth for what will be committed. |
 
+**Where the agent folders are** (`data/sessions/folders.rs`): a folder chosen in Settings → Agents, else the agent's own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), else `~/.claude` / `~/.codex`. An app opened from the Finder doesn't see shell variables, which is why the setting exists. The choice is saved in `agents.json` in the app's data folder (`agents.rs`), set in a process-wide `RwLock` at startup, and changing it emits `agents-changed`: the window re-watches and reloads, or looks for a repo again when none was open. Everything reads the folders through `folders::folder` / `sessions_dir`, never a hard-coded path. A picked folder is accepted when its sessions folder (`projects`, `sessions`) is inside it or is the folder itself; picking the default stores nothing.
+
 Facts measured on real sessions:
 
 - Edit/Write results carry `structuredPatch` + `originalFile`. **48% of file changes came through Bash** (`toolUseResult.bashEditDiff`), so shell edits are essential.
@@ -36,7 +38,7 @@ Facts measured on real sessions:
 - `diff.rs` — what git says changed: the files, their line counts, and one whole-repo `git diff` split per file (`diff_by_file`).
 - `group/` — grouping by imports: clustering in `mod.rs`, imports per language in `imports.rs` (TS/JS, Python), `tsconfig.rs` (tsconfig/jsconfig aliases), `rust.rs` (`use`/`mod`/`crate::`), `go.rs` (via go.mod; same-folder Go files are one package), `symbols.rs`, and `order.rs` (reading order inside a group). Config files (tsconfig, `Cargo.toml`, `go.mod`) are read from the version being shown: the working folder or the viewed branch's commit.
 - `sessions/` — the shared `Session` model in `mod.rs`, one parser per agent (`claude.rs`, `codex.rs`), `codex_shell.rs`, `command.rs` (a shell command split into the programs it runs), `checks.rs` (which commands are checks, and whether they failed) and `effects.rs` (which commands change things outside the diff).
-- Beside `data/`: `commands.rs` (the repo data commands, thin wrappers), `watch.rs` (live updates), `state.rs`, `license.rs`, `app_data.rs` (the app's own JSON files).
+- Beside `data/`: `commands.rs` (the repo data commands, thin wrappers), `watch.rs` (live updates), `state.rs`, `license.rs`, `agents.rs` (Settings → Agents), `app_data.rs` (the app's own JSON files).
 
 Performance: reload ≈0.4 s, first load ≈1.7 s on a 121-file change. Parsed session files and map line counts are cached by (mtime, size); the worktree list is read once per reload.
 
@@ -52,7 +54,7 @@ Performance: reload ≈0.4 s, first load ≈1.7 s on a 121-file change. Parsed s
 - **Still in final** (survival): kept / partly rewritten / gone / undone per edit.
 - **Rule flags** (no AI; matched text is never returned): possible secret, possible secret (.env file), tests weakened, tests skipped, test deleted, debug leftovers, dependency file, infra file, not connected. Explained in the ⓘ next to "Flagged" (`FlagRules.tsx`).
 - **Branch views**: checked-out branch → working folder vs HEAD; a branch checked out in another worktree → that folder; any other branch → its commits since merge-base with the default branch (origin/HEAD, else main/master), read-only. Map sizes for a commit view use stored size / 40. The branch list leaves out a remote branch that has a local branch of the same name.
-- **Live**: FSEvents (`notify`, 0.7 s debounce) on the repo and worktrees plus `~/.claude/projects` and `~/.codex/sessions`. Counted: non-ignored working files, `.git/HEAD`, `refs/`, `packed-refs`, session files for this repo. Not counted: ignored files, the index, other repos' sessions. Emits `repo-changed`.
+- **Live**: FSEvents (`notify`, 0.7 s debounce) on the repo and worktrees plus the agents' session folders (`projects` / `sessions` inside the folders above). Counted: non-ignored working files, `.git/HEAD`, `refs/`, `packed-refs`, session files for this repo. Not counted: ignored files, the index, other repos' sessions. Emits `repo-changed`.
 
 ## Agent state now (`data/activity.rs`, built and tested, not shown anywhere yet)
 

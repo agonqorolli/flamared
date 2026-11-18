@@ -7,7 +7,7 @@ use crate::data::{branches, git};
 use indexmap::IndexMap;
 
 /// Runs work that reads git or session files, off the main thread.
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+pub(crate) async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(work)
         .await
         .map_err(|e| e.to_string())

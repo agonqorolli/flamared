@@ -1,6 +1,8 @@
-//! What the window is sent: one `Snapshot` per screen load, and the rows of the repo and branch pickers.
+//! What the window is sent: one `Snapshot` per screen load, the rows of the repo and branch pickers, and the
+//! agents' folders for Settings.
 //! The window's copy of these shapes is app/src/lib/types.ts; change the two together. Fields are written to JSON
 //! in the order they are declared here.
+use crate::data::sessions::folders::{Agent, Source};
 use crate::data::sessions::{Check, Effect};
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -274,4 +276,22 @@ pub struct RepoStatus {
 pub struct BranchFiles {
     pub n: usize,
     pub against: Option<String>,
+}
+
+/// Where an agent's sessions are read from, for Settings → Agents.
+#[derive(Serialize)]
+pub struct AgentFolder {
+    pub agent: Agent,
+    pub name: &'static str,
+    /// The folder as shown: with ~ for the home folder.
+    pub folder: String,
+    pub full: String,
+    pub source: Source,
+    /// The environment variable the agent reads its folder from (named when `source` is "variable").
+    pub variable: &'static str,
+    /// whether its sessions folder (projects, sessions) is there
+    pub found: bool,
+    pub sessions: usize,
+    /// when the newest session file was written
+    pub latest: Option<String>,
 }

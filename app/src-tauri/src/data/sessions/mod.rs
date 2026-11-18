@@ -1,18 +1,19 @@
 //! Agent session adapters: one parser per agent, all returning the same `Session` shape.
 //! Claude Code: ~/.claude/projects/<dir>/<session>.jsonl (claude.rs)
 //! Codex: ~/.codex/sessions/**/rollout-*.jsonl (codex.rs)
-//! Reads only; never writes to either folder.
+//! Either folder can be elsewhere (folders.rs). Reads only; never writes to either folder.
 mod checks;
 mod claude;
 mod codex;
 mod codex_shell;
 mod command;
 mod effects;
+pub mod folders;
 
 use super::cache::{Stamped, cached};
-use super::paths::{home, join};
 pub use checks::Check;
 pub use effects::Effect;
+use folders::Agent;
 use regex::Regex;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -183,16 +184,16 @@ pub struct Session {
     pub turns: Vec<Turn>,
 }
 
-pub fn claude_dir() -> String {
-    join(&home(), ".claude/projects")
+fn claude_dir() -> String {
+    folders::sessions_dir(Agent::Claude)
 }
 
 fn codex_dir() -> String {
-    join(&home(), ".codex")
+    folders::folder(Agent::Codex)
 }
 
 fn codex_sessions_dir() -> String {
-    join(&codex_dir(), "sessions")
+    folders::sessions_dir(Agent::Codex)
 }
 
 /// The folders agents write their session files to (the watcher watches these).
@@ -202,18 +203,27 @@ pub fn session_dirs() -> Vec<String> {
 
 /// Every session file of every agent on this machine.
 pub fn session_files() -> Vec<String> {
+    Agent::ALL.iter().flat_map(|&agent| files_of(agent)).collect()
+}
+
+/// One agent's session files.
+fn files_of(agent: Agent) -> Vec<String> {
     let mut files = Vec::new();
-    // Claude Code: one folder per project, with its session files directly inside.
-    for project in entries(Path::new(&claude_dir())) {
-        files.extend(
-            entries(&project)
-                .iter()
-                .filter(|path| path.is_file() && is_jsonl(path))
-                .map(|path| path_text(path)),
-        );
+    match agent {
+        // Claude Code: one folder per project, with its session files directly inside.
+        Agent::Claude => {
+            for project in entries(Path::new(&claude_dir())) {
+                files.extend(
+                    entries(&project)
+                        .iter()
+                        .filter(|path| path.is_file() && is_jsonl(path))
+                        .map(|path| path_text(path)),
+                );
+            }
+        }
+        // Codex: sessions/<year>/<month>/<day>/rollout-*.jsonl
+        Agent::Codex => collect_jsonl(Path::new(&codex_sessions_dir()), &mut files),
     }
-    // Codex: sessions/<year>/<month>/<day>/rollout-*.jsonl
-    collect_jsonl(Path::new(&codex_sessions_dir()), &mut files);
     files
 }
 

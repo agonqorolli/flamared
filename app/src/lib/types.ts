@@ -180,3 +180,18 @@ export type LicenseStatus =
   | { state: "licensed"; holder: Holder }
   | { state: "trial"; days_left: number; ends: number } // ends: seconds since 1970
   | { state: "ended"; ended: number };
+
+// Where an agent's sessions are read from (Settings → Agents). `source`: the agent's own default folder, its
+// environment variable (`variable`), or a folder chosen in Settings.
+export type AgentId = "claude" | "codex";
+export interface AgentFolder {
+  agent: AgentId;
+  name: string;
+  folder: string; // with ~ for the home folder
+  full: string;
+  source: "default" | "variable" | "chosen";
+  variable: string;
+  found: boolean; // its sessions folder is there
+  sessions: number;
+  latest: string | null; // when the newest session file was written
+}

@@ -134,7 +134,7 @@ function Workspace() {
       <div aria-busy={!!opening} className="flex min-h-0 flex-1 flex-col">
         {loadingShown && loadingScreen && <LoadingHints screen={loadingScreen} />}
         {!loadingShown && !snap && error && <CouldNotRead error={error} onRetry={retry} onOpenFolder={openFolder} />}
-        {!loadingShown && !snap && !error && <NoRepo loading={loading} />}
+        {!loadingShown && !snap && !error && <NoRepo loading={loading} onAgents={() => openSettings("agents")} />}
         {!loadingShown && snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
         {!loadingShown && snap && hasChanges && (
           <Screens snap={snap} view={view} active focus={focus} fresh={fresh} onSeen={seen} onJump={jump} />
@@ -200,19 +200,35 @@ function CouldNotRead({ error, onRetry, onOpenFolder }: CouldNotReadProps) {
   );
 }
 
-// In place of the screens before a repo is open: the animated logo while the first one loads, or that there is none.
-function NoRepo({ loading }: { loading: boolean }) {
+interface NoRepoProps {
+  loading: boolean;
+  onAgents: () => void;
+}
+
+// In place of the screens before a repo is open: the animated logo while the first one loads, or that there is none,
+// with the way to point the app at agents that keep their sessions somewhere else.
+function NoRepo({ loading, onAgents }: NoRepoProps) {
+  if (loading) {
+    return (
+      <Empty className="flex-1">
+        <LogoLoader label="Loading" />
+      </Empty>
+    );
+  }
   return (
     <Empty className="flex-1">
-      {loading ? (
-        <LogoLoader label="Loading" />
-      ) : (
-        <EmptyHeader>
-          <EmptyTitle>No repository yet</EmptyTitle>
-          <EmptyDescription>
-            No coding agent session was found on this machine. Opening any folder comes with the folder picker.
-          </EmptyDescription>
-        </EmptyHeader>
+      <EmptyHeader>
+        <EmptyTitle>No repository yet</EmptyTitle>
+        <EmptyDescription>
+          No coding agent session was found on this machine. Opening any folder comes with the folder picker.
+        </EmptyDescription>
+      </EmptyHeader>
+      {canPickFolder && (
+        <EmptyContent>
+          <Button variant="outline" onClick={onAgents}>
+            Agent folders…
+          </Button>
+        </EmptyContent>
       )}
     </Empty>
   );

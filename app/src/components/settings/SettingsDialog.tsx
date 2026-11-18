@@ -1,9 +1,10 @@
-import { CircleArrowUpIcon, CodeIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
+import { BotIcon, CircleArrowUpIcon, CodeIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LicenseSettings } from "@/components/license/LicenseSettings";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AgentSettings } from "./AgentSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { DiffSettings } from "./DiffSettings";
 import { KeyboardSettings } from "./KeyboardSettings";
@@ -13,6 +14,7 @@ import { UpdateSettings } from "./UpdateSettings";
 const SECTIONS = [
   { id: "appearance", label: "Appearance", icon: PaletteIcon, content: AppearanceSettings },
   { id: "diff", label: "Diff style", icon: CodeIcon, content: DiffSettings },
+  { id: "agents", label: "Agents", icon: BotIcon, content: AgentSettings },
   { id: "keyboard", label: "Keyboard", icon: KeyboardIcon, content: KeyboardSettings },
   { id: "updates", label: "Updates", icon: CircleArrowUpIcon, content: UpdateSettings },
   { id: "license", label: "License", icon: KeyRoundIcon, content: LicenseSettings },
@@ -26,7 +28,7 @@ interface Props {
 }
 
 // Settings: the menu on the left, the chosen section's settings on the right. `start` picks the section it opens
-// on (the trial note in the header opens License); otherwise it opens where it was left.
+// on (the trial note in the header opens License, the no-repository screen Agents); otherwise it opens where it was left.
 export function SettingsDialog({ open, start, onOpenChange }: Props) {
   const [section, setSection] = useState<SettingsSection>("appearance");
   useEffect(() => {

@@ -1,7 +1,7 @@
 // The open repo's data, kept current: loads it, reloads when the Rust side reports a change (Live), and remembers
 // which files and edits are new since you last looked, so the screens can mark them.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { inTauri, loadRepos, loadSnapshot, onRepoChanged, watchRepo } from "./api";
+import { inTauri, loadRepos, loadSnapshot, onAgentsChanged, onRepoChanged, watchRepo } from "./api";
 import { lastRepo, rememberRepo } from "./repos";
 import { getItem, setItem } from "./store";
 import { buildTimeline, editKey, isShown } from "./timeline";
@@ -158,23 +158,42 @@ export function useLiveRepo() {
 
   // Open the last repo, or the one an agent worked in most recently. That is also the way out when the last repo
   // can't be read any more (its folder was moved or deleted); its error stays only when there is no other repo.
+  const openFirst = useCallback(async () => {
+    const last = lastRepo();
+    if (last) {
+      await open(last);
+      if (shown.current.repo === last) return;
+    }
+    const repos = await loadRepos().catch(() => []);
+    const latest = repos.find((repo) => repo.full !== last);
+    if (latest) {
+      await open(latest.full);
+      return;
+    }
+    setLoading(false);
+  }, [open]);
   useEffect(() => {
-    async function openFirst() {
-      const last = lastRepo();
-      if (last) {
-        await open(last);
-        if (shown.current.repo === last) return;
-      }
-      const repos = await loadRepos().catch(() => []);
-      const latest = repos.find((repo) => repo.full !== last);
-      if (latest) {
-        await open(latest.full);
+    void openFirst();
+  }, [openFirst]);
+
+  // An agent's folder changed in Settings: watch the new folder and reload with its sessions (even while paused,
+  // since you asked for it), or, with no repo open yet, look for one again.
+  useEffect(() => {
+    if (!inTauri) return;
+    const listening = onAgentsChanged(() => {
+      const { repo, branch, snap } = shown.current;
+      if (!repo || !snap) {
+        void openFirst();
         return;
       }
-      setLoading(false);
-    }
-    void openFirst();
-  }, [open]);
+      watchRepo(snap.path).catch((e) => console.warn("Live updates unavailable:", e));
+      void pull(repo, branch, true);
+    });
+    listening.catch((e) => console.warn("Couldn't follow agent folder changes:", e));
+    return () => {
+      listening.then((stop) => stop()).catch(() => {});
+    };
+  }, [openFirst, pull]);
 
   // While paused, a change report only counts when a reload would show something different: checked in the
   // background, one check at a time, without touching the screen.

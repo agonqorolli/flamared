@@ -84,13 +84,14 @@ pub fn known_repos(current: Option<&str>) -> Vec<RepoRow> {
 }
 
 /// When a file was last written, in seconds since 1970; 0 when that can't be read.
-fn written_at(file: &str) -> f64 {
+pub fn written_at(file: &str) -> f64 {
     let modified = std::fs::metadata(file).and_then(|meta| meta.modified()).ok();
     let since_1970 = modified.and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok());
     since_1970.map_or(0.0, |duration| duration.as_secs_f64())
 }
 
-fn local_time(seconds: f64) -> Option<String> {
+/// A time in seconds since 1970 as local time (RFC 3339); None for 0, which means unknown.
+pub fn local_time(seconds: f64) -> Option<String> {
     if seconds <= 0.0 {
         return None;
     }

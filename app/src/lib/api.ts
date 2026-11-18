@@ -1,6 +1,6 @@
 // Everything the window asks of the Rust side, one function per command. This is the only file that imports
 // @tauri-apps or knows a command's name; the Rust end of each is in src-tauri/src (commands.rs, watch.rs, state.rs,
-// license.rs).
+// license.rs, agents.rs).
 //
 // Outside the Tauri window (a plain browser in development) there is no Rust side. The dev server hands out one
 // saved snapshot instead, and the modules with a stand-in of their own (store.ts, license.tsx) check `inTauri`.
@@ -9,10 +9,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
-import type { BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
+import type { AgentFolder, AgentId, BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -59,6 +59,24 @@ export const loadState = () => invoke<Record<string, string>>("state_load");
 // `null` removes the value.
 export const saveState = (key: string, value: string | null) => invoke<void>("state_save", { key, value });
 
+// --- Where the agents' sessions are read from (agents.rs). Only in the app.
+
+export const agentFolders = () => invoke<AgentFolder[]>("agent_folders");
+
+// Asks for the agent's folder with the native picker; resolves to every agent's folder after the change, null when
+// cancelled, or throws a plain-language reason when the folder holds none of that agent's sessions.
+export async function pickAgentFolder(agent: AgentId, name: string): Promise<AgentFolder[] | null> {
+  const folder = await openDialog({ directory: true, multiple: false, title: `Where ${name} keeps its sessions` });
+  if (!folder || Array.isArray(folder)) return null;
+  return invoke<AgentFolder[]>("agent_folder_set", { agent, path: folder });
+}
+
+// Back to the agent's own default folder.
+export const resetAgentFolder = (agent: AgentId) => invoke<AgentFolder[]>("agent_folder_set", { agent, path: null });
+
+// Called after an agent's folder changed; resolves to a function that stops listening.
+export const onAgentsChanged = (handler: () => void) => listen("agents-changed", handler);
+
 // --- License (license.rs). Only in the app.
 
 export const licenseStatus = () => invoke<LicenseStatus>("license_status");
@@ -86,6 +104,9 @@ export const restartApp = () => relaunch();
 
 // The window buttons' look; `null` leaves it to macOS.
 export const setWindowTheme = (theme: "light" | "dark" | null) => getCurrentWindow().setTheme(theme);
+
+// Shows a file or folder in the Finder, selected.
+export const showInFinder = (path: string) => revealItemInDir(path);
 
 // Opens a web page in the default browser (in the browser preview, a new tab).
 export const openInBrowser = (url: string) => openUrl(url).catch(() => window.open(url, "_blank"));
