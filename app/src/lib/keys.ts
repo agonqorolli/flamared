@@ -20,8 +20,8 @@ export const KEYS = {
   splitDiff: { key: "s" },
   settings: { key: ",", mod: true },
   shortcuts: { key: "?" },
-  next: { key: "j" },
-  prev: { key: "k" },
+  next: { key: "k" },
+  prev: { key: "j" },
   looksGood: { key: "g" },
   needsWork: { key: "w" },
   agent: { key: "a" },
@@ -52,7 +52,7 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
   {
     scope: "Changes",
     rows: [
-      { ids: ["next", "prev"], does: "Next / previous file" },
+      { ids: ["prev", "next"], does: "Previous / next file" },
       { ids: ["looksGood"], does: "Mark Looks good", note: "then opens the next unchecked file" },
       { ids: ["needsWork"], does: "Mark Needs work", note: "then opens the next unchecked file" },
       { ids: ["agent"], does: "Show or hide the agent's messages" },
@@ -63,7 +63,7 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
   {
     scope: "Timeline",
     rows: [
-      { ids: ["next", "prev"], does: "Next / previous edit" },
+      { ids: ["prev", "next"], does: "Previous / next edit" },
       { ids: ["agent"], does: "Show or hide the agent's messages" },
       { ids: ["toChanges", "toMap"], does: "Show the file in Changes / Map" },
       { ids: ["splitDiff"], does: "Diff side by side or in one column" },
