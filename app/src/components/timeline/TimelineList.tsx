@@ -1,3 +1,4 @@
+import { FoldButton, useFold } from "@/components/FoldButton";
 import { FreshDot, ListRow } from "@/components/ListRow";
 import { Said } from "@/components/Said";
 import { SectionLabel } from "@/components/SectionLabel";
@@ -37,14 +38,11 @@ export function TimelineList({ items, hasEdits, ...list }: Props) {
   );
 }
 
+type ItemProps = Omit<Props, "items" | "hasEdits">;
+type TurnItem = Extract<TurnOrCommit, { kind: "turn" }>;
+
 // A commit as one dashed line, or a turn as a card.
-function Item({
-  item,
-  selected,
-  showAgent,
-  fresh,
-  onSelect,
-}: { item: TurnOrCommit } & Omit<Props, "items" | "hasEdits">) {
+function Item({ item, ...list }: { item: TurnOrCommit } & ItemProps) {
   if (item.kind === "commit") {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-dashed border-input px-2.5 py-2 text-xs text-muted-foreground">
@@ -54,18 +52,32 @@ function Item({
       </div>
     );
   }
+  return <Turn turn={item} {...list} />;
+}
+
+// A turn as a card: its edits (and, with the agent, its messages), then your prompt in the footer with the button that
+// folds the card down to it.
+function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem } & ItemProps) {
   // Edits only by default; with the agent, its messages too.
-  const rows = item.rows.filter((row) => row.kind === "edit" || showAgent);
+  const rows = turn.rows.filter((row) => row.kind === "edit" || showAgent);
+  const edits = turn.rows.filter((row) => row.kind === "edit").length;
+  const { folded, toggle } = useFold(selected, (index) =>
+    turn.rows.some((row) => row.kind === "edit" && row.index === index),
+  );
   return (
-    <article className="overflow-hidden rounded-lg border bg-card" aria-label={`${item.agent}: ${item.prompt}`}>
+    <article className="overflow-hidden rounded-lg border bg-card" aria-label={`${turn.agent}: ${turn.prompt}`}>
       {/* Newest first, like the whole list: the edits on top, and at the bottom your prompt that started the turn. */}
-      <div className="flex flex-col p-1.5">
-        {rows.map((row, k) => (
-          <TurnRow key={k} row={row} agent={item.agent} selected={selected} fresh={fresh} onSelect={onSelect} />
-        ))}
-      </div>
-      <footer className="border-t bg-raised/40 px-3 py-2">
-        <Said who="You" when={time(item.at)} text={item.prompt} />
+      {!folded && (
+        <div className="flex flex-col border-b p-1.5">
+          {rows.map((row, k) => (
+            <TurnRow key={k} row={row} agent={turn.agent} selected={selected} fresh={fresh} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+      {/* items-start: an opened prompt grows downward and the chevron stays beside its first line. */}
+      <footer className="flex items-start gap-2 bg-raised/40 px-3 py-2">
+        <Said who="You" when={time(turn.at)} text={turn.prompt} lines={1} />
+        <FoldButton folded={folded} count={edits} unit="edit" rows="above" className="-mt-0.5" onToggle={toggle} />
       </footer>
     </article>
   );

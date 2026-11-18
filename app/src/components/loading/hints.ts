@@ -5,146 +5,146 @@ import { getJson, setJson } from "@/lib/store";
 export interface Hint {
   title: string;
   text: string;
-  seconds: number; // how long it takes to read: about 4 words a second, plus one to notice it
+  seconds: number; // how long it takes to read: 1 to notice it, plus 1 per 4 words, rounded up; 5 at most
   desktopOnly?: boolean; // needs the Rust side (Live, folders)
 }
 
 const ALL_HINTS: Hint[] = [
   {
-    title: "Every shortcut in one place",
-    text: "Press ? for the full list of keys, screen by screen.",
-    seconds: 5,
-  },
-  {
-    title: "Mark files as you read",
-    text: "G marks a file Looks good, W Needs work. The mark clears when the agent edits the file again.",
-    seconds: 7,
-  },
-  {
-    title: "More on screen",
-    text: "Compact density fits more rows in the window. Text stays the same size.",
-    seconds: 5,
-  },
-  {
-    title: "Hold ⌘ to see the keys",
-    text: "Keep ⌘ pressed for a moment and each button shows its shortcut.",
-    seconds: 6,
-  },
-  {
-    title: "The agent's own words",
-    text: "A shows the agent's messages in the list, next to the files they're about.",
-    seconds: 6,
-  },
-  {
-    title: "Read without the mouse",
-    text: "J and K go to the next and previous file in Changes, or edit in Timeline.",
-    seconds: 6,
-  },
-  {
-    title: "Side by side",
-    text: "S switches the diff between one column and side by side.",
+    title: "Every shortcut",
+    text: "Press ? to see every key, screen by screen.",
     seconds: 4,
   },
   {
-    title: "Files that work together",
-    text: "Changes groups files by the imports between them, so each group is likely one piece of work.",
-    seconds: 6,
-  },
-  {
-    title: "See how it happened",
-    text: "Timeline lists every edit in order, under the prompt that led to it.",
+    title: "Mark as you read",
+    text: "G marks a file Looks good, W marks Needs work.",
     seconds: 5,
   },
   {
-    title: "What made it to the end",
-    text: "On the Map, 3 colors each file by how much of what the agent wrote is still there.",
-    seconds: 7,
+    title: "Fit more on screen",
+    text: "Compact density in Settings fits more rows.",
+    seconds: 4,
   },
   {
-    title: "Where the agent went back and forth",
-    text: "On the Map, 2 colors each file by how often the agent edited it.",
-    seconds: 6,
+    title: "See every key",
+    text: "Hold ⌘ to see each button's shortcut.",
+    seconds: 4,
   },
   {
-    title: "Same file, another screen",
-    text: "From a file, C, T and M show it in Changes, Timeline or Map.",
-    seconds: 6,
-  },
-  {
-    title: "Look at any branch",
-    text: "Picking a branch shows its changes without checking it out. The files on disk stay as they are.",
-    seconds: 6,
-  },
-  {
-    title: "Pause when it's busy",
-    text: "L switches between Live and Paused. While paused, the header says what's waiting.",
+    title: "The agent's words",
+    text: "Press A to show the agent's messages in the list.",
     seconds: 5,
+  },
+  {
+    title: "No mouse needed",
+    text: "J and K step to the next and previous file.",
+    seconds: 5,
+  },
+  {
+    title: "Side by side",
+    text: "Press S to show the diff side by side.",
+    seconds: 4,
+  },
+  {
+    title: "Grouped by imports",
+    text: "Files that use each other are grouped together.",
+    seconds: 4,
+  },
+  {
+    title: "How it happened",
+    text: "Timeline lists every edit under the prompt behind it.",
+    seconds: 4,
+  },
+  {
+    title: "Still in final",
+    text: "On the Map, 3 shows how much agent code is still there.",
+    seconds: 5,
+  },
+  {
+    title: "Rework",
+    text: "On the Map, 2 shows the files the agent edited most.",
+    seconds: 4,
+  },
+  {
+    title: "Jump between screens",
+    text: "C, T and M show the file in Changes, Timeline or Map.",
+    seconds: 5,
+  },
+  {
+    title: "Any branch",
+    text: "Pick a branch to view it without checking it out.",
+    seconds: 4,
+  },
+  {
+    title: "Pause when busy",
+    text: "Press L to switch between Live and Paused.",
+    seconds: 4,
     desktopOnly: true,
   },
   {
     title: "Make room",
-    text: "Drag the edge of the list or the side column to resize it. Double-click the edge to reset it.",
-    seconds: 6,
+    text: "Drag a pane's edge to resize it. Double-click resets.",
+    seconds: 4,
   },
   {
     title: "Your colors",
-    text: "Diff style has a dozen color themes, text sizes and line markers to choose from.",
-    seconds: 5,
+    text: "Settings → Diff style has a dozen color themes.",
+    seconds: 4,
   },
   {
-    title: "Stays on this machine",
-    text: "Your code and the agents' sessions are read right here and never leave this machine.",
-    seconds: 6,
+    title: "Stays on your machine",
+    text: "Your code and sessions never leave this machine.",
+    seconds: 4,
   },
   {
     title: "Spot what's new",
-    text: "A dot marks a file or edit that changed since you last selected it.",
-    seconds: 5,
+    text: "A dot marks what changed since you last looked.",
+    seconds: 4,
   },
   {
     title: "Watch for flags",
-    text: "On the Map, 4 colors files that look risky: possible secrets, weakened or skipped tests, debug leftovers.",
-    seconds: 6,
+    text: "On the Map, 4 marks risky changes, like secrets.",
+    seconds: 4,
   },
   {
     title: "Size at a glance",
-    text: "On the Map, 1 colors each file by how many lines changed.",
+    text: "On the Map, 1 shows how many lines each file changed.",
     seconds: 5,
   },
   {
     title: "Zoom into a folder",
-    text: "On the Map, click a folder's name to zoom in. Esc steps back out.",
-    seconds: 6,
+    text: "On the Map, click a folder's name. Esc steps back.",
+    seconds: 5,
   },
   {
-    title: "Was the edit kept?",
-    text: "In Timeline, each edit says whether it's still in the file, partly rewritten, or no longer there.",
-    seconds: 6,
+    title: "Was it kept?",
+    text: "Timeline tags each edit kept, rewritten or gone.",
+    seconds: 4,
   },
   {
-    title: "Commits in the story",
-    text: "Your commits show up in Timeline between the agent's turns, in the order they happened.",
-    seconds: 6,
+    title: "Commits too",
+    text: "Timeline shows your commits between the agent's turns.",
+    seconds: 4,
   },
   {
     title: "Used by many",
-    text: "Files used by 3 or more other changed files are kept apart. A change there can affect everything that uses them.",
-    seconds: 7,
+    text: "Files many others use are kept apart. Change with care.",
+    seconds: 5,
   },
   {
-    title: "What the sections mean",
-    text: "The ⓘ next to each section in the Changes list says what puts a file there.",
-    seconds: 6,
+    title: "What sections mean",
+    text: "The ⓘ beside each section explains what's in it.",
+    seconds: 4,
   },
   {
     title: "Not just code",
-    text: "Docs, config and new files not yet added to git are listed too, grouped by kind.",
-    seconds: 6,
+    text: "Docs, config and untracked files are listed too.",
+    seconds: 4,
   },
   {
     title: "Light, dark or gray",
-    text: "Appearance has Dark, Gray and Light, or System to follow macOS.",
-    seconds: 5,
+    text: "Pick a theme in Settings, or follow macOS.",
+    seconds: 4,
   },
   {
     title: "Reload anytime",
@@ -153,39 +153,39 @@ const ALL_HINTS: Hint[] = [
   },
   {
     title: "Any folder",
-    text: "Repos come from your agents' sessions. ⌘O opens any other folder.",
+    text: "⌘O opens any folder, not just your agents' repos.",
     seconds: 4,
     desktopOnly: true,
   },
   {
     title: "Branches at a glance",
-    text: "The branch picker shows how many files each branch changed since it split off.",
-    seconds: 6,
+    text: "The branch picker counts each branch's changed files.",
+    seconds: 4,
   },
   {
-    title: "Read the whole message",
-    text: "Long agent messages show four lines. Click one to read it all.",
+    title: "Read it all",
+    text: "Click a long agent message to read all of it.",
     seconds: 5,
   },
   {
     title: "What a file touches",
-    text: "The side column lists what each changed file uses, and what uses it.",
+    text: "The side column shows what a file uses and what uses it.",
     seconds: 5,
   },
   {
-    title: "Marks are just for you",
-    text: "Looks good and Needs work are notes to yourself. Nothing is written to the repo.",
-    seconds: 6,
-  },
-  {
-    title: "Read-only, always",
-    text: "The app never changes your files or the agents' sessions. It only reads them.",
+    title: "Marks are yours",
+    text: "Review marks are notes to you. Nothing touches the repo.",
     seconds: 5,
   },
   {
-    title: "No setup needed",
-    text: "Claude Code and Codex sessions are read as they are, with no hooks or plugins to install.",
-    seconds: 6,
+    title: "Read-only",
+    text: "The app only reads. It never changes your files.",
+    seconds: 4,
+  },
+  {
+    title: "No setup",
+    text: "Works with Claude Code and Codex. Nothing to install.",
+    seconds: 4,
   },
 ];
 

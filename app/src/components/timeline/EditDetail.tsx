@@ -3,6 +3,7 @@ import { FileCard } from "@/components/FileCard";
 import { JumpButton } from "@/components/JumpButton";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SideColumn } from "@/components/SideColumn";
+import { StepButtons } from "@/components/StepButtons";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, SURVIVAL, time } from "@/lib/format";
 import { editPatch } from "@/lib/timeline";
@@ -43,6 +44,12 @@ export function EditDetail({ edit, index, edits, inChanges, onSelect, onShowInCh
         <DiffView id={`${index}`} patch={editPatch(edit)} empty={noDiff} />
       </div>
       <SideColumn label="Edit and related edits">
+        <StepButtons
+          what="Edit"
+          index={index}
+          count={edits.length}
+          onStep={(step) => onSelect(clamp(index + step, 0, edits.length - 1))}
+        />
         <FileCard
           what="Edit"
           index={index}
@@ -51,7 +58,6 @@ export function EditDetail({ edit, index, edits, inChanges, onSelect, onShowInCh
           agent={edit.agent}
           words={edit.say}
           wordsLabel="before this edit"
-          onStep={(step) => onSelect(clamp(index + step, 0, edits.length - 1))}
           jump={
             inChanges && (
               <>

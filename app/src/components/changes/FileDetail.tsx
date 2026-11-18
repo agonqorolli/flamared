@@ -6,6 +6,7 @@ import { JumpButton } from "@/components/JumpButton";
 import { KeyHint } from "@/components/KeyHint";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SideColumn } from "@/components/SideColumn";
+import { StepButtons } from "@/components/StepButtons";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { base } from "@/lib/format";
@@ -89,6 +90,7 @@ export function FileDetail({
         <ReviewBar review={review} onReview={reviewShown} />
       </div>
       <SideColumn label="File and connected files">
+        <StepButtons what="File" index={row.index} count={rows.length} onStep={onStep} />
         <FileCard
           what="File"
           index={row.index}
@@ -98,7 +100,6 @@ export function FileDetail({
           agent={file.words_agent}
           words={file.words}
           wordsLabel="before changing it"
-          onStep={onStep}
           jump={
             <>
               {inTimeline && <JumpButton to="timeline" onClick={onShowInTimeline} />}

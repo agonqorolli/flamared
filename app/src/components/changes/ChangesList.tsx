@@ -1,8 +1,9 @@
+import { FoldButton, useFold } from "@/components/FoldButton";
 import { FreshDot, ListRow } from "@/components/ListRow";
 import { Said } from "@/components/Said";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
-import { base, plural, STATUS } from "@/lib/format";
+import { base, STATUS } from "@/lib/format";
 import type { ReviewState } from "@/lib/review";
 import type { FileInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,8 @@ export function ChangesList({ sections, ...list }: Props) {
   );
 }
 
-// One group as a card: its name, the agent's latest message about it (when asked for), and its files.
+// One group as a card: its name with a button to fold it, the agent's latest message about it (when asked for), and
+// its files.
 function GroupBlock({
   block,
   selected,
@@ -44,29 +46,33 @@ function GroupBlock({
   reviewOf,
   onSelect,
 }: { block: Block } & Omit<Props, "sections">) {
+  const { folded, toggle } = useFold(selected, (index) => block.rows.some((row) => row.index === index));
   return (
     <div className={cn("rounded-lg border bg-card p-1.5", block.lonely && "border-warn/30")}>
-      {/* The group's name and how many files it has; the longer description is on hover. */}
-      <div className="flex items-baseline justify-between gap-2 px-1.5 pt-0.5 pb-1" title={block.sub}>
+      {/* The group's name and the fold button; the longer description is on hover. */}
+      <div className="flex items-center justify-between gap-2 pt-0.5 pb-1 pl-1.5" title={block.sub}>
         <span className="min-w-0 truncate font-mono text-name font-medium text-foreground">{block.name}</span>
-        <span className="shrink-0 text-mini text-faint">{plural(block.rows.length, "file")}</span>
+        <FoldButton folded={folded} count={block.rows.length} onToggle={toggle} />
       </div>
-      {showAgent && block.words && (
+      {!folded && showAgent && block.words && (
         <div className="px-1.5 py-1">
           <Said who={block.words_agent ?? "Agent"} text={block.words} />
         </div>
       )}
-      {block.rows.map((row) => (
-        <FileRow
-          key={row.index}
-          row={row}
-          on={row.index === selected}
-          fresh={fresh.has(row.file.path)}
-          review={reviewOf(row.file)}
-          onSelect={onSelect}
-        />
-      ))}
-      {block.lonely && <div className="px-1.5 pt-1 text-mini text-warn">Not connected to the other changes</div>}
+      {!folded &&
+        block.rows.map((row) => (
+          <FileRow
+            key={row.index}
+            row={row}
+            on={row.index === selected}
+            fresh={fresh.has(row.file.path)}
+            review={reviewOf(row.file)}
+            onSelect={onSelect}
+          />
+        ))}
+      {!folded && block.lonely && (
+        <div className="px-1.5 pt-1 text-mini text-warn">Not connected to the other changes</div>
+      )}
     </div>
   );
 }

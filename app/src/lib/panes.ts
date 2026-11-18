@@ -8,7 +8,7 @@ export type Pane = "list" | "side";
 const VAR: Record<Pane, string> = { list: "--list-w", side: "--side-w" };
 const KEY: Record<Pane, string> = { list: "pane.list", side: "pane.side" };
 // Px limits; the max also leaves room for the diff in a narrow window. The side column can shrink until the file
-// card holds just ↑↓: two icon-xs buttons (6 units each), the gap between (1), the card's padding (6) and its 1px
+// card holds just its jump buttons: two icon-xs buttons (6 units each), the gap between (1), the card's padding (6) and its 1px
 // border on each side. Spacing units change with density, so it is worked out from the current one.
 function spacingUnitPx() {
   const root = getComputedStyle(document.documentElement);

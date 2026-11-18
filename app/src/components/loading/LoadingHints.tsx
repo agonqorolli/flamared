@@ -23,10 +23,10 @@ export function LoadingHints({ screen }: { screen: LoadingScreen }) {
       <div
         key={index}
         aria-live="polite"
-        className="flex max-w-sm animate-in flex-col items-center gap-1 text-center duration-500 fade-in slide-in-from-bottom-2"
+        className="flex max-w-sm animate-in flex-col items-center gap-1.5 text-center duration-500 fade-in slide-in-from-bottom-2"
       >
-        <p className="text-sm font-medium">{hint.title}</p>
-        <p className="text-xs/relaxed text-subtle">{hint.text}</p>
+        <p className="text-base font-medium">{hint.title}</p>
+        <p className="text-sm/relaxed text-balance text-subtle">{hint.text}</p>
       </div>
     </div>
   );
