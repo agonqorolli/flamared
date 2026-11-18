@@ -33,6 +33,8 @@ Commit messages carry decisions ("drop X", "reverse Y", "rename Z") — those ma
 | `app/src-tauri/src/license.rs`, `examples/license.rs`, `app/src/lib/license.tsx`, `components/license/**`, `src/brand.ts` (`BUY_URL`) | `license-keys` |
 | `app/src-tauri/src/data/**`, `watch.rs`, `state.rs`, `app/src/lib/types.ts` | `agent-data` |
 | `app/src-tauri/examples/**`, `vite.config.ts`, `package.json` scripts, `.claude/launch.json`, test setup | `preview-and-verify` |
+| `app/src/lib/updates.tsx`, `app/scripts/latest-json.mjs`, the version and `plugins.updater` in `app/src-tauri/tauri.conf.json`, `app/src-tauri/capabilities/` | `releases` |
+| `app/src/brand.ts`, `app/src-tauri/icons/**`, the `[[bin]]` name in `app/src-tauri/Cargo.toml` | `product-decisions` |
 | product scope, pricing, platforms, names, anything a commit message calls a decision | `product-decisions` |
 | `AGENTS.md`, `.agents/skills/**`, `.claude/skills` symlink, `.claude/settings.json`, `.claude/hooks/**` | `skill-upkeep` (this one) |
 

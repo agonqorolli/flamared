@@ -67,6 +67,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `SurvivalTag` | kept / partly rewritten / gone / undone |
 | `KeyHint` | a button's shortcut badge, shown while ⌘ is held (see the `keyboard-shortcuts` skill) |
 | `BranchEmpty` | the centered no-changes placeholder for every branch, whether read from a working folder or a preview |
+| `loading/LoadingHints` | the loading screen while a repo or branch opens: one hint, kept on screen until it has been read (`useLoadingScreen`); a failed load shows its error at once |
 | `settings/SectionHead` | title + one line under it, for a Settings section |
 | `settings/SettingRow` | `SettingRow` (a setting's name and line on the left, its control on the right), `Choice` (a few values side by side), `SettingsBody`, `ResetButton` |
 
