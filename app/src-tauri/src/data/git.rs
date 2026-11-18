@@ -3,8 +3,15 @@
 use super::paths::realpath;
 use std::process::{Command, Output};
 
+/// Every git call names files as they are ("café.ts"), not escaped and quoted (`"caf\303\251.ts"`), so a path reads
+/// the same from every command.
 fn run(repo: &str, args: &[&str]) -> std::io::Result<Output> {
-    Command::new("git").arg("-C").arg(repo).args(args).output()
+    Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["-c", "core.quotePath=false"])
+        .args(args)
+        .output()
 }
 
 /// stdout of `git -C <repo> <args>`; an error with git's message when it exits non-zero.

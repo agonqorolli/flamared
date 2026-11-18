@@ -49,9 +49,7 @@ fn rename_target(path: &str) -> String {
 /// One `git diff` for the whole change, split into each file's lines (keyed by its new path). Starting git once
 /// instead of once per file is most of what makes a reload fast.
 pub fn diff_by_file(repo: &str, at: &At, options: &[&str], base: &str) -> HashMap<String, Vec<String>> {
-    let mut command = vec!["-c", "core.quotePath=false"];
-    command.extend(at.diff_command(options, base));
-    let text = git_or_empty(repo, &command);
+    let text = git_or_empty(repo, &at.diff_command(options, base));
     let mut by_file: HashMap<String, Vec<String>> = HashMap::new();
     let mut chunk: Vec<&str> = Vec::new();
     let mut keep = |chunk: &mut Vec<&str>| {
@@ -70,10 +68,21 @@ pub fn diff_by_file(repo: &str, at: &At, options: &[&str], base: &str) -> HashMa
     by_file
 }
 
+/// Where a file's diff turns from its header (`diff --git`, `index`, `---`, `+++`…) to its hunks: the first `@@`
+/// line, or the end when it has none (binary or mode-only). Only the header is read as header: a removed `-- x` line
+/// is `--- x` in the hunks.
+pub fn hunks_start<S: AsRef<str>>(chunk: &[S]) -> usize {
+    chunk
+        .iter()
+        .position(|line| line.as_ref().starts_with("@@"))
+        .unwrap_or(chunk.len())
+}
+
 /// The file a diff chunk is about: its new path, or the old one for a deletion.
 fn chunk_path(chunk: &[&str]) -> Option<String> {
-    let header = chunk.first()?.strip_prefix("diff --git a/")?;
-    for line in chunk.iter().take_while(|line| !line.starts_with("@@")) {
+    let header_line = chunk.first()?.strip_prefix("diff --git a/")?;
+    let header = &chunk[..hunks_start(chunk)];
+    for line in header {
         if let Some(path) = line.strip_prefix("+++ b/") {
             return Some(path.to_string());
         }
@@ -81,13 +90,13 @@ fn chunk_path(chunk: &[&str]) -> Option<String> {
             return Some(path.to_string());
         }
     }
-    if let Some(path) = chunk.iter().find_map(|line| line.strip_prefix("--- a/")) {
+    if let Some(path) = header.iter().find_map(|line| line.strip_prefix("--- a/")) {
         return Some(path.to_string()); // deleted: "+++ /dev/null"
     }
     // Binary or mode-only changes have no ---/+++ lines: "a/<p> b/<p>" with the same path twice.
-    let half = header.len().checked_sub(3)? / 2;
-    (header.get(half..half + 3) == Some(" b/") && header[..half] == header[half + 3..])
-        .then(|| header[..half].to_string())
+    let half = header_line.len().checked_sub(3)? / 2;
+    (header_line.get(half..half + 3) == Some(" b/") && header_line[..half] == header_line[half + 3..])
+        .then(|| header_line[..half].to_string())
 }
 
 #[cfg(test)]
@@ -99,5 +108,32 @@ mod tests {
         assert_eq!(rename_target("src/{old => new}/f.ts"), "src/new/f.ts");
         assert_eq!(rename_target("a.ts => b.ts"), "b.ts");
         assert_eq!(rename_target("src/{ => sub}/f.ts"), "src/sub/f.ts");
+    }
+
+    #[test]
+    fn hunk_lines_that_look_like_headers() {
+        // A removed "-- note" and an added "++ x" line read "--- note" and "+++ x" in the hunks.
+        let chunk = [
+            "diff --git a/q.sql b/q.sql",
+            "--- a/q.sql",
+            "+++ b/q.sql",
+            "@@ -1,2 +1,2 @@",
+            "--- note",
+            "+++ x",
+        ];
+        assert_eq!(hunks_start(&chunk), 3);
+        assert_eq!(chunk_path(&chunk).as_deref(), Some("q.sql"));
+        let deleted = [
+            "diff --git a/q.sql b/q.sql",
+            "deleted file mode 100644",
+            "--- a/q.sql",
+            "+++ /dev/null",
+            "@@ -1 +0,0 @@",
+            "--- a/other.sql",
+        ];
+        assert_eq!(chunk_path(&deleted).as_deref(), Some("q.sql"));
+        let binary = ["diff --git a/i.png b/i.png", "Binary files a/i.png and b/i.png differ"];
+        assert_eq!(hunks_start(&binary), binary.len());
+        assert_eq!(chunk_path(&binary).as_deref(), Some("i.png"));
     }
 }

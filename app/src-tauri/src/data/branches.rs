@@ -62,21 +62,14 @@ pub fn branches(top: &str, current: &str, work: &HashMap<String, BranchWork>) ->
         if !symref.is_empty() || (remote && full_name.matches('/').count() < 3) {
             continue; // origin/HEAD and bare remote names
         }
-        let found = Ref {
+        refs.push(Ref {
             name: name.to_string(),
             at: at.to_string(),
             remote,
             subject: subject.to_string(),
-        };
-        if remote
-            && refs
-                .iter()
-                .any(|local| !local.remote && local.name == found.local_name())
-        {
-            continue;
-        }
-        refs.push(found);
+        });
     }
+    drop_remotes_with_local_copy(&mut refs);
     refs.sort_by_key(|found| found.remote); // stable: keeps newest first inside each part
     // Branches checked out in other worktrees, read once (not once per branch: repos can have hundreds).
     let in_worktree: HashSet<String> = worktrees(top)
@@ -99,6 +92,17 @@ pub fn branches(top: &str, current: &str, work: &HashMap<String, BranchWork>) ->
             }
         })
         .collect()
+}
+
+/// Leaves out each remote branch that has a local branch of the same name, whichever has the newer commit (the list
+/// is newest first, so the remote can come before its local copy).
+fn drop_remotes_with_local_copy(refs: &mut Vec<Ref>) {
+    let local: HashSet<String> = refs
+        .iter()
+        .filter(|found| !found.remote)
+        .map(|found| found.name.clone())
+        .collect();
+    refs.retain(|found| !found.remote || !local.contains(found.local_name()));
 }
 
 fn exists(top: &str, rev: &str) -> bool {
@@ -211,4 +215,31 @@ pub fn branch_files(repo: &str) -> Result<IndexMap<String, BranchFiles>, String>
         counts.insert(name.to_string(), count);
     }
     Ok(counts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn branch(name: &str, remote: bool) -> Ref {
+        Ref {
+            name: name.to_string(),
+            at: String::new(),
+            remote,
+            subject: String::new(),
+        }
+    }
+
+    #[test]
+    fn remote_with_newer_commit_than_its_local_copy() {
+        // Newest first: origin/main has commits main hasn't pulled yet.
+        let mut refs = vec![
+            branch("origin/main", true),
+            branch("main", false),
+            branch("origin/feature/x", true),
+        ];
+        drop_remotes_with_local_copy(&mut refs);
+        let names: Vec<&str> = refs.iter().map(|found| found.name.as_str()).collect();
+        assert_eq!(names, ["main", "origin/feature/x"]);
+    }
 }

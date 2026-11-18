@@ -1,4 +1,5 @@
 //! The functions, types and constants a change declares, read from the text with one pattern (no parser).
+use crate::data::diff::hunks_start;
 use indexmap::IndexMap;
 use regex::Regex;
 use std::sync::LazyLock;
@@ -23,14 +24,14 @@ pub(super) fn all_added(text: &str) -> IndexMap<String, char> {
 pub(super) fn changed(diff: &[String]) -> IndexMap<String, char> {
     // name -> (declared on an added line, declared on a removed line)
     let mut found: IndexMap<String, (bool, bool)> = IndexMap::new();
-    for line in diff {
+    for line in &diff[hunks_start(diff)..] {
         let (text, added, removed) = if line.starts_with("@@") {
             // A hunk header ends with the declaration the change sits inside.
             (line.rsplit("@@").next().unwrap_or(""), false, false)
-        } else if line.starts_with('+') && !line.starts_with("+++") {
-            (&line[1..], true, false)
-        } else if line.starts_with('-') && !line.starts_with("---") {
-            (&line[1..], false, true)
+        } else if let Some(added) = line.strip_prefix('+') {
+            (added, true, false)
+        } else if let Some(removed) = line.strip_prefix('-') {
+            (removed, false, true)
         } else {
             continue;
         };
