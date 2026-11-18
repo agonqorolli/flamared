@@ -12,7 +12,14 @@ if [ "$2" = fetch ]; then
   ( git fetch -q origin main 2>/dev/null & pid=$!; ( sleep 8; kill $pid 2>/dev/null ) & wait $pid ) 2>/dev/null
 fi
 
-tip=$(git rev-parse -q --verify origin/main 2>/dev/null || git rev-parse -q --verify main 2>/dev/null) || exit 0
+# The newest of origin/main and local main: local main wins when it is ahead (commits made here, not pushed yet).
+remote=$(git rev-parse -q --verify origin/main 2>/dev/null)
+local=$(git rev-parse -q --verify main 2>/dev/null)
+tip=${remote:-$local}
+[ -n "$tip" ] || exit 0
+if [ -n "$remote" ] && [ -n "$local" ] && git merge-base --is-ancestor "$remote" "$local" 2>/dev/null; then
+  tip=$local
+fi
 marker="$(git rev-parse --git-common-dir)/skill-upkeep-last"
 if [ ! -s "$marker" ]; then
   echo "$tip" > "$marker"
@@ -24,6 +31,7 @@ last=$(cat "$marker")
 git merge-base --is-ancestor "$last" "$tip" 2>/dev/null || last=$(git merge-base "$last" "$tip" 2>/dev/null || echo "$last")
 
 n=$(git rev-list --count "$last..$tip" 2>/dev/null || echo "?")
+[ "$n" = 0 ] && exit 0
 range="$(git rev-parse --short "$last")..$(git rev-parse --short "$tip")"
 msg="main moved: $range ($n commits since the skills were last reviewed). Run the skill-upkeep skill on $range: recommend skill updates (stale, missing, obsolete) and ask before editing. Mention this to the user in one line if they are in the middle of something else."
 printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$event" "$msg"

@@ -1,6 +1,6 @@
 ---
 name: skill-upkeep
-description: Keep the project skills true after main moves — read what changed on main since the last review, find what in .agents/skills is now stale, missing or no longer needed, and recommend precise updates (update, add, remove) for the user to approve. Use when a hook says main moved, after a merge or push to main, or when the user asks to check or refresh the skills.
+description: Keep the project skills true after main moves — read what changed on main since the last review, find what in .agents/skills is now stale, missing or no longer needed, and recommend precise updates (update, add, remove) for the user to approve. Use when a hook says main moved, after a commit, merge or push to main, or when the user asks to check or refresh the skills.
 ---
 
 # Skill upkeep
@@ -10,7 +10,7 @@ Project knowledge lives in `.agents/skills/` (`.claude/skills` is a symlink to i
 ## 1. The range
 
 - From the hook message (`main moved: <old>..<new>`), or:
-- `last=$(cat "$(git rev-parse --git-common-dir)/skill-upkeep-last" 2>/dev/null)`; new = `origin/main` (after `git fetch -q origin main`), else `main`.
+- `last=$(cat "$(git rev-parse --git-common-dir)/skill-upkeep-last" 2>/dev/null)`; new = local `main` when it is ahead of `origin/main` (after `git fetch -q origin main`), else `origin/main`.
 - No marker: review the last merge into main (`git log --merges -1 main`) or ask the user how far back.
 
 ## 2. What changed
@@ -78,4 +78,4 @@ Quote the exact replacement text for each stale or missing item so the user can 
 
 ## How the reminder works
 
-`.claude/hooks/main-moved.sh` (wired in `.claude/settings.json`) runs at session start (after a quick `git fetch` of main, so merges made on GitHub count) and after `git push` / `gh pr merge`. It compares main's tip with `skill-upkeep-last` in the git folder (per clone, never committed) and, when main moved, asks Claude to run this skill. The first time, it only records the tip.
+`.claude/hooks/main-moved.sh` (wired in `.claude/settings.json`) runs at session start (after a quick `git fetch` of main, so merges made on GitHub count) and after `git commit`, `git push` and `gh pr merge`. It compares the newer of `origin/main` and local `main` with `skill-upkeep-last` in the git folder (per clone, never committed) and, when main moved, asks Claude to run this skill. The first time, it only records the tip.

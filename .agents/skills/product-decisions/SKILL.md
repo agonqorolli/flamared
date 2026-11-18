@@ -18,6 +18,7 @@ description: What the product is, the decisions already made (and why), what's p
 - **Agent-agnostic**: wording uses the agent's name per session; the AI color is shared.
 - **Review marks are notes to yourself**: per file, three states — Looks good / Needs work / Not checked — reset when the agent changes the file again. Plain words on purpose, not Approve/Reject.
 - **Three screens**: Changes (what), Timeline (how/when), Map (where). No separate Review screen.
+- **On launch**: the last repo, and if it can't be read any more (moved or deleted), the repo an agent worked in most recently; the error stays only when there is no other repo.
 - **Commits and pushes** happen only when the user asks.
 - **Distribution: direct download only**, not the Mac App Store. No Developer ID for now, so first launch needs System Settings → Privacy & Security → Open Anyway.
 - **Updates: built in**, from the main repo's GitHub releases (so the repo goes public at launch). Checks on start, can be turned off in Settings → Updates; installs in the background, then "Restart to update" in the header. A check sends nothing about your code (see the `releases` skill). First public version: **1.0.0**.

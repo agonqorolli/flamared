@@ -17,6 +17,12 @@
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/main-moved.sh PostToolUse",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "if": "Bash(git push*)",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/main-moved.sh PostToolUse",
             "timeout": 10

@@ -34,7 +34,7 @@ Facts measured on real sessions:
 - `tree.rs` — `At::Work` (working folder, uncommitted + untracked) or `At::Commit(rev)` (another branch, read via `git show` without touching the checkout).
 - `git.rs`, `paths.rs`, `cache.rs` — git calls and the repeated questions (`current_branch`, `toplevel`, `worktrees`), path helpers, and remembering what was read from a file until it changes.
 - `diff.rs` — what git says changed: the files, their line counts, and one whole-repo `git diff` split per file (`diff_by_file`).
-- `group/` — grouping by imports: clustering in `mod.rs`, imports per language in `imports.rs` (TS/JS, Python), `tsconfig.rs` (tsconfig/jsconfig aliases), `rust.rs` (`use`/`mod`/`crate::`), `go.rs` (via go.mod; same-folder Go files are one package), and `symbols.rs`.
+- `group/` — grouping by imports: clustering in `mod.rs`, imports per language in `imports.rs` (TS/JS, Python), `tsconfig.rs` (tsconfig/jsconfig aliases), `rust.rs` (`use`/`mod`/`crate::`), `go.rs` (via go.mod; same-folder Go files are one package), and `symbols.rs`. Config files (tsconfig, `Cargo.toml`, `go.mod`) are read from the version being shown: the working folder or the viewed branch's commit.
 - `sessions/` — the shared `Session` model in `mod.rs`, one parser per agent (`claude.rs`, `codex.rs`), and `codex_shell.rs`.
 - Beside `data/`: `commands.rs` (the repo data commands, thin wrappers), `watch.rs` (live updates), `state.rs`, `license.rs`, `app_data.rs` (the app's own JSON files).
 
@@ -48,7 +48,7 @@ Performance: reload ≈0.4 s, first load ≈1.7 s on a 121-file change. Parsed s
 - **Timeline**: turns split at agent messages (95% of edit groups have one right before). A turn sits at its latest edit. Times are compared as times (agents write UTC, git writes local offsets).
 - **Still in final** (survival): kept / partly rewritten / gone / undone per edit.
 - **Rule flags** (no AI; matched text is never returned): possible secret, possible secret (.env file), tests weakened, tests skipped, test deleted, debug leftovers, dependency file, infra file, not connected. Explained in the ⓘ next to "Flagged" (`FlagRules.tsx`).
-- **Branch views**: checked-out branch → working folder vs HEAD; a branch checked out in another worktree → that folder; any other branch → its commits since merge-base with the default branch (origin/HEAD, else main/master), read-only. Map sizes for a commit view use stored size / 40.
+- **Branch views**: checked-out branch → working folder vs HEAD; a branch checked out in another worktree → that folder; any other branch → its commits since merge-base with the default branch (origin/HEAD, else main/master), read-only. Map sizes for a commit view use stored size / 40. The branch list leaves out a remote branch that has a local branch of the same name.
 - **Live**: FSEvents (`notify`, 0.7 s debounce) on the repo and worktrees plus `~/.claude/projects` and `~/.codex/sessions`. Counted: non-ignored working files, `.git/HEAD`, `refs/`, `packed-refs`, session files for this repo. Not counted: ignored files, the index, other repos' sessions. Emits `repo-changed`.
 
 ## Agent state now (`data/activity.rs`, built and tested, not shown anywhere yet)
