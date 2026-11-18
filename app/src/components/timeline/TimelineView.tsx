@@ -37,7 +37,8 @@ export function TimelineView({
   // The selection follows the edit, so new edits arriving at the top don't move you.
   const [selected, setSelected] = useState<{ key: string | null; index: number }>({ key: null, index: 0 });
   const byKey = selected.key ? edits.findIndex((edit) => editKey(edit) === selected.key) : -1;
-  const selectedIndex = byKey >= 0 ? byKey : Math.min(selected.index, Math.max(0, edits.length - 1));
+  // When the selected edit is gone (another repo or branch), the remembered position, kept inside the list.
+  const selectedIndex = byKey >= 0 ? byKey : clamp(selected.index, 0, Math.max(0, edits.length - 1));
   const edit = edits[selectedIndex];
   const select = (index: number) => {
     const next = edits[clamp(index, 0, edits.length - 1)];

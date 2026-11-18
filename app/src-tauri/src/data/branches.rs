@@ -192,7 +192,10 @@ pub fn branch_files(repo: &str) -> Result<IndexMap<String, BranchFiles>, String>
                 against: None,
             }
         } else {
-            let split = split_off(&top, name, default.as_deref())?;
+            // A branch git can't read (a broken ref) gets no count; the others still do.
+            let Ok(split) = split_off(&top, name, default.as_deref()) else {
+                continue;
+            };
             let n = if split.tip == split.base {
                 0
             } else {

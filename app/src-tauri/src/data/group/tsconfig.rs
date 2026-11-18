@@ -1,6 +1,6 @@
 //! Import aliases from tsconfig.json / jsconfig.json, like "@/*" -> "./src/*".
+use super::Configs;
 use crate::data::paths::{dirname, join, normpath};
-use crate::data::tree::read_text;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -37,19 +37,22 @@ impl Aliases {
 pub(super) type AliasCache = HashMap<String, Aliases>;
 
 /// The aliases that apply to a file: from the nearest tsconfig.json or jsconfig.json above it. Cached per folder.
-pub(super) fn aliases_for<'a>(repo: &str, file: &str, cache: &'a mut AliasCache) -> &'a Aliases {
+pub(super) fn aliases_for<'a>(configs: &Configs, file: &str, cache: &'a mut AliasCache) -> &'a Aliases {
     let folder = dirname(file).to_string();
     if !cache.contains_key(&folder) {
-        cache.insert(folder.clone(), nearest_aliases(repo, &folder));
+        cache.insert(folder.clone(), nearest_aliases(configs, &folder));
     }
     &cache[&folder]
 }
 
-fn nearest_aliases(repo: &str, folder: &str) -> Aliases {
+fn nearest_aliases(configs: &Configs, folder: &str) -> Aliases {
     let mut dir = folder.to_string();
     loop {
-        let configs = ["tsconfig.json", "jsconfig.json"];
-        if let Some(aliases) = configs.iter().find_map(|name| read_aliases(repo, &join(&dir, name), 0)) {
+        let names = ["tsconfig.json", "jsconfig.json"];
+        if let Some(aliases) = names
+            .iter()
+            .find_map(|name| read_aliases(configs, &join(&dir, name), 0))
+        {
             return aliases;
         }
         if dir.is_empty() {
@@ -61,8 +64,8 @@ fn nearest_aliases(repo: &str, folder: &str) -> Aliases {
 
 /// Aliases from one config file (repo-relative path), following "references" when it has none of its own. None
 /// when the file is missing or isn't valid JSON.
-fn read_aliases(repo: &str, config: &str, depth: u8) -> Option<Aliases> {
-    let json: serde_json::Value = serde_json::from_str(&strip_jsonc(&read_text(repo, config)?)).ok()?;
+fn read_aliases(configs: &Configs, config: &str, depth: u8) -> Option<Aliases> {
+    let json: serde_json::Value = serde_json::from_str(&strip_jsonc(&configs.read(config)?)).ok()?;
     let dir = dirname(config);
     let options = json.get("compilerOptions");
     let base_url = options
@@ -113,7 +116,7 @@ fn read_aliases(repo: &str, config: &str, depth: u8) -> Option<Aliases> {
                 join(&path, "tsconfig.json")
             }
         })
-        .find_map(|path| read_aliases(repo, &path, depth + 1).filter(|found| !found.is_empty()))
+        .find_map(|path| read_aliases(configs, &path, depth + 1).filter(|found| !found.is_empty()))
         .or(Some(Aliases::default()))
 }
 

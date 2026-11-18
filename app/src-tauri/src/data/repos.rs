@@ -1,6 +1,6 @@
 //! The repo picker's data: the repos coding agents have worked in on this machine, and each one's uncommitted files.
 use super::git::{current_branch, git_line, git_or_empty};
-use super::paths::{basename, home, realpath};
+use super::paths::{basename, home, realpath, tilde};
 use super::sessions;
 use super::snapshot::model::{RepoRow, RepoStatus};
 use chrono::DateTime;
@@ -74,11 +74,7 @@ pub fn known_repos(current: Option<&str>) -> Vec<RepoRow> {
     rows.into_iter()
         .map(|(repo, seen)| RepoRow {
             name: basename(&repo).to_string(),
-            path: if !home.is_empty() && repo.starts_with(&home) {
-                repo.replacen(&home, "~", 1)
-            } else {
-                repo.clone()
-            },
+            path: tilde(&repo, &home),
             current: Some(repo.as_str()) == current,
             full: repo,
             sessions: seen.sessions,

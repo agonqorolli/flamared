@@ -190,6 +190,8 @@ fn shell_command(
             format!("{}{}", stdout.unwrap_or_default(), stderr.unwrap_or_default())
         })
         .unwrap_or_default();
+    // The command comes before the edits it made, so each edit is linked to it (the edit's `via`).
+    turn.add_run(Run::new(cmd, str_field(input, "description"), failed, &output));
     // Claude Code records diffs for files a shell command changed.
     let changed = outcome
         .and_then(|outcome| outcome.get("bashEditDiff"))
@@ -204,7 +206,6 @@ fn shell_command(
             hunks,
         ));
     }
-    turn.add_run(Run::new(cmd, str_field(input, "description"), failed, &output));
 }
 
 /// The hunks of a patch as Claude Code records one (`structuredPatch`, and each file of `bashEditDiff`).
@@ -254,5 +255,7 @@ mod tests {
         assert_eq!(turn.edits.len(), 1);
         assert_eq!(turn.edits[0].file.as_deref(), Some("/repo/a.ts"));
         assert_eq!((turn.edits[0].add, turn.edits[0].rem), (1, 1));
+        // The command comes first, so the edit is linked to the command that made it.
+        assert!(matches!(turn.events[..], [Event::Run(0), Event::Edit(0)]));
     }
 }

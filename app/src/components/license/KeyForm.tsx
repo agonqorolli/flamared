@@ -14,6 +14,8 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
+    // Enter while a check is running, or with nothing pasted, does nothing.
+    if (busy || !key.trim()) return;
     setBusy(true);
     setError(null);
     try {
@@ -28,7 +30,7 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();
-    if (key.trim()) submit();
+    submit();
   };
   return (
     <form

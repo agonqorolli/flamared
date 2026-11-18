@@ -89,6 +89,15 @@ pub fn home() -> String {
     std::env::var("HOME").unwrap_or_default()
 }
 
+/// A path with the home folder written as "~" ("/Users/me/code" -> "~/code"). A folder that only starts with the
+/// same letters ("/Users/me2") is left as it is.
+pub fn tilde(path: &str, home: &str) -> String {
+    match path.strip_prefix(home) {
+        Some(rest) if !home.is_empty() && (rest.is_empty() || rest.starts_with('/')) => format!("~{rest}"),
+        _ => path.to_string(),
+    }
+}
+
 /// First n characters (not bytes), like a Python slice.
 pub fn take(text: &str, n: usize) -> String {
     text.chars().take(n).collect()
@@ -106,5 +115,13 @@ mod tests {
         assert_eq!(normpath("../x"), "../x");
         assert_eq!(dirname("x.ts"), "");
         assert_eq!(join("", "b"), "b");
+    }
+
+    #[test]
+    fn home_as_tilde() {
+        assert_eq!(tilde("/Users/me/code/app", "/Users/me"), "~/code/app");
+        assert_eq!(tilde("/Users/me", "/Users/me"), "~");
+        assert_eq!(tilde("/Users/me2/app", "/Users/me"), "/Users/me2/app");
+        assert_eq!(tilde("/Users/me/app", ""), "/Users/me/app");
     }
 }

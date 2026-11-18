@@ -12,10 +12,11 @@ mod tsconfig;
 use super::diff::{changed_files, diff_by_file, numstat};
 use super::git::git_or_empty;
 use super::paths::{basename, dirname, join, splitext};
-use super::tree::{At, read_text};
+use super::tree::At;
 use imports::imports_of;
 use indexmap::IndexMap;
 use regex::Regex;
+use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::LazyLock;
@@ -87,7 +88,7 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         }
     }
 
-    let mut links = Links::between(repo, &code, &texts);
+    let mut links = Links::between(&Configs::new(repo, at), &code, &texts);
     // Widely imported files (theme, utils) would glue everything into one group.
     // Keep them as their own "shared" group and cut their edges before clustering.
     let hubs = Hubs::among(&code, &links);
@@ -173,11 +174,38 @@ fn text_of(repo: &str, path: &str, status: &str, base: &str, at: &At) -> String 
     at.read(repo, path).unwrap_or_default()
 }
 
+/// The config files imports are resolved with (tsconfig/jsconfig, `Cargo.toml`, `go.mod`), read from the version
+/// being shown: the working folder, or the viewed branch's commit. Each file is read once.
+struct Configs<'a> {
+    repo: &'a str,
+    at: &'a At,
+    texts: RefCell<HashMap<String, Option<String>>>,
+}
+
+impl<'a> Configs<'a> {
+    fn new(repo: &'a str, at: &'a At) -> Configs<'a> {
+        Configs {
+            repo,
+            at,
+            texts: RefCell::new(HashMap::new()),
+        }
+    }
+
+    /// A config file's text (repo-relative path); None when it doesn't exist in this version.
+    fn read(&self, path: &str) -> Option<String> {
+        self.texts
+            .borrow_mut()
+            .entry(path.to_string())
+            .or_insert_with(|| self.at.read(self.repo, path))
+            .clone()
+    }
+}
+
 /// The nearest file called `name` in `dir` or in a folder above it: the folder it is in, and its text.
-fn nearest(repo: &str, dir: &str, name: &str) -> Option<(String, String)> {
+fn nearest(configs: &Configs, dir: &str, name: &str) -> Option<(String, String)> {
     let mut dir = dir.to_string();
     loop {
-        if let Some(text) = read_text(repo, &join(&dir, name)) {
+        if let Some(text) = configs.read(&join(&dir, name)) {
             return Some((dir, text));
         }
         if dir.is_empty() {
@@ -199,11 +227,11 @@ struct Links {
 }
 
 impl Links {
-    fn between(repo: &str, code: &CodeFiles, texts: &HashMap<String, String>) -> Links {
+    fn between(configs: &Configs, code: &CodeFiles, texts: &HashMap<String, String>) -> Links {
         let mut links = Links::default();
         let mut alias_cache = AliasCache::new(); // tsconfig/jsconfig aliases per folder
         for file in &code.all {
-            for target in imports_of(repo, file, &texts[file], &code.known, &mut alias_cache) {
+            for target in imports_of(configs, file, &texts[file], &code.known, &mut alias_cache) {
                 if &target != file {
                     links.add(file, target);
                 }

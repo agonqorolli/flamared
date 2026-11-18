@@ -1,7 +1,7 @@
 //! Which changed files a changed file imports. Rust and Go have their own rules (rust.rs, go.rs); JS/TS and Python
 //! imports are read with one pattern each and matched against the changed files here.
 use super::tsconfig::{AliasCache, Aliases, aliases_for};
-use super::{CODE_EXT, go, rust};
+use super::{CODE_EXT, Configs, go, rust};
 use crate::data::paths::{dirname, join, normpath, splitext};
 use regex::Regex;
 use std::collections::BTreeSet;
@@ -15,24 +15,24 @@ static PY_IMPORT: LazyLock<Regex> =
 
 /// The changed files (`known`) that `file` imports. Imports of anything else don't count.
 pub(super) fn imports_of(
-    repo: &str,
+    configs: &Configs,
     file: &str,
     text: &str,
     known: &BTreeSet<String>,
     alias_cache: &mut AliasCache,
 ) -> Vec<String> {
     if file.ends_with(".rs") {
-        return rust::imports(repo, file, text, known);
+        return rust::imports(configs, file, text, known);
     }
     if file.ends_with(".go") {
-        return go::imports(repo, file, text, known);
+        return go::imports(configs, file, text, known);
     }
     let python = file.ends_with(".py");
     let no_aliases = Aliases::default();
     let (pattern, aliases) = if python {
         (&*PY_IMPORT, &no_aliases)
     } else {
-        (&*JS_IMPORT, aliases_for(repo, file, alias_cache))
+        (&*JS_IMPORT, aliases_for(configs, file, alias_cache))
     };
     // Each match holds the imported name in whichever group its form of import uses.
     let specs = pattern.captures_iter(text).flat_map(|found| {

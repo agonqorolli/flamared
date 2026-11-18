@@ -1,6 +1,6 @@
 //! Rust imports: `use crate::a::b`, `use super::x`, `use self::y::{z, w}`, `mod name;`, and the crate's own name from
 //! examples and tests. A path resolves to the longest prefix that is a changed file (the rest names items).
-use super::nearest;
+use super::{Configs, nearest};
 use crate::data::paths::{dirname, join};
 use regex::Regex;
 use std::collections::BTreeSet;
@@ -18,8 +18,8 @@ struct Crate {
 }
 
 impl Crate {
-    fn of(repo: &str, file: &str) -> Option<Crate> {
-        let (dir, cargo_toml) = nearest(repo, dirname(file), "Cargo.toml")?;
+    fn of(configs: &Configs, file: &str) -> Option<Crate> {
+        let (dir, cargo_toml) = nearest(configs, dirname(file), "Cargo.toml")?;
         let names = CRATE_NAME
             .captures_iter(&cargo_toml)
             .map(|found| found[1].replace('-', "_"))
@@ -32,8 +32,8 @@ impl Crate {
 }
 
 /// The changed files a Rust file imports.
-pub(super) fn imports(repo: &str, file: &str, text: &str, known: &BTreeSet<String>) -> Vec<String> {
-    let Some(this_crate) = Crate::of(repo, file) else {
+pub(super) fn imports(configs: &Configs, file: &str, text: &str, known: &BTreeSet<String>) -> Vec<String> {
+    let Some(this_crate) = Crate::of(configs, file) else {
         return vec![];
     };
     let here = module_of(file, &this_crate.src);
