@@ -66,7 +66,9 @@ export function Header({
         )}
       </div>
       {/* Main navigation: plain tabs with an underline (shadcn's line variant), not boxed buttons. The header has
-          no vertical padding here so the underline sits on its bottom border. */}
+          no vertical padding here so the underline sits on its bottom border. No focus ring: Radix focuses a tab
+          when it is clicked, and WebKit then shows the keyboard ring on every click; the underline marks the screen
+          and each one has its own key. */}
       <Tabs value={view} onValueChange={(value) => onView(value as View)} className="self-stretch">
         <TabsList variant="line" className="gap-3 p-0 group-data-horizontal/tabs:h-full">
           {VIEWS.map(({ id, name, icon: Icon, goKey }) => (
@@ -74,7 +76,7 @@ export function Header({
               key={id}
               value={id}
               title={`${name} (${hint(goKey)})`}
-              className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px"
+              className="h-full px-1 group-data-horizontal/tabs:after:-bottom-px focus-visible:border-transparent focus-visible:ring-0 focus-visible:outline-none"
             >
               <Icon data-icon="inline-start" />
               {name}
