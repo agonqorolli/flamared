@@ -3,6 +3,7 @@ import { ChangesView } from "@/components/changes/ChangesView";
 import { MapView } from "@/components/map/MapView";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import type { Fresh } from "@/lib/live";
+import { useReview } from "@/lib/review";
 import { buildTimeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,12 +30,14 @@ interface Props {
 export function Screens({ snap, view, active, focus, fresh, onSeen, onJump }: Props) {
   const timeline = useMemo(() => buildTimeline(snap), [snap]);
   const changed = useMemo(() => new Set(Object.keys(snap.diffs)), [snap]);
+  const review = useReview(snap);
   const focusOn = (screen: View) => (focus?.view === screen ? focus : null);
   return (
     <>
       <Screen shown={view === "changes"}>
         <ChangesView
           snap={snap}
+          review={review}
           active={active && view === "changes"}
           focus={focusOn("changes")}
           inTimeline={(path) => timeline.paths.has(path)}
@@ -60,6 +63,7 @@ export function Screens({ snap, view, active, focus, fresh, onSeen, onJump }: Pr
         <MapView
           snap={snap}
           timeline={timeline}
+          review={review}
           active={active && view === "map"}
           focus={focusOn("map")}
           onOpenInChanges={onJump("changes")}

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 interface Props {
   folded: boolean;
   count: number; // how many rows the card hides, for the label
-  unit?: "file" | "edit";
+  unit?: "file" | "edit" | "command";
   rows?: "below" | "above"; // where the rows it hides sit: the open chevron points at them
   className?: string;
   onToggle: () => void;

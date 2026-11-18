@@ -67,5 +67,17 @@ export function useReview(snap: Snapshot) {
     [marks, snap],
   );
 
-  return { stateOf, toggle, changedSince };
+  // The mark a file had before a newer change reset it; null while the mark holds, and for a file never marked.
+  const resetMarkOf = useCallback(
+    (file: FileInfo): ReviewState | null => {
+      const mark = marks[file.path];
+      return mark && mark.sig !== fingerprint(file, snap.diffs[file.path] ?? "") ? mark.state : null;
+    },
+    [marks, snap],
+  );
+
+  return { stateOf, toggle, changedSince, resetMarkOf };
 }
+
+// The marks of the repo and branch on screen, shared by Changes (which sets them) and the Map (which shows them).
+export type Review = ReturnType<typeof useReview>;

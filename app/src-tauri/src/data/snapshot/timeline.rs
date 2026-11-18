@@ -2,7 +2,8 @@
 //! happened, and the agent's words before each file's latest edit.
 //!
 //! A turn belongs when it ran in this repo (or one of its worktrees), after the branch point, and has edits on the
-//! branch being shown that touch files still in the diff.
+//! branch being shown that touch files still in the diff, or ran commands that change things outside the diff
+//! (effects.rs) on that branch.
 use super::model::{Commit, EditEvent, Event, HunkRow, RunEvent, SessionRow, TurnRow};
 use crate::data::branches::BranchWork;
 use crate::data::git::git_or_empty;
@@ -203,6 +204,8 @@ impl TurnLinker<'_> {
                         at: run.at.clone(),
                         checks: run.checks.clone(),
                         check_cmd: run.check_cmd.as_deref().map(|cmd| take(cmd, MAX_COMMAND)),
+                        effects: run.effects.clone(),
+                        effect_cmd: run.effect_cmd.as_deref().map(|cmd| take(cmd, MAX_COMMAND)),
                         passed: run.passed,
                         failed: run.failed,
                     }));
@@ -225,8 +228,9 @@ impl TurnLinker<'_> {
                         continue;
                     }
                     let mut via = None;
-                    // A check that also changed files (a formatter before the tests) is still shown, after the edits
-                    // it made, since it finished after them.
+                    // A check or a command with effects outside the diff that also changed files (a formatter before
+                    // the tests, an install that rewrote the lockfile) is still shown, after the edits it made, since
+                    // it finished after them.
                     let mut check_after = None;
                     if (edit.tool == "Bash" || edit.tool == "Codex shell")
                         && let Some(run_at) = last_run
@@ -235,7 +239,7 @@ impl TurnLinker<'_> {
                         // The command that made this edit is shown on the edit, not as its own row.
                         via = Some(take(run.cmd.lines().next().unwrap_or(""), MAX_VIA));
                         absorbed.insert(run_at);
-                        check_after = (!run.checks.is_empty()).then(|| run.clone());
+                        check_after = run.is_shown().then(|| run.clone());
                     }
                     let step_name = format!("{}:{step}", self.step_prefix);
                     events.push(Event::Edit(self.edit_event(
@@ -276,14 +280,22 @@ impl TurnLinker<'_> {
                 _ => None,
             })
             .collect();
-        if edited.is_empty() {
+        let has_effects = events
+            .iter()
+            .any(|event| matches!(event, Event::Run(run) if !run.effects.is_empty()));
+        if has_effects {
+            // A turn that changed things outside the diff counts even when it made no edits, or its edits are gone
+            // from the diff (a `git reset --hard` throws them away), as long as it ran on the branch being shown.
+            if self.started_on_another_branch() {
+                return Err("on another branch");
+            }
+        } else if edited.is_empty() {
             return Err(if off_branch > 0 {
                 "edits on another branch"
             } else {
                 "no file edits"
             });
-        }
-        if !edited.iter().any(|path| scope.changed.contains_key(*path)) {
+        } else if !edited.iter().any(|path| scope.changed.contains_key(*path)) {
             return Err("edits no longer in the diff");
         }
         let row = TurnRow {
@@ -293,6 +305,17 @@ impl TurnLinker<'_> {
             events,
         };
         Ok(LinkedTurn { row, said })
+    }
+
+    /// Whether the turn started on a known branch other than the one shown.
+    fn started_on_another_branch(&self) -> bool {
+        let shown = self.scope.branch;
+        !shown.is_empty()
+            && self
+                .turn
+                .branch
+                .as_deref()
+                .is_some_and(|branch| is_known_branch(branch) && branch != shown)
     }
 
     fn is_on_another_branch(&self, edit: &Edit) -> bool {

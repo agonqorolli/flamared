@@ -6,10 +6,13 @@ mod checks;
 mod claude;
 mod codex;
 mod codex_shell;
+mod command;
+mod effects;
 
 use super::cache::{Stamped, cached};
 use super::paths::{home, join};
 pub use checks::Check;
+pub use effects::Effect;
 use regex::Regex;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -97,6 +100,10 @@ pub struct Run {
     pub checks: Vec<Check>,
     /// The parts of the command that run those checks, joined with `&&`.
     pub check_cmd: Option<String>,
+    /// What it changes outside the diff (see effects.rs), in the order it does it.
+    pub effects: Vec<Effect>,
+    /// The parts of the command that have those effects, joined with `&&`.
+    pub effect_cmd: Option<String>,
     pub failed: bool,
     pub passed: Option<u64>,
 }
@@ -113,12 +120,15 @@ impl Run {
             .contains(&Check::Test)
             .then(|| checks::passed_count(output))
             .flatten();
+        let outside = effects::effects_in(&cmd);
         Run {
             cmd,
             desc,
             at,
             check_cmd: is_check.then(|| found.parts.join(" && ")),
             checks: found.kinds,
+            effect_cmd: (!outside.kinds.is_empty()).then(|| outside.parts.join(" && ")),
+            effects: outside.kinds,
             failed,
             passed,
         }

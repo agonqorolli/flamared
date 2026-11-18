@@ -5,7 +5,7 @@ import type { Check } from "@/lib/types";
 const CHECK_LABEL: Record<Check, string> = { test: "tests", types: "types", lint: "lint", build: "build" };
 
 // What a command checked, in the order it ran them: "Lint + types".
-function checkLabel(checks: Check[]) {
+export function checkLabel(checks: Check[]) {
   const label = checks.map((check) => CHECK_LABEL[check]).join(" + ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }

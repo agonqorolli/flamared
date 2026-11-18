@@ -6,6 +6,7 @@ import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { base, time } from "@/lib/format";
 import { editKey, editStatus, editStatusTip, type TimelineItem, type TimelineRow } from "@/lib/timeline";
 import { CheckResult, checkTitle } from "./CheckResult";
+import { EffectResult, effectTitle } from "./EffectResult";
 import { byDay, type TurnOrCommit } from "./model";
 
 interface Props {
@@ -59,9 +60,11 @@ function Item({ item, ...list }: { item: TurnOrCommit } & ItemProps) {
 // A turn as a card: its edits (and, with the agent, its messages), then your prompt in the footer with the button that
 // folds the card down to it.
 function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem } & ItemProps) {
-  // Edits and checks by default; with the agent, its messages too.
+  // Edits, checks and commands with effects by default; with the agent, its messages too.
   const rows = turn.rows.filter((row) => row.kind !== "say" || showAgent);
   const edits = turn.rows.filter((row) => row.kind === "edit").length;
+  // A turn that only ran commands (a commit, a `git reset`) counts those instead.
+  const fold = edits ? { count: edits, unit: "edit" as const } : { count: rows.length, unit: "command" as const };
   const { folded, toggle } = useFold(selected, (index) =>
     turn.rows.some((row) => row.kind === "edit" && row.index === index),
   );
@@ -78,7 +81,7 @@ function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem }
       {/* items-start: an opened prompt grows downward and the chevron stays beside its first line. */}
       <footer className="flex items-start gap-2 bg-raised/40 px-3 py-2">
         <Said who="You" when={time(turn.at)} text={turn.prompt} lines={1} />
-        <FoldButton folded={folded} count={edits} unit="edit" rows="above" className="-mt-0.5" onToggle={toggle} />
+        <FoldButton folded={folded} {...fold} rows="above" className="-mt-0.5" onToggle={toggle} />
       </footer>
     </article>
   );
@@ -92,13 +95,23 @@ interface TurnRowProps {
   onSelect: (index: number) => void;
 }
 
-// One row of a turn: something the agent said, a check it ran (time, passed or failed, kind, command), or an edit
-// (time, status letter, file name, line counts).
+// One row of a turn: something the agent said, a check it ran (time, passed or failed, kind, command), a command
+// that changed things outside the diff (time, its most serious effect, what it changed, command), or an edit (time,
+// status letter, file name, line counts).
 function TurnRow({ row, agent, selected, fresh, onSelect }: TurnRowProps) {
   if (row.kind === "say") {
     return (
       <div className="px-1.5 py-1">
         <Said who={agent} when="" text={row.text} />
+      </div>
+    );
+  }
+  if (row.kind === "effect") {
+    return (
+      <div className={ROW_LAYOUT} title={effectTitle(row.run)}>
+        <span className="w-9 shrink-0 text-micro text-faint @max-[13rem]:hidden">{time(row.run.at)}</span>
+        <EffectResult run={row.run} />
+        <span className="min-w-0 flex-1 truncate font-mono text-mini text-faint">{row.run.effect_cmd}</span>
       </div>
     );
   }

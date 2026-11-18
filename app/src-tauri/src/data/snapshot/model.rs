@@ -1,7 +1,7 @@
 //! What the window is sent: one `Snapshot` per screen load, and the rows of the repo and branch pickers.
 //! The window's copy of these shapes is app/src/lib/types.ts; change the two together. Fields are written to JSON
 //! in the order they are declared here.
-use crate::data::sessions::Check;
+use crate::data::sessions::{Check, Effect};
 use indexmap::IndexMap;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -184,8 +184,20 @@ pub struct RunEvent {
     pub checks: Vec<Check>,
     /// The parts of the command that run those checks, joined with `&&`.
     pub check_cmd: Option<String>,
+    /// What it changes outside the diff ("install", "delete", "discard", "git", "network", "database"), in order;
+    /// empty for a command with no such effect.
+    pub effects: Vec<Effect>,
+    /// The parts of the command that have those effects, joined with `&&`.
+    pub effect_cmd: Option<String>,
     pub passed: Option<u64>,
     pub failed: bool,
+}
+
+impl RunEvent {
+    /// Whether Timeline shows it as its own row: a check, or a command with effects outside the diff.
+    pub fn is_shown(&self) -> bool {
+        !self.checks.is_empty() || !self.effects.is_empty()
+    }
 }
 
 #[derive(Serialize)]

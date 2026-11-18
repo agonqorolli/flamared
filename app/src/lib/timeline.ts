@@ -12,8 +12,12 @@ import type {
 } from "./types";
 
 export type CheckRun = TimelineRun & { check_cmd: string };
+export type EffectRun = TimelineRun & { effect_cmd: string };
 export type TimelineRow =
-  { kind: "say"; text: string } | { kind: "edit"; edit: TimelineEdit; index: number } | { kind: "run"; run: CheckRun };
+  | { kind: "say"; text: string }
+  | { kind: "edit"; edit: TimelineEdit; index: number }
+  | { kind: "run"; run: CheckRun }
+  | { kind: "effect"; run: EffectRun };
 
 export type TimelineItem =
   | { kind: "day"; label: string }
@@ -35,6 +39,7 @@ export interface Timeline {
   edits: TimelineEdit[]; // every edit, latest first: the order of the list, J/K and "Edit N of M"
   paths: Set<string>; // files with at least one agent edit
   checksAfter: Map<TimelineEdit, CheckRun[]>; // each edit -> the checks its session ran after it, latest first
+  effects: EffectRun[]; // every command that changed things outside the diff, latest first
 }
 
 // A turn or a commit, with the time that places it in the list.
@@ -48,6 +53,10 @@ export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
 
 // A command that checks the code (tests, type check, lint, build). Other commands (lookups, git) aren't shown.
 export const isCheck = (event: TimelineEvent): event is CheckRun => event.k === "run" && event.check_cmd !== null;
+// A command that changed things outside the diff (installs, deletes, git, network, databases).
+export const hasEffects = (event: TimelineEvent): event is EffectRun => event.k === "run" && event.effect_cmd !== null;
+// Whether the Timeline shows an event: any but commands that neither check the code nor change things.
+export const isShown = (event: TimelineEvent) => event.k !== "run" || isCheck(event) || hasEffects(event);
 
 // Each edit with the checks its session ran after it, latest first: walking the session back from its end, the
 // checks met so far are the ones after the next edit met.
@@ -71,7 +80,8 @@ export function buildTimeline(snap: Snapshot): Timeline {
   const entries: Entry[] = [];
   for (const session of snap.timeline.sessions) {
     session.turns.forEach((turn, index) => {
-      const latest = Math.max(ms(turn.at), ...turn.events.map((event) => (event.k === "edit" ? ms(event.at) : 0)));
+      // Its latest edit or command (a turn that only ran commands, like a `git reset`, sits at the last one).
+      const latest = Math.max(ms(turn.at), ...turn.events.map((event) => (event.k === "say" ? 0 : ms(event.at))));
       entries.push({ at: latest, kind: "turn", session, turn, index });
     });
   }
@@ -94,11 +104,15 @@ export function buildTimeline(snap: Snapshot): Timeline {
       continue;
     }
     const { session, turn } = entry;
-    // Edits, the agent's messages and the checks it ran; other commands (lookups, git) are left out of the list.
+    // Edits, the agent's messages, the checks it ran and the commands that changed things outside the diff; other
+    // commands (lookups, `git status`) are left out of the list.
     const rows = [...turn.events].reverse().flatMap((event: TimelineEvent): TimelineRow[] => {
       if (event.k === "say") return [{ kind: "say", text: event.t }];
-      if (isCheck(event)) return [{ kind: "run", run: event }];
-      if (event.k === "run") return [];
+      if (event.k === "run") {
+        const check: TimelineRow[] = isCheck(event) ? [{ kind: "run", run: event }] : [];
+        const effect: TimelineRow[] = hasEffects(event) ? [{ kind: "effect", run: event }] : [];
+        return [...check, ...effect];
+      }
       return [{ kind: "edit", edit: event, index: edits.push(event) - 1 }];
     });
     items.push({
@@ -118,6 +132,9 @@ export function buildTimeline(snap: Snapshot): Timeline {
     edits,
     paths: new Set(edits.map((edit) => edit.path)),
     checksAfter: checksAfterEdits(snap.timeline.sessions),
+    effects: snap.timeline.sessions
+      .flatMap((session) => session.turns.flatMap((turn) => turn.events.filter(hasEffects)))
+      .sort((a, b) => ms(b.at) - ms(a.at)),
   };
 }
 

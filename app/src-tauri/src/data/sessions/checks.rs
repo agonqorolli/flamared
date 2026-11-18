@@ -1,5 +1,6 @@
-//! Which shell commands check the code (tests, type checks, lint, builds), and whether a check failed. No AI: the
-//! command is split into its parts and each part's program is matched against known tools.
+//! Which shell commands check the code (tests, type checks, lint, builds), and whether a check failed. No AI: each
+//! program the command runs (command.rs) is matched against known tools.
+use super::command::parts;
 use regex::Regex;
 use serde::Serialize;
 use std::sync::LazyLock;
@@ -46,13 +47,6 @@ static CHECKS: LazyLock<Vec<(Check, Regex)>> = LazyLock::new(|| {
         ),
     ]
 });
-/// Where a shell command splits into separate programs.
-static SEPARATORS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"&&|\|\||[;|\n]").unwrap());
-/// What can come before the program itself: `FOO=1`, `npx`, `pnpm exec`, `uv run`, `python -m`, `time`.
-static PREFIX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^(?:\w+=\S*\s+|(?:npx|bunx|pnpm (?:exec|dlx)|yarn dlx|uv run|poetry run|python3? -m|time|sudo)\s+)+")
-        .unwrap()
-});
 /// Output that says a check failed even when the command exited 0 (its output piped through `tail`, say).
 static FAILURE_OUTPUT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -60,10 +54,6 @@ static FAILURE_OUTPUT: LazyLock<Regex> = LazyLock::new(|| {
     )
     .unwrap()
 });
-/// Output redirections, left out of the part shown: `2>&1`, `> /dev/null`.
-static REDIRECT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+\d*>&?\s*\S+").unwrap());
-/// The start of a heredoc (`<<'EOF'`, `<<-EOF`) and the word that ends it.
-static HEREDOC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"<<-?\s*['"]?(\w+)['"]?"#).unwrap());
 static PASSED_COUNT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)(\d+)\s+(passed|passing)").unwrap());
 
 /// The checks a command runs, each kind once in the order it first runs, and the parts of the command that run
@@ -77,35 +67,16 @@ pub struct Checks {
 /// The known test, type check, lint and build tools that `cmd` runs.
 pub fn checks_in(cmd: &str) -> Checks {
     let mut found = Checks::default();
-    let cmd = without_heredocs(cmd);
-    for part in SEPARATORS.split(&cmd).map(str::trim) {
-        let program = PREFIX.replace(part, "");
-        let Some((check, _)) = CHECKS.iter().find(|(_, pattern)| pattern.is_match(&program)) else {
+    for part in parts(cmd) {
+        let Some((check, _)) = CHECKS.iter().find(|(_, pattern)| pattern.is_match(&part.program)) else {
             continue;
         };
         if !found.kinds.contains(check) {
             found.kinds.push(*check);
         }
-        found.parts.push(REDIRECT.replace_all(part, "").into_owned());
+        found.parts.push(part.shown);
     }
     found
-}
-
-/// `cmd` without the text of its heredocs: a script fed to `python3 - <<'EOF'` is not commands.
-fn without_heredocs(cmd: &str) -> String {
-    let mut kept = Vec::new();
-    let mut ends_at: Option<String> = None;
-    for line in cmd.lines() {
-        if let Some(word) = &ends_at {
-            if line.trim() == word {
-                ends_at = None;
-            }
-            continue;
-        }
-        ends_at = HEREDOC.captures(line).map(|found| found[1].to_string());
-        kept.push(line);
-    }
-    kept.join("\n")
 }
 
 /// Whether a check's output reports a failure.

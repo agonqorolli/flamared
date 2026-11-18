@@ -3,13 +3,34 @@ import { FileCard } from "@/components/FileCard";
 import { JumpButton } from "@/components/JumpButton";
 import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { Counts } from "@/components/StatusLetter";
-import { base, dir, plural, STATUS, SURVIVAL, type Survival } from "@/lib/format";
+import { checkLabel } from "@/components/timeline/CheckResult";
+import { EffectIcon, effectTitle } from "@/components/timeline/EffectResult";
+import { base, dir, plural, STATUS, SURVIVAL, type Survival, time } from "@/lib/format";
+import type { EffectRun } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
-import { type FileStats, keptShare, type MapStats } from "./model";
+import { type CheckState, type FileStats, keptShare, type MapStats, type MarkState } from "./model";
 
 // How many files the "Most changed" and "Most reworked" cards list.
 const TOP_FILES = 5;
+// How many of the latest commands the "Outside the diff" card lists; its title counts them all.
+const TOP_EFFECTS = 6;
+
+// A file's check state as said in the side panel, in the Checked lens's colors.
+// Your mark on a file as said in the side panel, in the Reviewed lens's colors.
+const MARK: Record<MarkState, { label: string; color: string }> = {
+  approved: { label: "Looks good", color: "text-add" },
+  rejected: { label: "Needs work", color: "text-rem" },
+  changed: { label: "Changed since your mark", color: "text-selection" },
+  none: { label: "Not checked", color: "text-faint" },
+};
+
+const CHECK_STATE: Record<CheckState, { label: string; color: string }> = {
+  tested: { label: "Tests passed", color: "text-add" },
+  checked: { label: "Checked, no tests", color: "text-subtle" },
+  failed: { label: "Check failed", color: "text-rem" },
+  unchecked: { label: "No check", color: "text-warn" },
+};
 
 // A label and its value: one row of a card in the side panel, with an optional faint note under it.
 function Stat({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
@@ -48,11 +69,12 @@ function FileLine({
 interface OverviewProps {
   snap: Snapshot;
   stats: MapStats;
+  effects: EffectRun[]; // commands that changed things outside the diff, latest first
   onSelect: (path: string) => void;
 }
 
 // The helicopter summary when nothing is selected.
-export function Overview({ snap, stats, onSelect }: OverviewProps) {
+export function Overview({ snap, stats, effects, onSelect }: OverviewProps) {
   const files = Object.values(stats.files);
   const folders = new Set(files.map((stats) => dir(stats.file.path)));
   // The files with the most of something, leaving out the ones with none of it.
@@ -71,6 +93,20 @@ export function Overview({ snap, stats, onSelect }: OverviewProps) {
         <Stat label="Lines">
           <Counts add={snap.stats.add} rem={snap.stats.rem} />
         </Stat>
+        <CheckedFiles files={files} />
+        <ReviewedFiles files={files} />
+      </MiniCard>
+      <MiniCard
+        title={`Outside the diff · ${effects.length}`}
+        empty="No agent commands changed anything outside the diff"
+      >
+        {effects.slice(0, TOP_EFFECTS).map((run, k) => (
+          <MiniRow key={k} title={effectTitle(run)}>
+            <EffectIcon effects={run.effects} />
+            <span className="min-w-0 flex-1 truncate font-mono text-mini">{run.effect_cmd}</span>
+            <span className="shrink-0 text-faint">{time(run.at)}</span>
+          </MiniRow>
+        ))}
       </MiniCard>
       <MiniCard title="Most changed">
         {top(({ file }) => file.add + file.rem).map(({ file }) => (
@@ -103,6 +139,37 @@ export function Overview({ snap, stats, onSelect }: OverviewProps) {
           ))}
       </MiniCard>
     </>
+  );
+}
+
+// How many of the files the agent edited had passing tests after their last edit, and what the rest had.
+// How many changed files you marked (Looks good or Needs work), and how many of those need you again.
+function ReviewedFiles({ files }: { files: FileStats[] }) {
+  const count = (mark: MarkState) => files.filter((stats) => stats.mark === mark).length;
+  const rest = [
+    count("rejected") && `${count("rejected")} need work`,
+    count("changed") && `${count("changed")} changed since your mark`,
+  ].filter(Boolean);
+  return (
+    <Stat label="Reviewed" note={rest.join(" · ") || undefined}>
+      {count("approved") + count("rejected")} of {files.length}
+    </Stat>
+  );
+}
+
+function CheckedFiles({ files }: { files: FileStats[] }) {
+  const edited = files.filter((stats) => stats.check);
+  if (!edited.length) return null;
+  const count = (state: CheckState) => edited.filter((stats) => stats.check === state).length;
+  const rest = [
+    count("checked") && `${count("checked")} checked without tests`,
+    count("failed") && `${count("failed")} failed`,
+    count("unchecked") && `${count("unchecked")} with no check`,
+  ].filter(Boolean);
+  return (
+    <Stat label="Tested after the last edit" note={rest.join(" · ") || undefined}>
+      {count("tested")} of {edited.length}
+    </Stat>
   );
 }
 
@@ -154,6 +221,17 @@ export function Selected({ stats, inTimeline, onBack, onOpenInChanges, onShowInT
             {kept == null ? "—" : `${Math.round(kept * 100)}%`}
           </Stat>
         )}
+        {stats.check && (
+          <Stat
+            label="After the last edit"
+            note={stats.lastCheck ? `${checkLabel(stats.lastCheck.checks)} at ${time(stats.lastCheck.at)}` : undefined}
+          >
+            <span className={CHECK_STATE[stats.check].color}>{CHECK_STATE[stats.check].label}</span>
+          </Stat>
+        )}
+        <Stat label="Your mark" note={stats.markWas ? `was ${MARK[stats.markWas].label}` : undefined}>
+          <span className={MARK[stats.mark].color}>{MARK[stats.mark].label}</span>
+        </Stat>
         {flags.length > 0 && (
           <Stat label="Flags">
             <span className="text-warn">{flags.join(", ")}</span>

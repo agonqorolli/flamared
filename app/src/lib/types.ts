@@ -89,8 +89,11 @@ export interface Hunk {
   n: number | null;
   lines: string[];
 }
-// A shell command the agent ran. `checks` says what it checks, for test, type check, lint and build tools.
+// A shell command the agent ran. `checks` says what it checks (test, type check, lint, build tools), `effects` what
+// it changed outside the diff.
 export type Check = "test" | "types" | "lint" | "build";
+// What a command changed outside the diff (src-tauri/src/data/sessions/effects.rs).
+export type Effect = "install" | "delete" | "discard" | "git" | "network" | "database";
 export interface TimelineRun {
   k: "run";
   cmd: string;
@@ -98,6 +101,8 @@ export interface TimelineRun {
   at: string | null;
   checks: Check[]; // in the order the command runs them; empty for any other command
   check_cmd: string | null; // the parts of the command that run them ("pnpm lint && npx tsc --noEmit")
+  effects: Effect[]; // what it changed outside the diff, in order; empty for most commands
+  effect_cmd: string | null; // the parts of the command that did it ("rm -rf dist && git stash")
   passed: number | null; // tests passed, when a test command's output says so
   failed: boolean; // it exited with an error, or (for a check) its output reports a failure
 }

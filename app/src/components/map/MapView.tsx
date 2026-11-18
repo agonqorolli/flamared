@@ -4,6 +4,7 @@ import { SideColumn } from "@/components/SideColumn";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { hint, useKeys } from "@/lib/keys";
+import type { Review } from "@/lib/review";
 import type { Timeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
@@ -15,6 +16,7 @@ import { Treemap } from "./Treemap";
 interface Props {
   snap: Snapshot;
   timeline: Timeline;
+  review: Review; // your marks, set in Changes
   active: boolean;
   focus: { path: string; n: number } | null; // "Show in Map" from another screen
   onOpenInChanges: (path: string) => void;
@@ -23,12 +25,16 @@ interface Props {
 
 // Map: the whole repo as a treemap. The layout follows the folder tree (sized by file length), so it stays put
 // day to day; changed files light up, colored by the chosen lens.
-export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShowInTimeline }: Props) {
+export function MapView({ snap, timeline, review, active, focus, onOpenInChanges, onShowInTimeline }: Props) {
   const [lens, setLens] = useState<Lens>("size");
   const [zoom, setZoom] = useState(""); // the folder being shown; "" for the whole repo
   const [selected, setSelected] = useState<string | null>(null);
   const tree = useMemo(() => buildTree(snap.repo, snap.map.files), [snap]);
-  const stats = useMemo(() => buildStats(snap, timeline), [snap, timeline]);
+  const { stateOf, resetMarkOf } = review;
+  const stats = useMemo(
+    () => buildStats(snap, timeline, { stateOf, resetMarkOf }),
+    [snap, timeline, stateOf, resetMarkOf],
+  );
   // The selected file, while it is still one of the changed files.
   const picked = selected && stats.files[selected] ? selected : null;
   const zoomParts = zoom ? zoom.split("/") : [];
@@ -48,7 +54,7 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  // 1–4 pick the lens, C / T jump to the selected file, Esc steps back: the overview first, then out of the zoom.
+  // 1–6 pick the lens, C / T jump to the selected file, Esc steps back: the overview first, then out of the zoom.
   const stepBack = () => {
     if (picked) setSelected(null);
     else setZoom(zoomParts.slice(0, -1).join("/"));
@@ -58,6 +64,8 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
     lensRework: () => setLens("rework"),
     lensFinal: () => setLens("final"),
     lensFlags: () => setLens("flags"),
+    lensChecks: () => setLens("checks"),
+    lensReview: () => setLens("review"),
     toChanges: picked && (() => onOpenInChanges(picked)),
     toTimeline: picked && timeline.paths.has(picked) && (() => onShowInTimeline(picked)),
     back: (picked || zoom) && stepBack,
@@ -132,7 +140,7 @@ export function MapView({ snap, timeline, active, focus, onOpenInChanges, onShow
             onShowInTimeline={onShowInTimeline}
           />
         ) : (
-          <Overview snap={snap} stats={stats} onSelect={select} />
+          <Overview snap={snap} stats={stats} effects={timeline.effects} onSelect={select} />
         )}
       </SideColumn>
     </div>
@@ -157,6 +165,32 @@ function Legend({ lens }: { lens: Lens }) {
         partly
         <Swatch color="var(--lens-gone)" />
         mostly gone
+      </>
+    );
+  }
+  if (lens === "checks") {
+    return (
+      <>
+        <Swatch color="var(--lens-tested)" />
+        tested
+        <Swatch color="var(--lens-checked)" />
+        lint/types only
+        <Swatch color="var(--lens-failed)" />
+        failed
+        <Swatch color="var(--lens-unchecked)" />
+        no check
+      </>
+    );
+  }
+  if (lens === "review") {
+    return (
+      <>
+        <Swatch color="var(--lens-approved)" />
+        looks good
+        <Swatch color="var(--lens-rejected)" />
+        needs work
+        <Swatch color="var(--lens-changed)" />
+        changed since your mark
       </>
     );
   }

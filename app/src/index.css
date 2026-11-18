@@ -151,6 +151,13 @@
     --lens-partly: hsl(40 85% 46%);
     --lens-gone: #8C959F;
     --lens-flag: #CF4A2A;
+    --lens-tested: hsl(135 50% 40%);
+    --lens-checked: hsl(145 18% 58%);
+    --lens-failed: hsl(4 70% 50%);
+    --lens-unchecked: hsl(40 85% 46%);
+    --lens-approved: hsl(135 50% 40%);
+    --lens-rejected: hsl(4 70% 50%);
+    --lens-changed: hsl(218 80% 52%);
     --lens-none: hsl(220 12% 78%);
     --lens-text: #FFFFFF;
 }
@@ -216,6 +223,13 @@
     --lens-partly: hsl(40 70% 38%);
     --lens-gone: #3A3F48;
     --lens-flag: #B4533A;
+    --lens-tested: hsl(135 50% 34%);
+    --lens-checked: hsl(140 16% 30%);
+    --lens-failed: hsl(4 60% 45%);
+    --lens-unchecked: hsl(40 70% 38%);
+    --lens-approved: hsl(135 50% 34%);
+    --lens-rejected: hsl(4 60% 45%);
+    --lens-changed: hsl(218 70% 50%);
     --lens-none: hsl(220 10% 26%);
     --lens-text: #FFFFFF;
 }
@@ -256,14 +270,6 @@
     --side-w: clamp(200px, calc((100vw - var(--list-w) - var(--spacing) * 6) * 0.26), 220px);
 }
 
-/* Density: Tailwind sizes padding, gaps and heights from one spacing unit, so changing it makes the whole window
-   tighter or roomier while text stays the same size. 3px / 4px (Tailwind's own) / 5px: a quarter less or more, in
-   whole pixels. */
-:root[data-density="compact"] { --spacing: 0.1875rem; }
-:root[data-density="spacious"] { --spacing: 0.3125rem; }
-
-@layer base {
-  * {
 /* The logo's colors, the same in every theme, as in the app icon (src-tauri/icons/app-icon.svg): the flame's
    gradient from top to bottom and its green code line. */
 :root {
@@ -273,6 +279,14 @@
     --logo-line: #56D364;
 }
 
+/* Density: Tailwind sizes padding, gaps and heights from one spacing unit, so changing it makes the whole window
+   tighter or roomier while text stays the same size. 3px / 4px (Tailwind's own) / 5px: a quarter less or more, in
+   whole pixels. */
+:root[data-density="compact"] { --spacing: 0.1875rem; }
+:root[data-density="spacious"] { --spacing: 0.3125rem; }
+
+@layer base {
+  * {
     @apply border-border outline-ring/50;
     }
   body {

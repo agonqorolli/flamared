@@ -3,7 +3,7 @@ import { BranchEmpty } from "@/components/BranchEmpty";
 import { AgentToggle, ListPane } from "@/components/ListPane";
 import { plural } from "@/lib/format";
 import { useKeys } from "@/lib/keys";
-import { type ReviewState, useReview } from "@/lib/review";
+import type { Review, ReviewState } from "@/lib/review";
 import type { Snapshot } from "@/lib/types";
 import { clamp } from "@/lib/utils";
 import { ChangesList } from "./ChangesList";
@@ -12,6 +12,7 @@ import { buildSections } from "./model";
 
 interface Props {
   snap: Snapshot;
+  review: Review;
   active: boolean;
   focus: { path: string; n: number } | null; // "Open in Changes" from another screen
   inTimeline: (path: string) => boolean;
@@ -22,11 +23,20 @@ interface Props {
 }
 
 // Changes: groups of changed files on the left, the selected file's diff and review on the right.
-export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline, onShowInMap, fresh, onSeen }: Props) {
+export function ChangesView({
+  snap,
+  review,
+  active,
+  focus,
+  inTimeline,
+  onShowInTimeline,
+  onShowInMap,
+  fresh,
+  onSeen,
+}: Props) {
   const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
   const hasWords = sections.some((section) => section.blocks.some((block) => block.words));
   const [showAgent, setShowAgent] = useState(false);
-  const review = useReview(snap);
 
   // The selection follows the file, so a reload that adds or removes files above it doesn't move you.
   // When the file itself leaves the change, the row now at its old position takes over.
