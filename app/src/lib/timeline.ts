@@ -1,9 +1,19 @@
 // The Timeline screen's list, built from a snapshot: agent turns and commits in order, and every edit in them.
 import { day } from "./format";
 import { fileHeader, hunkHeader } from "./patch";
-import type { Snapshot, TimelineCommit, TimelineEdit, TimelineEvent, TimelineSession, TimelineTurn } from "./types";
+import type {
+  Snapshot,
+  TimelineCommit,
+  TimelineEdit,
+  TimelineEvent,
+  TimelineRun,
+  TimelineSession,
+  TimelineTurn,
+} from "./types";
 
-export type TimelineRow = { kind: "say"; text: string } | { kind: "edit"; edit: TimelineEdit; index: number };
+export type CheckRun = TimelineRun & { check_cmd: string };
+export type TimelineRow =
+  { kind: "say"; text: string } | { kind: "edit"; edit: TimelineEdit; index: number } | { kind: "run"; run: CheckRun };
 
 export type TimelineItem =
   | { kind: "day"; label: string }
@@ -24,6 +34,7 @@ export interface Timeline {
   items: TimelineItem[];
   edits: TimelineEdit[]; // every edit, latest first: the order of the list, J/K and "Edit N of M"
   paths: Set<string>; // files with at least one agent edit
+  checksAfter: Map<TimelineEdit, CheckRun[]>; // each edit -> the checks its session ran after it, latest first
 }
 
 // A turn or a commit, with the time that places it in the list.
@@ -34,6 +45,25 @@ type Entry =
 // Milliseconds since 1970: times come in different forms (agents write UTC, git writes your local offset), so they
 // are compared as times, never as text.
 export const ms = (iso: string | null) => (iso ? Date.parse(iso) || 0 : 0);
+
+// A command that checks the code (tests, type check, lint, build). Other commands (lookups, git) aren't shown.
+export const isCheck = (event: TimelineEvent): event is CheckRun => event.k === "run" && event.check_cmd !== null;
+
+// Each edit with the checks its session ran after it, latest first: walking the session back from its end, the
+// checks met so far are the ones after the next edit met.
+function checksAfterEdits(sessions: TimelineSession[]): Map<TimelineEdit, CheckRun[]> {
+  const after = new Map<TimelineEdit, CheckRun[]>();
+  for (const session of sessions) {
+    const later: CheckRun[] = [];
+    for (const turn of [...session.turns].reverse()) {
+      for (const event of [...turn.events].reverse()) {
+        if (isCheck(event)) later.push(event);
+        else if (event.k === "edit") after.set(event, [...later]);
+      }
+    }
+  }
+  return after;
+}
 
 // Agent turns and commits, latest first, with a day label whenever the day changes. A turn sits where its latest
 // activity is, so the turn an agent is working in now stays on top. Inside a turn the latest event comes first too.
@@ -64,9 +94,10 @@ export function buildTimeline(snap: Snapshot): Timeline {
       continue;
     }
     const { session, turn } = entry;
-    // Edits and the agent's messages; the commands it ran (tests, lookups) are left out of the list.
+    // Edits, the agent's messages and the checks it ran; other commands (lookups, git) are left out of the list.
     const rows = [...turn.events].reverse().flatMap((event: TimelineEvent): TimelineRow[] => {
       if (event.k === "say") return [{ kind: "say", text: event.t }];
+      if (isCheck(event)) return [{ kind: "run", run: event }];
       if (event.k === "run") return [];
       return [{ kind: "edit", edit: event, index: edits.push(event) - 1 }];
     });
@@ -82,7 +113,12 @@ export function buildTimeline(snap: Snapshot): Timeline {
       rows,
     });
   }
-  return { items, edits, paths: new Set(edits.map((edit) => edit.path)) };
+  return {
+    items,
+    edits,
+    paths: new Set(edits.map((edit) => edit.path)),
+    checksAfter: checksAfterEdits(snap.timeline.sessions),
+  };
 }
 
 // One recorded edit as a patch the diff component can read (its hunks only, with counts worked out).

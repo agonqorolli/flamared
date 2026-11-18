@@ -6,26 +6,32 @@ import { SideColumn } from "@/components/SideColumn";
 import { StepButtons } from "@/components/StepButtons";
 import { SurvivalTag } from "@/components/SurvivalTag";
 import { base, day, SURVIVAL, time } from "@/lib/format";
+import type { CheckRun } from "@/lib/timeline";
 import { editPatch } from "@/lib/timeline";
 import type { TimelineEdit } from "@/lib/types";
 import { clamp } from "@/lib/utils";
+import { CheckResult, checkTitle } from "./CheckResult";
 import { fileHistory, sameStep } from "./model";
 
 interface Props {
   edit: TimelineEdit;
   index: number;
   edits: TimelineEdit[];
+  checks: CheckRun[]; // the checks the agent ran after this edit, latest first
   inChanges: boolean; // still changed: Changes and the Map have it
   onSelect: (index: number) => void;
   onShowInChanges: () => void;
   onShowInMap: () => void;
 }
 
+// The latest checks listed after an edit; the card's title counts them all.
+const MAX_CHECKS = 4;
+
 // For a row's hover text: the edit's line counts, or that it has none.
 const diffSummary = (edit: TimelineEdit) => (edit.inferred ? " · No diff recorded" : ` · +${edit.add} −${edit.rem}`);
 
 // The selected edit: its diff, and beside it the edit's card, the file's other edits and the files edited with it.
-export function EditDetail({ edit, index, edits, inChanges, onSelect, onShowInChanges, onShowInMap }: Props) {
+export function EditDetail({ edit, index, edits, checks, inChanges, onSelect, onShowInChanges, onShowInMap }: Props) {
   const history = fileHistory(edits, edit.path);
   const together = sameStep(edits, index);
   // The date only shows when the entries span several days.
@@ -80,6 +86,14 @@ export function EditDetail({ edit, index, edits, inChanges, onSelect, onShowInCh
                 {time(entry.edit.at)}
               </span>
               <SurvivalTag survives={entry.edit.survives} />
+            </MiniRow>
+          ))}
+        </MiniCard>
+        <MiniCard title={`Checks after this edit · ${checks.length}`} empty="No tests or checks ran after this edit">
+          {checks.slice(0, MAX_CHECKS).map((run, k) => (
+            <MiniRow key={k} title={checkTitle(run)}>
+              <CheckResult run={run} />
+              <span className="min-w-0 flex-1 truncate text-right text-faint">{time(run.at)}</span>
             </MiniRow>
           ))}
         </MiniCard>

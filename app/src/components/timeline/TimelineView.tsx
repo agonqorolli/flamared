@@ -103,6 +103,7 @@ export function TimelineView({
           edit={edit}
           index={selectedIndex}
           edits={edits}
+          checks={timeline.checksAfter.get(edit) ?? []}
           inChanges={inChanges(edit.path)}
           onSelect={select}
           onShowInChanges={() => onShowInChanges(edit.path)}

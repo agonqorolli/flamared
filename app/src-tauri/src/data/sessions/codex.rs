@@ -168,7 +168,7 @@ fn command(turn: &mut Turn, item: &Value, at: Option<String>, place: &mut Place)
     let failed = item
         .get("exit_code")
         .is_some_and(|code| !code.is_null() && code.as_i64() != Some(0));
-    turn.add_run(Run::new(cmd, None, failed, &output));
+    turn.add_run(Run::new(cmd, None, at.clone(), failed, &output));
     let Some(folder) = folder else {
         return;
     };

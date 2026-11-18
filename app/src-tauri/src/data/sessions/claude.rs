@@ -191,7 +191,13 @@ fn shell_command(
         })
         .unwrap_or_default();
     // The command comes before the edits it made, so each edit is linked to it (the edit's `via`).
-    turn.add_run(Run::new(cmd, str_field(input, "description"), failed, &output));
+    turn.add_run(Run::new(
+        cmd,
+        str_field(input, "description"),
+        at.clone(),
+        failed,
+        &output,
+    ));
     // Claude Code records diffs for files a shell command changed.
     let changed = outcome
         .and_then(|outcome| outcome.get("bashEditDiff"))

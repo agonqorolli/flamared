@@ -200,7 +200,9 @@ impl TurnLinker<'_> {
                     events.push(Event::Run(RunEvent {
                         cmd: take(&run.cmd, MAX_COMMAND),
                         desc: run.desc.clone(),
-                        is_test: run.is_test,
+                        at: run.at.clone(),
+                        checks: run.checks.clone(),
+                        check_cmd: run.check_cmd.as_deref().map(|cmd| take(cmd, MAX_COMMAND)),
                         passed: run.passed,
                         failed: run.failed,
                     }));
@@ -223,6 +225,9 @@ impl TurnLinker<'_> {
                         continue;
                     }
                     let mut via = None;
+                    // A check that also changed files (a formatter before the tests) is still shown, after the edits
+                    // it made, since it finished after them.
+                    let mut check_after = None;
                     if (edit.tool == "Bash" || edit.tool == "Codex shell")
                         && let Some(run_at) = last_run
                         && let Event::Run(run) = &events[run_at]
@@ -230,6 +235,7 @@ impl TurnLinker<'_> {
                         // The command that made this edit is shown on the edit, not as its own row.
                         via = Some(take(run.cmd.lines().next().unwrap_or(""), MAX_VIA));
                         absorbed.insert(run_at);
+                        check_after = (!run.checks.is_empty()).then(|| run.clone());
                     }
                     let step_name = format!("{}:{step}", self.step_prefix);
                     events.push(Event::Edit(self.edit_event(
@@ -240,6 +246,10 @@ impl TurnLinker<'_> {
                         step_name,
                         last_say.clone(),
                     )));
+                    if let Some(run) = check_after {
+                        last_run = Some(events.len());
+                        events.push(Event::Run(run));
+                    }
                     if let Some(text) = &last_say
                         && still_changed
                     {

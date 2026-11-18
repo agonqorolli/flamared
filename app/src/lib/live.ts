@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { inTauri, loadRepos, loadSnapshot, onRepoChanged, watchRepo } from "./api";
 import { lastRepo, rememberRepo } from "./repos";
 import { getItem, setItem } from "./store";
-import { buildTimeline, editKey } from "./timeline";
-import type { Snapshot } from "./types";
+import { buildTimeline, editKey, isCheck } from "./timeline";
+import type { Snapshot, TimelineEvent } from "./types";
 import { type Waiting, whatChanged } from "./waiting";
 
 const LIVE_KEY = "live";
@@ -34,8 +34,9 @@ interface Shown {
 // An agent's session file is written constantly (every message), but most writes change nothing on screen.
 function visible(snap: Snapshot): string {
   const sessions = snap.timeline.sessions.map((session) => {
-    // Commands are not shown, so they don't count.
-    const turns = session.turns.map((turn) => [turn.prompt, turn.events.filter((event) => event.k !== "run").length]);
+    // Commands other than checks are not shown, so they don't count.
+    const shown = (event: TimelineEvent) => event.k !== "run" || isCheck(event);
+    const turns = session.turns.map((turn) => [turn.prompt, turn.events.filter(shown).length]);
     return [session.id, session.title, turns];
   });
   const commits = snap.timeline.commits.map((commit) => commit.sha);

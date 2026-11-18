@@ -22,24 +22,28 @@ export function MiniCard({ title, empty, children }: CardProps) {
 interface RowProps {
   on?: boolean; // the row for what is on screen
   title?: string;
-  onClick: () => void;
+  onClick?: () => void; // without it, the row is only shown, not clicked
   children: ReactNode;
 }
 
-// A clickable row of a MiniCard.
+// A row of a MiniCard, clickable unless it has no `onClick`.
 export function MiniRow({ on, title, onClick, children }: RowProps) {
+  const className = cn(
+    // In a side column dragged very narrow, what follows the name wraps under it, and anything still too wide for the
+    // row is cut short (the row's title has it all), instead of pushing past the edge.
+    "flex min-w-0 items-center gap-x-2 rounded-md px-1.5 py-1 text-left text-xs text-subtle @max-[8rem]:flex-wrap @max-[8rem]:*:max-w-full @max-[8rem]:*:truncate",
+    onClick && "hover:bg-raised",
+    on && "bg-selection-bg text-accent-foreground hover:bg-selection-bg",
+  );
+  if (!onClick) {
+    return (
+      <div title={title} className={className}>
+        {children}
+      </div>
+    );
+  }
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      aria-current={on || undefined}
-      className={cn(
-        // In a side column dragged very narrow, what follows the name wraps under it, and anything still too wide for the
-        // row is cut short (the row's title has it all), instead of pushing past the edge.
-        "flex min-w-0 items-center gap-x-2 rounded-md px-1.5 py-1 text-left text-xs text-subtle hover:bg-raised @max-[8rem]:flex-wrap @max-[8rem]:*:max-w-full @max-[8rem]:*:truncate",
-        on && "bg-selection-bg text-accent-foreground hover:bg-selection-bg",
-      )}
-    >
+    <button onClick={onClick} title={title} aria-current={on || undefined} className={className}>
       {children}
     </button>
   );

@@ -89,10 +89,19 @@ export interface Hunk {
   n: number | null;
   lines: string[];
 }
-export type TimelineEvent =
-  | { k: "say"; t: string }
-  | { k: "run"; cmd: string; desc: string | null; test: boolean; passed: number | null; failed: boolean }
-  | TimelineEdit;
+// A shell command the agent ran. `checks` says what it checks, for test, type check, lint and build tools.
+export type Check = "test" | "types" | "lint" | "build";
+export interface TimelineRun {
+  k: "run";
+  cmd: string;
+  desc: string | null;
+  at: string | null;
+  checks: Check[]; // in the order the command runs them; empty for any other command
+  check_cmd: string | null; // the parts of the command that run them ("pnpm lint && npx tsc --noEmit")
+  passed: number | null; // tests passed, when a test command's output says so
+  failed: boolean; // it exited with an error, or (for a check) its output reports a failure
+}
+export type TimelineEvent = { k: "say"; t: string } | TimelineRun | TimelineEdit;
 
 export interface TimelineTurn {
   at: string | null;

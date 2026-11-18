@@ -2,22 +2,19 @@
 //! Claude Code: ~/.claude/projects/<dir>/<session>.jsonl (claude.rs)
 //! Codex: ~/.codex/sessions/**/rollout-*.jsonl (codex.rs)
 //! Reads only; never writes to either folder.
+mod checks;
 mod claude;
 mod codex;
 mod codex_shell;
 
 use super::cache::{Stamped, cached};
 use super::paths::{home, join};
+pub use checks::Check;
 use regex::Regex;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 
-static TEST_COMMAND: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b(pytest|jest|vitest|mocha|go test|cargo test|npm (run )?test|pnpm test|yarn test|rspec|phpunit)\b")
-        .unwrap()
-});
-static PASSED_COUNT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)(\d+)\s+(passed|passing)").unwrap());
 static CWD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""cwd":"((?:[^"\\]|\\.)*)""#).unwrap());
 
 /// One block of a diff: where it starts in the old and the new file, and its lines, each starting with `+`, `-`
@@ -95,24 +92,33 @@ impl Edit {
 pub struct Run {
     pub cmd: String,
     pub desc: Option<String>,
-    pub is_test: bool,
+    pub at: Option<String>,
+    /// What it checks, when it runs test, type check, lint or build tools (see checks.rs), in the order it runs them.
+    pub checks: Vec<Check>,
+    /// The parts of the command that run those checks, joined with `&&`.
+    pub check_cmd: Option<String>,
     pub failed: bool,
     pub passed: Option<u64>,
 }
 
 impl Run {
-    /// A test command also gets the number of passed tests, when its output says so.
-    fn new(cmd: String, desc: Option<String>, failed: bool, output: &str) -> Run {
-        let is_test = TEST_COMMAND.is_match(&cmd);
-        let passed = if is_test {
-            PASSED_COUNT.captures(output).and_then(|found| found[1].parse().ok())
-        } else {
-            None
-        };
+    /// A check also fails when its output says so (a failing `cargo test | tail` exits 0), and a test command gets
+    /// the number of passed tests, when its output says so.
+    fn new(cmd: String, desc: Option<String>, at: Option<String>, exit_failed: bool, output: &str) -> Run {
+        let found = checks::checks_in(&cmd);
+        let is_check = !found.kinds.is_empty();
+        let failed = exit_failed || (is_check && checks::failed_in_output(output));
+        let passed = found
+            .kinds
+            .contains(&Check::Test)
+            .then(|| checks::passed_count(output))
+            .flatten();
         Run {
             cmd,
             desc,
-            is_test,
+            at,
+            check_cmd: is_check.then(|| found.parts.join(" && ")),
+            checks: found.kinds,
             failed,
             passed,
         }

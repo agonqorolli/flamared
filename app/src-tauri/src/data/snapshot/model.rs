@@ -1,6 +1,7 @@
 //! What the window is sent: one `Snapshot` per screen load, and the rows of the repo and branch pickers.
 //! The window's copy of these shapes is app/src/lib/types.ts; change the two together. Fields are written to JSON
 //! in the order they are declared here.
+use crate::data::sessions::Check;
 use indexmap::IndexMap;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -174,12 +175,15 @@ pub struct HunkRow {
     pub lines: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct RunEvent {
     pub cmd: String,
     pub desc: Option<String>,
-    #[serde(rename = "test")]
-    pub is_test: bool,
+    pub at: Option<String>,
+    /// What it checks ("test", "types", "lint", "build") in the order it runs them; empty for any other command.
+    pub checks: Vec<Check>,
+    /// The parts of the command that run those checks, joined with `&&`.
+    pub check_cmd: Option<String>,
     pub passed: Option<u64>,
     pub failed: bool,
 }

@@ -3,6 +3,9 @@ import { cn } from "@/lib/utils";
 
 // How a selected row looks in every list: blue, with a bar on its left edge.
 export const SELECTED_ROW = "bg-selection-bg text-accent-foreground shadow-[inset_2px_0_0_var(--selection)]";
+// A row's size and spacing, shared by rows that are only shown (a check in Timeline) so they line up with the others.
+export const ROW_LAYOUT =
+  "flex min-h-7 w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs text-subtle";
 
 interface Props extends ComponentProps<"button"> {
   on: boolean; // the selected row
@@ -19,11 +22,7 @@ export function ListRow({ on, className, children, ...props }: Props) {
     <button
       ref={ref}
       aria-current={on || undefined}
-      className={cn(
-        "flex min-h-7 w-full items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs text-subtle hover:bg-raised",
-        on && `${SELECTED_ROW} hover:bg-selection-bg`,
-        className,
-      )}
+      className={cn(ROW_LAYOUT, "hover:bg-raised", on && `${SELECTED_ROW} hover:bg-selection-bg`, className)}
       {...props}
     >
       {children}

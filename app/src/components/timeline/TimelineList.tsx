@@ -1,10 +1,11 @@
 import { FoldButton, useFold } from "@/components/FoldButton";
-import { FreshDot, ListRow } from "@/components/ListRow";
+import { FreshDot, ListRow, ROW_LAYOUT } from "@/components/ListRow";
 import { Said } from "@/components/Said";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
 import { base, time } from "@/lib/format";
 import { editKey, editStatus, editStatusTip, type TimelineItem, type TimelineRow } from "@/lib/timeline";
+import { CheckResult, checkTitle } from "./CheckResult";
 import { byDay, type TurnOrCommit } from "./model";
 
 interface Props {
@@ -58,8 +59,8 @@ function Item({ item, ...list }: { item: TurnOrCommit } & ItemProps) {
 // A turn as a card: its edits (and, with the agent, its messages), then your prompt in the footer with the button that
 // folds the card down to it.
 function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem } & ItemProps) {
-  // Edits only by default; with the agent, its messages too.
-  const rows = turn.rows.filter((row) => row.kind === "edit" || showAgent);
+  // Edits and checks by default; with the agent, its messages too.
+  const rows = turn.rows.filter((row) => row.kind !== "say" || showAgent);
   const edits = turn.rows.filter((row) => row.kind === "edit").length;
   const { folded, toggle } = useFold(selected, (index) =>
     turn.rows.some((row) => row.kind === "edit" && row.index === index),
@@ -91,12 +92,22 @@ interface TurnRowProps {
   onSelect: (index: number) => void;
 }
 
-// One row of a turn: something the agent said, or an edit (time, status letter, file name, line counts).
+// One row of a turn: something the agent said, a check it ran (time, passed or failed, kind, command), or an edit
+// (time, status letter, file name, line counts).
 function TurnRow({ row, agent, selected, fresh, onSelect }: TurnRowProps) {
   if (row.kind === "say") {
     return (
       <div className="px-1.5 py-1">
         <Said who={agent} when="" text={row.text} />
+      </div>
+    );
+  }
+  if (row.kind === "run") {
+    return (
+      <div className={ROW_LAYOUT} title={checkTitle(row.run)}>
+        <span className="w-9 shrink-0 text-micro text-faint @max-[13rem]:hidden">{time(row.run.at)}</span>
+        <CheckResult run={row.run} />
+        <span className="min-w-0 flex-1 truncate font-mono text-mini text-faint">{row.run.check_cmd}</span>
       </div>
     );
   }
