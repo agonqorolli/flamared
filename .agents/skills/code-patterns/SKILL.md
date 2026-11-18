@@ -105,6 +105,8 @@ export function fileHistory(edits: TimelineEdit[], path: string): PlacedEdit[] {
 
 **Shared state is a context with a hook that throws without its provider** (`useSettings`, `useLicense`); saved values go through `lib/store.ts` (`getJson` / `setJson`).
 
+**State the three screens share for one repo view is made once in `Screens.tsx` and passed down as props**: the timeline (`buildTimeline`) and the review marks (`useReview`, set in Changes, shown on the Map). A context is for app-wide state (settings, license).
+
 ## TypeScript
 
 **Named fields, not positions**: tables are objects (`SURVIVAL[state].label`, `TIPS[tip].title`), never tuples read by index.

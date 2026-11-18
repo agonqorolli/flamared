@@ -15,6 +15,8 @@ description: How to run the app and check a change actually works — the deskto
   ```
   Open http://127.0.0.1:1430 in your browser tool (the built-in browser pane in Claude's desktop app, or any browser). Regenerate the snapshot when its shape changes (a stale one crashes the page) or when temp files were cleared. `?license=ended|licensed|<days>` shows license states.
   `preview_start` with `app-web` (`.claude/launch.json`) reads the snapshot file named by `SNAPSHOT_FILE` in that config: back that file up, write yours there, and restore it afterwards. To test review marks without editing files, set `review:<repo path>:<branch>:<base>` in localStorage to marks with a `seen` list (see `lib/review.ts`).
+  To bring earlier agent turns into view after a commit, dump against an older base (`dump -- /repo <older sha>`): only turns after the base commit's time are linked.
+  Another session may already run `app-web` on port 1430 from the same snapshot file; `preview_start` then moves to 1431. Back up the file before overwriting it and restore it afterwards, or that session's preview changes under it.
 - Other examples in `app/src-tauri/examples/`: `timing.rs` (load time), `watch_probe.rs` (what the watcher counts), `license.rs` (keys; see the `license-keys` skill).
 
 ## Checks
