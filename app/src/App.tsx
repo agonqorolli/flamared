@@ -1,7 +1,9 @@
+import { FolderPlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { APP_NAME } from "@/brand";
 import { BranchEmpty } from "@/components/BranchEmpty";
 import { Header } from "@/components/header/Header";
+import { KeyHint } from "@/components/KeyHint";
 import { TrialEnded } from "@/components/license/TrialEnded";
 import { LoadingHints } from "@/components/loading/LoadingHints";
 import { useLoadingScreen } from "@/components/loading/useLoadingScreen";
@@ -131,7 +133,7 @@ function Workspace() {
       {error && snap && <Notice text={error} onRetry={retry} onDismiss={dismissError} />}
       <div aria-busy={!!opening} className="flex min-h-0 flex-1 flex-col">
         {loadingShown && loadingScreen && <LoadingHints screen={loadingScreen} />}
-        {!loadingShown && !snap && error && <CouldNotRead error={error} onRetry={retry} />}
+        {!loadingShown && !snap && error && <CouldNotRead error={error} onRetry={retry} onOpenFolder={openFolder} />}
         {!loadingShown && !snap && !error && <NoRepo loading={loading} />}
         {!loadingShown && snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
         {!loadingShown && snap && hasChanges && (
@@ -167,18 +169,32 @@ function Notice({ text, onRetry, onDismiss }: NoticeProps) {
   );
 }
 
-// In place of the screens when the first repo couldn't be read.
-function CouldNotRead({ error, onRetry }: { error: string; onRetry: () => void }) {
+interface CouldNotReadProps {
+  error: string;
+  onRetry: () => void;
+  onOpenFolder: () => void;
+}
+
+// In place of the screens when the first repo couldn't be read. The header has no repo picker yet, so the way to
+// another repo is here.
+function CouldNotRead({ error, onRetry, onOpenFolder }: CouldNotReadProps) {
   return (
     <Empty className="flex-1">
       <EmptyHeader>
         <EmptyTitle>Couldn't read this repository</EmptyTitle>
         <EmptyDescription>{error}</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
+      <EmptyContent className="flex-row justify-center">
         <Button variant="outline" onClick={onRetry}>
           Retry
         </Button>
+        {canPickFolder && (
+          <Button onClick={onOpenFolder}>
+            <FolderPlusIcon data-icon="inline-start" />
+            Open folder…
+            <KeyHint id="openFolder" />
+          </Button>
+        )}
       </EmptyContent>
     </Empty>
   );

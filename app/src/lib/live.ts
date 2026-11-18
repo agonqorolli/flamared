@@ -156,17 +156,19 @@ export function useLiveRepo() {
   }, [pull]);
   const dismissError = useCallback(() => setError(null), []);
 
-  // Open the last repo, or the one an agent worked in most recently.
+  // Open the last repo, or the one an agent worked in most recently. That is also the way out when the last repo
+  // can't be read any more (its folder was moved or deleted); its error stays only when there is no other repo.
   useEffect(() => {
     async function openFirst() {
       const last = lastRepo();
       if (last) {
         await open(last);
-        return;
+        if (shown.current.repo === last) return;
       }
       const repos = await loadRepos().catch(() => []);
-      if (repos[0]) {
-        await open(repos[0].full);
+      const latest = repos.find((repo) => repo.full !== last);
+      if (latest) {
+        await open(latest.full);
         return;
       }
       setLoading(false);
