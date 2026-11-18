@@ -12,6 +12,7 @@ description: What the product is, the decisions already made (and why), what's p
 - **Desktop app, Tauri**, macOS first; Windows later from the same code (checklist below).
 - **One-time purchase, offline license, 14-day trial** (see the `license-keys` skill). Reinstalling resets the trial — accepted. Seller (Paddle / Lemon Squeezy) not chosen yet.
 - **Name: Flamared** (chosen Nov 2026; a made-up name, picked because the bare .com and .app were free and nothing in dev tools uses it). Keep it only in `app/src/brand.ts` plus `tauri.conf.json` (productName, window title). Bundle ID **`com.flamared`** — final; changing it after the first public build loses users' saved data and license.
+- **Icon: a red flame whose lower half turns into lines of code**, one of them green (an added line), on the app's dark rounded square (chosen Nov 2026 after several rounds; the flame keeps its full outline, the lines only break inside). Source: `app/src-tauri/icons/app-icon.svg`; the command that rebuilds every size is in the comment at its top.
 - **Live updates on** (reversed the earlier "no live updates"), with Live / Paused in the header.
 - **Read-only**: never writes to the repo or the agents' files. Other branches are viewable read-only; the app never runs `git switch`. No accept/undo of hunks.
 - **Agent-agnostic**: wording uses the agent's name per session; the AI color is shared.
