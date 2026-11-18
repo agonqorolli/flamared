@@ -23,7 +23,7 @@ One list drives everything: `app/src/lib/keys.ts`.
 ## Rules
 
 - **⌘ + key for app-level actions** (switch screen, reload, settings, open folder): Mac convention, and they work even while typing or with a dialog open.
-- **Plain letters for actions inside a screen** (J/K, G/W, A, C/T/M, 1–4, S, Esc): faster for repeated use. `is()` ignores them while typing in a field or with a dialog/menu/listbox open.
+- **Plain letters for actions inside a screen** (J/K, G/W, A, C/T/M, 1–6, S, Esc): faster for repeated use. `is()` ignores them while typing in a field or with a dialog/menu/listbox open.
 - **Never ⌘ + a letter macOS owns**: ⌘W close, ⌘M minimize, ⌘H hide, ⌘Q quit, ⌘C/V/X/A/Z edit, ⌘T, ⌘G, ⌘K, ⌘F, ⌘P.
 - A key's meaning is the same on every screen (M is always "Map", C "Changes", T "Timeline", J previous, K next).
 
@@ -32,7 +32,7 @@ One list drives everything: `app/src/lib/keys.ts`.
 Everywhere: ⌘1/2/3 screens · ⌘R reload · L Live/Paused (app only) · ⌘O open folder (app only) · ⌘, Settings · ? the shortcuts page · S split/unified diff (not on Map).
 Changes: J/K previous/next file · G Looks good · W Needs work (then opens the next unchecked file; again clears) · A agent messages · T/M jump.
 Timeline: J/K previous/next edit · A agent messages · C/M jump (while the file is still changed).
-Map: 1–4 lens · C/T jump selected file · Esc → overview, then out of the zoom one level at a time.
+Map: 1–6 lens · C/T jump selected file · Esc → overview, then out of the zoom one level at a time.
 
 Free letters: B, D, E, F, H, I, N, O, P, Q, R, U, V, X, Y, Z.
 

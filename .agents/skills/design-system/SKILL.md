@@ -15,12 +15,13 @@ The window is shadcn/ui (Radix, "Nova" preset) on Tailwind CSS 4, with the app's
 |---|---|
 | `panel`, `raised` | header/panel surface; hover and raised surfaces |
 | `faint`, `subtle` | secondary text (labels, meta); quieter body text |
-| `selection`, `selection-bg` | selected row, fresh dot, accents |
+| `selection`, `selection-bg` | selected row, fresh dot, new lines since you checked a file (the bar in the diff), accents |
 | `add` / `add-bg`, `rem` / `rem-bg` | added / removed lines, "Looks good" / "Needs work" |
 | `warn` | flags, "not connected", partly kept |
 | `ai`, `ai-foreground`, `ai-bg` | the agent's own color (agent-neutral violet) |
 | `map-bg`, `map-tile`, `map-edge`, `map-folder` | treemap surfaces |
-| `--lens-*` (size/rework low→high, kept, partly, gone, flag, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
+| `--lens-*` (size/rework low→high, kept, partly, gone, flag, tested, checked, failed, unchecked, approved, rejected, changed, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
+| `logo-flame-top`, `logo-flame`, `logo-flame-bottom`, `logo-line` | the logo's flame gradient and green code line, the same in every theme (copied from the app icon); only the loading logo uses them |
 
 Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). The System setting is not a fourth set of tokens: it picks Gray or Light from macOS (`resolveTheme` in `settings.tsx`), and code that colors itself reads the resolved `theme` from `useSettings()`, not `settings.appearance.theme`. **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
 
@@ -44,6 +45,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 
 - **12px everywhere**: the screen margin is `p-3` on all four sides; the header is `px-3` (in the Mac app it is also the title bar: `pl-[88px]` leaves room for the window buttons, the same 14px after them as before them, in px so density doesn't move it, and its empty space drags the window); gaps between columns and between cards are `gap-3`; notice banners `mx-3`. Content, header items, toggles and the side column all line up on that 12px edge.
 - **Every screen has the same skeleton**: optional left list (`w-(--list-w)`, `border-r bg-sidebar`, toggle row `px-3 pt-3`) → main content → `<SideColumn>`. Switching screens must not move the toggle or the side column; check by measuring (see the `preview-and-verify` skill).
+- Screen tabs in the header have no focus ring: Radix focuses a tab on click and WebKit then shows the ring on every click; the underline marks the screen.
 - Lists: section label (`<SectionLabel>`), then its cards 8px apart (`gap-2`), no extra gap between label and first card.
 
 ## Shared components (`app/src/components/`)
@@ -53,7 +55,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `Eyebrow` | the small uppercase label ("LOGIC GROUPS", "USES · 5", "1 OF 16"); `as="span" \| "h3"` |
 | `SectionLabel` | an Eyebrow row over a list section, with optional ⓘ tip |
 | `ListPane`, `AgentToggle` | the left list of Changes and Timeline (`--list-w`): the toggle row, the scrolling list, the drag edge; and its "Files / Files + Agent" toggle |
-| `ListRow`, `FreshDot` | one row of a left list, highlighted and scrolled into view when selected (`SELECTED_ROW` is that look, for other lists); the "new since you looked" dot |
+| `ListRow`, `FreshDot` | one row of a left list, highlighted and scrolled into view when selected (`SELECTED_ROW` is that look, for other lists; `ROW_LAYOUT` is its size and spacing, for rows that are only shown, like a check in Timeline); the "new since you looked" dot |
 | `SideColumn` | the right column on every screen (`--side-w`) |
 | `PaneHandle` | the drag edge of the left list or the side column; saves the width, double-click resets |
 | `FileCard` | head card of the side column: "5 of 25" (or "← Overview" on the Map), jump buttons, file name, agent's words; previous/next are `StepButtons` above it |
@@ -61,13 +63,17 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `FoldButton` | the bare chevron that folds a card in a left list (a group in Changes, a turn in Timeline); open it points at its rows, folded it points right |
 | `JumpButton` | the icon button that shows the same file on another screen (`to="timeline"`) |
 | `InfoButton` | the small ⓘ; wrap it in a tooltip's or popover's trigger |
-| `MiniCard`, `MiniRow` | small titled card and its clickable rows (Uses, Used by, File history, map overview) |
+| `MiniCard`, `MiniRow` | small titled card and its rows (Uses, Used by, File history, Checks after this edit, map overview); a `MiniRow` without `onClick` is display-only |
+| `DiffView` | a diff in a card that scrolls inside itself; `newLines` puts a `selection` bar beside given lines through the library's `unsafeCSS` (it renders in a shadow DOM; rows are `[data-gutter]` / `[data-content] > [data-line-type]` with `data-column-number` / `data-line`) |
+| `timeline/CheckResult` | a check the agent ran: ✓ / ✗ in the status-letter slot, its kinds ("Lint + types"), the passed count |
+| `timeline/EffectResult`, `EffectIcon` | a command with effects outside the diff: its most serious effect's icon (red for discard/delete, amber for install/network/database, quiet for git) in the status-letter slot, what it changed ("Deleted files + git"), "failed" |
 | `Said` | an agent's or your message: who, when, text, 4 lines then click for all |
 | `StatusLetter`, `Counts` | A/M/D… letter and +n −n |
 | `SurvivalTag` | kept / partly rewritten / gone / undone |
 | `KeyHint` | a button's shortcut badge, shown while ⌘ is held (see the `keyboard-shortcuts` skill) |
 | `BranchEmpty` | the centered no-changes placeholder for every branch, whether read from a working folder or a preview |
-| `loading/LoadingHints` | the loading screen while a repo or branch opens: one hint, kept on screen until it has been read (`useLoadingScreen`); a failed load shows its error at once |
+| `loading/LoadingHints` | the loading screen while a repo or branch opens: one hint, kept on screen until it has been read (`useLoadingScreen`); a failed load shows its error at once; laid out with shadcn `Empty`, like `BranchEmpty` and the error screen |
+| `loading/LogoLoader` | the animated logo on the loading and first-load screens, in place of a spinner: the flame stands still while green types across its code lines one after another (`animate-logo-type`); with reduced motion it is the still icon, fading gently |
 | `settings/SectionHead` | title + one line under it, for a Settings section |
 | `settings/SettingRow` | `SettingRow` (a setting's name and line on the left, its control on the right), `Choice` (a few values side by side), `SettingsBody`, `ResetButton` |
 

@@ -14,6 +14,7 @@ description: How to run the app and check a change actually works — the deskto
   cd app && SNAPSHOT_FILE=/tmp/snapshot.json pnpm exec vite --port 1430 --strictPort --host 127.0.0.1
   ```
   Open http://127.0.0.1:1430 in your browser tool (the built-in browser pane in Claude's desktop app, or any browser). Regenerate the snapshot when its shape changes (a stale one crashes the page) or when temp files were cleared. `?license=ended|licensed|<days>` shows license states.
+  `preview_start` with `app-web` (`.claude/launch.json`) reads the snapshot file named by `SNAPSHOT_FILE` in that config: back that file up, write yours there, and restore it afterwards. To test review marks without editing files, set `review:<repo path>:<branch>:<base>` in localStorage to marks with a `seen` list (see `lib/review.ts`).
 - Other examples in `app/src-tauri/examples/`: `timing.rs` (load time), `watch_probe.rs` (what the watcher counts), `license.rs` (keys; see the `license-keys` skill).
 
 ## Checks
