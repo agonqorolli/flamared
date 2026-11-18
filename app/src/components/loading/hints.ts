@@ -37,7 +37,7 @@ const ALL_HINTS: Hint[] = [
   },
   {
     title: "No mouse needed",
-    text: "J and K step to the next and previous file.",
+    text: "K and J step to the next and previous file.",
     seconds: 5,
   },
   {
@@ -59,6 +59,16 @@ const ALL_HINTS: Hint[] = [
     title: "Still in final",
     text: "On the Map, 3 shows how much agent code is still there.",
     seconds: 5,
+  },
+  {
+    title: "Was it tested?",
+    text: "On the Map, 4 shows if tests passed after the last edit.",
+    seconds: 5,
+  },
+  {
+    title: "Left to review",
+    text: "On the Map, 5 shows which files you've marked.",
+    seconds: 4,
   },
   {
     title: "Rework",
@@ -103,7 +113,7 @@ const ALL_HINTS: Hint[] = [
   },
   {
     title: "Watch for flags",
-    text: "On the Map, 4 marks risky changes, like secrets.",
+    text: "On the Map, 6 marks risky changes, like secrets.",
     seconds: 4,
   },
   {
@@ -122,9 +132,34 @@ const ALL_HINTS: Hint[] = [
     seconds: 4,
   },
   {
+    title: "Did it run the tests?",
+    text: "Timeline shows the tests, lint and builds the agent ran.",
+    seconds: 5,
+  },
+  {
+    title: "Checked after the edit",
+    text: "Each edit in Timeline lists the checks that ran after it.",
+    seconds: 5,
+  },
+  {
+    title: "Outside the diff",
+    text: "Timeline shows commands that deleted files or touched a database.",
+    seconds: 5,
+  },
+  {
     title: "Commits too",
     text: "Timeline shows your commits between the agent's turns.",
     seconds: 4,
+  },
+  {
+    title: "Read in order",
+    text: "Each group lists its files in the order to read them.",
+    seconds: 5,
+  },
+  {
+    title: "Only what's new",
+    text: "If a marked file changes, a bar marks the new lines.",
+    seconds: 5,
   },
   {
     title: "Used by many",
