@@ -205,7 +205,7 @@ function NoRepo({ loading }: { loading: boolean }) {
   return (
     <Empty className="flex-1">
       {loading ? (
-        <Spinner />
+        <Spinner className="size-5 text-faint" />
       ) : (
         <EmptyHeader>
           <EmptyTitle>No repository yet</EmptyTitle>
