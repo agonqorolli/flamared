@@ -6,13 +6,13 @@ import { Header } from "@/components/header/Header";
 import { KeyHint } from "@/components/KeyHint";
 import { TrialEnded } from "@/components/license/TrialEnded";
 import { LoadingHints } from "@/components/loading/LoadingHints";
+import { LogoLoader } from "@/components/loading/LogoLoader";
 import { useLoadingScreen } from "@/components/loading/useLoadingScreen";
 import { type Focus, Screens } from "@/components/Screens";
 import { SettingsDialog, type SettingsSection } from "@/components/settings/SettingsDialog";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { canPickFolder, pickRepoFolder } from "@/lib/api";
 import { useKeyHints, useKeys } from "@/lib/keys";
@@ -200,12 +200,12 @@ function CouldNotRead({ error, onRetry, onOpenFolder }: CouldNotReadProps) {
   );
 }
 
-// In place of the screens before a repo is open: a spinner while the first one loads, or that there is none.
+// In place of the screens before a repo is open: the animated logo while the first one loads, or that there is none.
 function NoRepo({ loading }: { loading: boolean }) {
   return (
     <Empty className="flex-1">
       {loading ? (
-        <Spinner className="size-5 text-faint" />
+        <LogoLoader label="Loading" />
       ) : (
         <EmptyHeader>
           <EmptyTitle>No repository yet</EmptyTitle>
