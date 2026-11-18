@@ -9,7 +9,8 @@ import { SideColumn } from "@/components/SideColumn";
 import { StepButtons } from "@/components/StepButtons";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { base } from "@/lib/format";
+import type { Delta } from "@/lib/delta";
+import { base, plural } from "@/lib/format";
 import { hint, useKeys } from "@/lib/keys";
 import type { ReviewState } from "@/lib/review";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ interface Props {
   active: boolean;
   diff: string;
   reviewOf: (diff: string) => ReviewState | null; // the mark for the version on screen
+  changedSince: (diff: string) => { was: ReviewState; delta: Delta } | null; // what is new since a reset mark
   inTimeline: boolean;
   onReview: (state: ReviewState | null, shown?: string) => void;
   onStep: (step: 1 | -1) => void;
@@ -37,6 +39,7 @@ export function FileDetail({
   active,
   diff,
   reviewOf,
+  changedSince,
   inTimeline,
   onReview,
   onStep,
@@ -54,6 +57,7 @@ export function FileDetail({
   const shown = held.path === file.path ? held.diff : diff;
   const stale = shown !== diff;
   const review = reviewOf(shown);
+  const since = changedSince(shown);
   const showLatest = () => {
     setHeld({ path: file.path, diff });
     onShowLatest();
@@ -81,10 +85,12 @@ export function FileDetail({
             </Button>
           </div>
         )}
+        {since && <ChangedSince was={since.was} delta={since.delta} />}
         <DiffView
           id={`${file.path}:${stale ? "held" : "latest"}`}
           patch={patch}
           more={more}
+          newLines={since?.delta}
           empty={file.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"}
         />
         <ReviewBar review={review} onReview={reviewShown} />
@@ -121,6 +127,28 @@ export function FileDetail({
 }
 
 const MARK_LABEL: Record<ReviewState, string> = { approved: "Looks good", rejected: "Needs work" };
+const MARK_COLOR: Record<ReviewState, string> = { approved: "text-add", rejected: "text-rem" };
+
+// Above the diff of a file whose mark was reset by a newer change: how much is new since you marked it. The new
+// lines carry a bar in the same color in the diff, so you can read just those and mark the file again.
+function ChangedSince({ was, delta }: { was: ReviewState; delta: Delta }) {
+  return (
+    <div role="status" className="mb-2 flex shrink-0 items-center gap-2 px-1 text-xs text-subtle">
+      <span className="h-3.5 w-0.75 shrink-0 rounded-full bg-selection" aria-hidden />
+      <span>
+        {whatChanged(delta)} since you marked it <span className={MARK_COLOR[was]}>{MARK_LABEL[was]}</span>
+      </span>
+    </div>
+  );
+}
+
+// "12 lines changed", or when nothing new was added but lines you saw were taken out, how many.
+function whatChanged({ added, removed, gone }: Delta) {
+  const fresh = added.length + removed.length;
+  if (fresh) return `${plural(fresh, "line")} changed`;
+  if (gone) return `${plural(gone, "line")} you saw ${gone === 1 ? "was" : "were"} taken out`;
+  return "Changed";
+}
 
 // Under the diff: this file's mark and the buttons that set it (G / W on the keyboard). Plain words, not code-review
 // terms: the mark is a note to yourself, and nothing is done to the code. Saved as "approved" / "rejected".
@@ -135,10 +163,7 @@ function ReviewBar({
   const title = (state: ReviewState) => (review === state ? "Clear the mark" : MARK_LABEL[state]);
   return (
     <div className="mt-2 flex shrink-0 items-center justify-between gap-3" role="group" aria-label="Review this file">
-      <span
-        className={cn("text-xs text-faint", review === "approved" && "text-add", review === "rejected" && "text-rem")}
-        aria-live="polite"
-      >
+      <span className={cn("text-xs text-faint", review && MARK_COLOR[review])} aria-live="polite">
         {review ? MARK_LABEL[review] : "Not checked"}
         {review && <span className="text-faint"> · resets if the agent changes this file</span>}
       </span>

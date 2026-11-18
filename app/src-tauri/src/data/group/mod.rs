@@ -5,6 +5,7 @@
 //! Everything else is grouped by kind (deps, config, infra, docs, assets).
 mod go;
 mod imports;
+mod order;
 mod rust;
 mod symbols;
 mod tsconfig;
@@ -15,6 +16,7 @@ use super::paths::{basename, dirname, join, splitext};
 use super::tree::At;
 use imports::imports_of;
 use indexmap::IndexMap;
+use order::{reading_order, tests_in_order};
 use regex::Regex;
 use std::cell::RefCell;
 use std::cmp::Reverse;
@@ -44,6 +46,7 @@ static KINDS: LazyLock<Vec<(&str, Regex)>> = LazyLock::new(|| {
 /// Changed code files that belong together, named after the most connected one.
 pub struct Group {
     pub name: String,
+    /// In reading order: each file after the files of the group it imports.
     pub files: Vec<String>,
     pub tests: Vec<String>,
     pub shared: bool,
@@ -384,7 +387,7 @@ struct Change<'a> {
 
 impl Change<'_> {
     /// One component and its tests as a group.
-    fn group(&self, files: &[String], mut tests: Vec<String>) -> Group {
+    fn group(&self, files: &[String], tests: Vec<String>) -> Group {
         let hub = self.hub_of(files);
         let (shared, registry) = (self.hubs.shared.contains(hub), self.hubs.registries.contains(hub));
         let imports_shared = |shared: &&String| files.iter().any(|file| self.imports(file, shared));
@@ -395,13 +398,12 @@ impl Change<'_> {
             .filter(imports_shared)
             .map(|shared| stem(shared))
             .collect();
-        tests.sort();
+        let sorted_files = reading_order(files, &self.links.imports);
+        let tests = tests_in_order(&tests, &sorted_files, stem);
         let (add, rem) = files.iter().chain(&tests).fold((0, 0), |(add, rem), file| {
             let (added, removed) = self.stats.get(file).copied().unwrap_or((0, 0));
             (add + added, rem + removed)
         });
-        let mut sorted_files = files.to_vec();
-        sorted_files.sort();
         Group {
             name: stem(hub),
             shared,

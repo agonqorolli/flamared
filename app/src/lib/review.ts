@@ -1,14 +1,17 @@
 // Marks on each changed file, "Looks good" (saved as approved) or "Needs work" (rejected), kept per repo, branch
 // and base. A mark stores a fingerprint of the file's change; when the agent changes the file again the
-// fingerprint no longer matches, so the file is back to not checked.
+// fingerprint no longer matches, so the file is back to not checked. The mark also keeps the change lines you saw,
+// so the lines the agent changed after it can be shown as new (see delta.ts).
 // Saved in the app's data folder (see store.ts).
 import { useCallback, useState } from "react";
+import { type Delta, deltaSince, seenLines } from "./delta";
 import { getJson, setJson } from "./store";
 import type { FileInfo, Snapshot } from "./types";
 
 export type ReviewState = "approved" | "rejected";
-// path -> the mark, and the fingerprint of the change it was made on
-type Marks = Record<string, { state: ReviewState; sig: string }>;
+// path -> the mark, the fingerprint of the change it was made on, and that change's added and removed lines (marks
+// saved before these were kept have none)
+type Marks = Record<string, { state: ReviewState; sig: string; seen?: string[] }>;
 
 const storageKey = (snap: Snapshot) => `review:${snap.path}:${snap.branch}:${snap.base}`;
 const readMarks = (key: string) => getJson<Marks>(key, {});
@@ -42,12 +45,27 @@ export function useReview(snap: Snapshot) {
     (file: FileInfo, state: ReviewState | null, shown?: string) => {
       const next = { ...marks };
       if (!state || stateOf(file, shown) === state) delete next[file.path];
-      else next[file.path] = { state, sig: fingerprint(file, shown ?? snap.diffs[file.path] ?? "") };
+      else {
+        const marked = shown ?? snap.diffs[file.path] ?? "";
+        next[file.path] = { state, sig: fingerprint(file, marked), seen: seenLines(marked) };
+      }
       setJson(key, next);
       setSaved({ key, marks: next });
     },
     [marks, key, snap, stateOf],
   );
 
-  return { stateOf, toggle };
+  // For a file whose mark was reset by a newer change: the mark it had, and what is new since. Null while the mark
+  // holds, and for a file never marked.
+  const changedSince = useCallback(
+    (file: FileInfo, diff?: string): { was: ReviewState; delta: Delta } | null => {
+      const mark = marks[file.path];
+      const now = diff ?? snap.diffs[file.path] ?? "";
+      if (!mark?.seen || mark.sig === fingerprint(file, now)) return null;
+      return { was: mark.state, delta: deltaSince(mark.seen, now) };
+    },
+    [marks, snap],
+  );
+
+  return { stateOf, toggle, changedSince };
 }

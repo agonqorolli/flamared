@@ -109,6 +109,7 @@ export function ChangesView({ snap, active, focus, inTimeline, onShowInTimeline,
           active={active}
           diff={snap.diffs[row.file.path] ?? ""}
           reviewOf={(diff) => review.stateOf(row.file, diff)}
+          changedSince={(diff) => review.changedSince(row.file, diff)}
           inTimeline={inTimeline(row.file.path)}
           onShowInTimeline={() => onShowInTimeline(row.file.path)}
           onShowInMap={() => onShowInMap(row.file.path)}
