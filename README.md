@@ -28,7 +28,7 @@ Everything works for 14 days. After that Flamared needs a license: one payment, 
 
 ## Updates
 
-Flamared checks for a new version when it starts, downloads it in the background and shows **Restart to update** in the header. The check asks GitHub for the latest version number and sends nothing about your code. Turn it off in **Settings → Updates**.
+Flamared checks for a new version when it starts, downloads it in the background and shows **Restart to update** in the header. The check asks GitHub for the latest version number and sends nothing about your code. Turn it off in **Settings → About**.
 
 ## Building from source
 

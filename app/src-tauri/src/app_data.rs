@@ -1,15 +1,20 @@
 //! The app's own files in its data folder (~/Library/Application Support/com.flamared/ on a Mac):
-//! state.json and license.json. Each is a small JSON file, read whole and written whole.
+//! state.json, license.json and agents.json. Each is a small JSON file, read whole and written whole.
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-/// Where the file of that name is; makes the data folder the first time.
-fn path_of(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
+/// The data folder; made the first time it is asked for.
+pub fn folder(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join(name))
+    Ok(dir)
+}
+
+/// Where the file of that name is.
+fn path_of(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
+    Ok(folder(app)?.join(name))
 }
 
 /// What a file holds, or None when it is missing or isn't what `T` expects.

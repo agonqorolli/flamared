@@ -37,6 +37,9 @@ export async function initStore() {
 
 export const getItem = (key: string): string | null => cache[key] ?? null;
 
+// Every saved key, for clearing a kind of value at once (all review marks).
+export const savedKeys = () => Object.keys(cache);
+
 export function setItem(key: string, value: string) {
   cache[key] = value;
   if (inTauri) {

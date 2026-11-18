@@ -68,7 +68,7 @@ if let Ok(folder) = serde_json::from_str::<String>(&format!("\"{}\"", &found[1])
 
 ## Tauri commands
 
-**A command is a thin typed wrapper; the work is in its module.** Repo data commands are in `commands.rs`; `watch.rs`, `state.rs`, `license.rs` and `agents.rs` hold their own. Anything that reads git or session files goes through `blocking`:
+**A command is a thin typed wrapper; the work is in its module.** Repo data commands are in `commands.rs`; `watch.rs`, `state.rs`, `license.rs`, `agents.rs` and `about.rs` hold their own. Anything that reads git or session files goes through `blocking`:
 
 ```rust
 #[tauri::command]

@@ -1,6 +1,6 @@
 ---
 name: releases
-description: Shipping a new version of the app — the version number, the signed macOS build, latest.json and the GitHub release the built-in updater reads, the update signing key and why it must be backed up, and how the in-app update check works (lib/updates.tsx, Settings → Updates). Use when bumping the version, building or publishing a release, or changing update code or the updater config in tauri.conf.json.
+description: Shipping a new version of the app — the version number, the signed macOS build, latest.json and the GitHub release the built-in updater reads, the update signing key and why it must be backed up, and how the in-app update check works (lib/updates.tsx, Settings → About). Use when bumping the version, building or publishing a release, or changing update code or the updater config in tauri.conf.json.
 ---
 
 # Releases and updates
@@ -36,8 +36,8 @@ The app updates itself from the **GitHub releases of `agonqorolli/flamared`**: i
    ```
    The updater follows `releases/latest`, so a draft or pre-release reaches nobody until it is published as latest.
 
-Renaming the app or the repo: change the endpoint in `tauri.conf.json` and `REPO` in `scripts/latest-json.mjs`
-together (GitHub redirects a renamed repo, but don't rely on it).
+Renaming the app or the repo: change the endpoint in `tauri.conf.json`, `REPO` in `scripts/latest-json.mjs` and
+`REPO_URL` in `app/src/brand.ts` together (GitHub redirects a renamed repo, but don't rely on it).
 
 ## The app icon
 
@@ -45,11 +45,13 @@ One source, `app/src-tauri/icons/app-icon.svg` (1024×1024, the macOS rounded-sq
 
 ## In the app
 
-- `lib/updates.tsx` (`UpdatesProvider`, `useUpdates`): checks once on start when **Settings → Updates → Check on
+- `lib/updates.tsx` (`UpdatesProvider`, `useUpdates`): checks once on start when **Settings → About → Check on
   start** is on (the default, `settings.updates.checkOnStart`), or on **Check now**; a newer version is downloaded and
   installed in the background, and runs from the next start.
 - `components/header/UpdateNote.tsx`: "Restart to update" in the header once one is installed.
-  `components/settings/UpdateSettings.tsx`: the version, where the last check got to, Check now / Restart, the switch.
+  `components/settings/AboutSettings.tsx`: the version, where the last check got to, Check now / Restart, the switch,
+  Release notes (`REPO_URL/releases`) and Report a problem (a new GitHub issue with the app and macOS version in its
+  body; macOS comes from `about.rs`, since the web view reports an old fixed version).
 - The plugin calls are in `lib/api.ts` (`installUpdate`, `restartApp`, `appVersion`); permissions `updater:default`
   and `process:allow-restart` in `capabilities/default.json`.
 - A check sends nothing but the request for `latest.json`: no code, sessions or license data. Keep it that way; the
@@ -60,4 +62,4 @@ One source, `app/src-tauri/icons/app-icon.svg` (1024×1024, the macOS rounded-sq
 Build version N and install it in /Applications, bump to N+1, build, write `latest.json`, and serve that folder
 locally with the endpoint temporarily pointed at it (`http://127.0.0.1:…/latest.json` and the archive URL in
 `latest.json` changed to match; plain http needs `"dangerousInsecureTransportProtocol": true` under
-`plugins.updater`). Open N, check in Settings → Updates, restart. Put the endpoint back before committing.
+`plugins.updater`). Open N, check in Settings → About, restart. Put the endpoint back before committing.

@@ -3,9 +3,9 @@
 // fingerprint no longer matches, so the file is back to not checked. The mark also keeps the change lines you saw,
 // so the lines the agent changed after it can be shown as new (see delta.ts).
 // Saved in the app's data folder (see store.ts).
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type Delta, deltaSince, seenLines } from "./delta";
-import { getJson, setJson } from "./store";
+import { getJson, removeItem, savedKeys, setJson } from "./store";
 import type { FileInfo, Snapshot } from "./types";
 
 export type ReviewState = "approved" | "rejected";
@@ -13,8 +13,26 @@ export type ReviewState = "approved" | "rejected";
 // saved before these were kept have none)
 type Marks = Record<string, { state: ReviewState; sig: string; seen?: string[] }>;
 
-const storageKey = (snap: Snapshot) => `review:${snap.path}:${snap.branch}:${snap.base}`;
+const KEY_PREFIX = "review:";
+const storageKey = (snap: Snapshot) => `${KEY_PREFIX}${snap.path}:${snap.branch}:${snap.base}`;
 const readMarks = (key: string) => getJson<Marks>(key, {});
+const markKeys = () => savedKeys().filter((key) => key.startsWith(KEY_PREFIX));
+
+// Clearing marks in Settings tells the open screens to read theirs again.
+const cleared = new EventTarget();
+
+// How many files carry a mark, and on how many repo branches, across every repo (Settings → About).
+export function savedMarks() {
+  const keys = markKeys().filter((key) => Object.keys(readMarks(key)).length > 0);
+  const files = keys.reduce((sum, key) => sum + Object.keys(readMarks(key)).length, 0);
+  return { files, branches: keys.length };
+}
+
+// Removes every mark in every repo.
+export function clearAllMarks() {
+  for (const key of markKeys()) removeItem(key);
+  cleared.dispatchEvent(new Event("cleared"));
+}
 
 // A short hash of a file's status and diff: different whenever the file's change is.
 function fingerprint(file: FileInfo, diff: string) {
@@ -29,6 +47,11 @@ export function useReview(snap: Snapshot) {
   const [saved, setSaved] = useState<{ key: string; marks: Marks }>(() => ({ key, marks: readMarks(key) }));
   // Another repo or branch has its own marks.
   const marks = saved.key === key ? saved.marks : readMarks(key);
+  useEffect(() => {
+    const reread = () => setSaved({ key, marks: readMarks(key) });
+    cleared.addEventListener("cleared", reread);
+    return () => cleared.removeEventListener("cleared", reread);
+  }, [key]);
 
   // The mark for a given version of the file's change (by default its latest).
   const stateOf = useCallback(

@@ -1,4 +1,4 @@
-// New versions: the app looks for one on start (unless turned off in Settings → Updates) or when asked, installs it
+// New versions: the app looks for one on start (unless turned off in Settings → About) or when asked, installs it
 // in the background, and offers a restart. Only in the app; the browser preview has nothing to update.
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { appVersion, installUpdate, inTauri, restartApp } from "./api";

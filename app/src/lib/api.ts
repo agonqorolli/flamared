@@ -1,6 +1,6 @@
 // Everything the window asks of the Rust side, one function per command. This is the only file that imports
 // @tauri-apps or knows a command's name; the Rust end of each is in src-tauri/src (commands.rs, watch.rs, state.rs,
-// license.rs, agents.rs).
+// license.rs, agents.rs, about.rs).
 //
 // Outside the Tauri window (a plain browser in development) there is no Rust side. The dev server hands out one
 // saved snapshot instead, and the modules with a stand-in of their own (store.ts, license.tsx) check `inTauri`.
@@ -12,7 +12,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
-import type { AgentFolder, AgentId, BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
+import type { About, AgentFolder, AgentId, BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -86,6 +86,9 @@ export const removeLicense = () => invoke<LicenseStatus>("license_remove");
 // --- Updates (tauri-plugin-updater; where to look is in tauri.conf.json). Only in the app.
 
 export const appVersion = () => getVersion();
+
+// The macOS version and the app's data folder (about.rs). Only in the app.
+export const aboutApp = () => invoke<About>("about");
 
 // Looks for a newer version and, when there is one, downloads and installs it, calling `onFound` with its version
 // before the download starts. Resolves to that version, or null when this is the newest. The installed version

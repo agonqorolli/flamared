@@ -181,6 +181,13 @@ export type LicenseStatus =
   | { state: "trial"; days_left: number; ends: number } // ends: seconds since 1970
   | { state: "ended"; ended: number };
 
+// What Settings → About shows that only the Rust side can read.
+export interface About {
+  system: string; // "macOS 26.1 (aarch64)"
+  data_folder: string;
+  data_folder_shown: string; // with ~ for the home folder
+}
+
 // Where an agent's sessions are read from (Settings → Agents). `source`: the agent's own default folder, its
 // environment variable (`variable`), or a folder chosen in Settings.
 export type AgentId = "claude" | "codex";

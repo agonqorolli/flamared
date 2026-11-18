@@ -1,14 +1,14 @@
-import { BotIcon, CircleArrowUpIcon, CodeIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
+import { BotIcon, CodeIcon, InfoIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LicenseSettings } from "@/components/license/LicenseSettings";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AboutSettings } from "./AboutSettings";
 import { AgentSettings } from "./AgentSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { DiffSettings } from "./DiffSettings";
 import { KeyboardSettings } from "./KeyboardSettings";
-import { UpdateSettings } from "./UpdateSettings";
 
 // Sections of the settings menu. More come later (files to leave out...).
 const SECTIONS = [
@@ -16,8 +16,8 @@ const SECTIONS = [
   { id: "diff", label: "Diff style", icon: CodeIcon, content: DiffSettings },
   { id: "agents", label: "Agents", icon: BotIcon, content: AgentSettings },
   { id: "keyboard", label: "Keyboard", icon: KeyboardIcon, content: KeyboardSettings },
-  { id: "updates", label: "Updates", icon: CircleArrowUpIcon, content: UpdateSettings },
   { id: "license", label: "License", icon: KeyRoundIcon, content: LicenseSettings },
+  { id: "about", label: "About", icon: InfoIcon, content: AboutSettings },
 ] as const;
 export type SettingsSection = (typeof SECTIONS)[number]["id"];
 

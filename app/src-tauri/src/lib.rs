@@ -1,5 +1,6 @@
 //! The Rust side of the app: the data layer, the commands the window calls, live watching, saved state and the
-//! license, and where the agents' sessions are read from.
+//! license, where the agents' sessions are read from, and what Settings → About shows.
+mod about;
 mod agents;
 mod app_data;
 mod commands;
@@ -35,7 +36,8 @@ pub fn run() {
             license::license_activate,
             license::license_remove,
             agents::agent_folders,
-            agents::agent_folder_set
+            agents::agent_folder_set,
+            about::about
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

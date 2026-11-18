@@ -4,8 +4,8 @@ import type { Status } from "./types";
 export const base = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 export const dir = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 
-// "1 file", "3 files"
-export const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+// "1 file", "3 files"; `words` for a word that doesn't just take an s ("branches").
+export const plural = (count: number, word: string, words = `${word}s`) => `${count} ${count === 1 ? word : words}`;
 
 export const STATUS: Record<Status, string> = {
   A: "added",
