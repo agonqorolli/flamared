@@ -1,5 +1,5 @@
 //! Rule flags: fixed patterns read from the change itself (plain pattern matching, no AI).
-//! The window explains each rule in app/src/components/map/FlagRules.tsx; keep the two in step.
+//! The window explains each rule in app/src/lib/flags.ts (and can hide a rule's flags); keep the two in step.
 use crate::data::group::{Grouping, TEST_RE};
 use crate::data::paths::basename;
 use regex::Regex;

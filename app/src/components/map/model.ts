@@ -1,4 +1,5 @@
 // What the Map screen works out from a snapshot: each changed file's numbers, and how each lens colors a file.
+import { type FlagRuleId, flagsOn } from "@/lib/flags";
 import type { Survival } from "@/lib/format";
 import type { KeyId } from "@/lib/keys";
 import type { Review, ReviewState } from "@/lib/review";
@@ -38,6 +39,7 @@ export function buildStats(
   snap: Snapshot,
   timeline: Timeline,
   review: Pick<Review, "stateOf" | "resetMarkOf">,
+  flagsOff: FlagRuleId[], // rules turned off in Settings → Flags
 ): MapStats {
   const { logic, shared, wiring, loose, loose_tests: looseTests, support } = snap.story;
   const groups = [...logic, ...shared, ...wiring, ...loose.flatMap((folder) => folder.files)];
@@ -52,7 +54,7 @@ export function buildStats(
       file,
       edits: 0,
       survival: { kept: 0, partly: 0, gone: 0, undone: 0 },
-      flags: snap.map.flags[file.path] || [],
+      flags: flagsOn(snap.map.flags[file.path] || [], flagsOff),
       group: snap.map.groups[file.path],
       check: null,
       lastCheck: null,

@@ -38,8 +38,9 @@ const latestWords = (files: FileInfo[]) =>
   files.filter((file) => file.words).sort((a, b) => ms(b.words_at) - ms(a.words_at))[0];
 
 // The Changes list: logic groups, shared, wiring, loose files by folder, lone tests, non-code files, then the files
-// left out by your patterns, folded.
-export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[] } {
+// left out by your patterns, folded. `notConnected`: whether loose files that use nothing are marked (its flag rule
+// can be turned off in Settings → Flags).
+export function buildSections(snap: Snapshot, notConnected = true): { sections: Section[]; rows: Row[] } {
   const { logic, shared, wiring, loose, loose_tests: looseTests, support, left_out: leftOut } = snap.story;
   const rows: Row[] = [];
 
@@ -101,7 +102,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
   if (loose.length) {
     const blocks = loose.map(({ folder, files: groups }, i) => {
       const name = folder.split("/").slice(-2).join("/");
-      const usesNothing = groups.every((group) => !group.uses.length);
+      const usesNothing = notConnected && groups.every((group) => !group.uses.length);
       return merged(`loose-${i}`, name, plural(groups.length, "file"), groups, usesNothing);
     });
     sections.push({ label: "Files on their own", tip: "loose", blocks });

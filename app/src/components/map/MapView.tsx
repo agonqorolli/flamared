@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { hint, useKeys } from "@/lib/keys";
 import type { Review } from "@/lib/review";
+import { useSettings } from "@/lib/settings";
 import type { Timeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
@@ -31,9 +32,10 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
   const [selected, setSelected] = useState<string | null>(null);
   const tree = useMemo(() => buildTree(snap.repo, snap.map.files), [snap]);
   const { stateOf, resetMarkOf } = review;
+  const flagsOff = useSettings().settings.flags.off;
   const stats = useMemo(
-    () => buildStats(snap, timeline, { stateOf, resetMarkOf }),
-    [snap, timeline, stateOf, resetMarkOf],
+    () => buildStats(snap, timeline, { stateOf, resetMarkOf }, flagsOff),
+    [snap, timeline, stateOf, resetMarkOf, flagsOff],
   );
   // The selected file, while it is still one of the changed files.
   const picked = selected && stats.files[selected] ? selected : null;

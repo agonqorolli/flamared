@@ -7,44 +7,13 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { FLAG_RULES } from "@/lib/flags";
+import { useSettings } from "@/lib/settings";
+import { cn } from "@/lib/utils";
 
-// The fixed rules behind the Flags lens, in the words the map shows. They match
-// src-tauri/src/data/snapshot/flags.rs; keep the two in step.
-const FLAG_RULES: { flag: string; when: string }[] = [
-  {
-    flag: "possible secret",
-    when: "An added line looks like a key or password: AWS keys, private keys, sk-… API keys, GitHub or Slack tokens, or api_key / secret / token / password set to a long quoted value. The matched text is never shown.",
-  },
-  {
-    flag: "possible secret (.env file)",
-    when: "A .env file changed (.env.example, .sample and .template don't count).",
-  },
-  {
-    flag: "tests weakened (−n cases)",
-    when: "A test file lost more test cases (it(…), test(…), def test_) than it gained.",
-  },
-  {
-    flag: "tests skipped",
-    when: "A test file gained a skip or only: .skip(…), .only(…), xit, xdescribe, @pytest.mark.skip, @unittest.skip.",
-  },
-  { flag: "test deleted", when: "A test file was deleted." },
-  {
-    flag: "debug leftovers (n)",
-    when: "Added lines with debugger, breakpoint(), pdb.set_trace(), TODO or FIXME, or console.log outside scripts/, bin/, tools/ and cli/ folders.",
-  },
-  {
-    flag: "dependency file",
-    when: "A dependency list or lockfile changed: package.json, lockfiles, requirements*.txt, pyproject.toml, Cargo, go.mod and similar.",
-  },
-  { flag: "infra file", when: "Build or deploy setup changed: Dockerfile, docker-compose, .github/, Makefile." },
-  {
-    flag: "not connected",
-    when: "A changed code file that neither uses nor is used by any other changed file.",
-  },
-];
-
-// An ⓘ that opens the list of rules.
+// An ⓘ that opens the list of rules (lib/flags.ts); the ones turned off in Settings → Flags are dimmed and say so.
 export function FlagRules({ label = "What gets flagged?" }: { label?: string }) {
+  const off = useSettings().settings.flags.off;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -58,9 +27,12 @@ export function FlagRules({ label = "What gets flagged?" }: { label?: string }) 
           </PopoverDescription>
         </PopoverHeader>
         <dl className="flex max-h-[min(420px,60vh)] flex-col gap-2.5 overflow-y-auto text-xs">
-          {FLAG_RULES.map(({ flag, when }) => (
-            <div key={flag} className="flex flex-col gap-0.5">
-              <dt className="font-medium text-warn">{flag}</dt>
+          {FLAG_RULES.map(({ id, flag, when }) => (
+            <div key={id} className={cn("flex flex-col gap-0.5", off.includes(id) && "opacity-50")}>
+              <dt className="font-medium text-warn">
+                {flag}
+                {off.includes(id) && <span className="font-normal text-faint"> · off in Settings → Flags</span>}
+              </dt>
               <dd className="leading-snug text-muted-foreground">{when}</dd>
             </div>
           ))}

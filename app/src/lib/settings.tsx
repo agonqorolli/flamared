@@ -1,7 +1,9 @@
-// App settings, kept on this machine: how the app looks (theme, density), how diffs look, and checking for updates.
+// App settings, kept on this machine: how the app looks (theme, density), how diffs look, checking for updates, and
+// which flag rules are shown.
 // Saved in the app's data folder (see store.ts).
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { inTauri, setWindowTheme } from "./api";
+import type { FlagRuleId } from "./flags";
 import { getJson, setJson } from "./store";
 
 export const DIFF_THEMES = [
@@ -59,10 +61,15 @@ export interface UpdateSettings {
   checkOnStart: boolean; // look for a new version each time the app opens
 }
 
+export interface FlagSettings {
+  off: FlagRuleId[]; // rules whose flags aren't shown (Settings → Flags)
+}
+
 export interface Settings {
   appearance: AppearanceSettings;
   diff: DiffSettings;
   updates: UpdateSettings;
+  flags: FlagSettings;
 }
 
 export const DEFAULTS: Settings = {
@@ -78,6 +85,7 @@ export const DEFAULTS: Settings = {
     fontSize: 12,
   },
   updates: { checkOnStart: true },
+  flags: { off: [] },
 };
 
 const SETTINGS_KEY = "settings";
@@ -89,6 +97,7 @@ function load(): Settings {
     appearance: { ...DEFAULTS.appearance, ...saved.appearance },
     diff: { ...DEFAULTS.diff, ...saved.diff },
     updates: { ...DEFAULTS.updates, ...saved.updates },
+    flags: { ...DEFAULTS.flags, ...saved.flags },
   };
 }
 
@@ -126,6 +135,7 @@ interface SettingsApi {
   setAppearance: (patch: Partial<AppearanceSettings>) => void;
   resetAppearance: () => void;
   setUpdates: (patch: Partial<UpdateSettings>) => void;
+  setFlags: (patch: Partial<FlagSettings>) => void;
 }
 const SettingsContext = createContext<SettingsApi | null>(null);
 
@@ -149,6 +159,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     (patch: Partial<UpdateSettings>) => save({ ...settings, updates: { ...settings.updates, ...patch } }),
     [settings, save],
   );
+  const setFlags = useCallback(
+    (patch: Partial<FlagSettings>) => save({ ...settings, flags: { ...settings.flags, ...patch } }),
+    [settings, save],
+  );
 
   // Applied again when macOS switches between light and dark, for the System setting.
   const [systemIsDark, setSystemIsDark] = useState(systemDark.matches);
@@ -162,7 +176,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const theme = resolveTheme(settings.appearance.theme);
   return (
     <SettingsContext.Provider
-      value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance, setUpdates }}
+      value={{ settings, theme, setDiff, resetDiff, setAppearance, resetAppearance, setUpdates, setFlags }}
     >
       {children}
     </SettingsContext.Provider>

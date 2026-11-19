@@ -4,6 +4,7 @@ import { AgentToggle, ListPane } from "@/components/ListPane";
 import { plural } from "@/lib/format";
 import { useKeys } from "@/lib/keys";
 import type { Review, ReviewState } from "@/lib/review";
+import { useSettings } from "@/lib/settings";
 import type { Snapshot } from "@/lib/types";
 import { clamp } from "@/lib/utils";
 import { ChangesList } from "./ChangesList";
@@ -34,7 +35,8 @@ export function ChangesView({
   fresh,
   onSeen,
 }: Props) {
-  const { sections, rows } = useMemo(() => buildSections(snap), [snap]);
+  const notConnected = !useSettings().settings.flags.off.includes("connected");
+  const { sections, rows } = useMemo(() => buildSections(snap, notConnected), [snap, notConnected]);
   const hasWords = sections.some((section) => section.blocks.some((block) => block.words));
   const [showAgent, setShowAgent] = useState(false);
 
