@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
+  // The app's Buy and Renew buttons and Stripe's webhook use these addresses; the rest of flamared.com is untouched.
+  "routes": [
+    { "pattern": "flamared.com/buy", "zone_name": "flamared.com" },
+    { "pattern": "flamared.com/renew", "zone_name": "flamared.com" },
+    { "pattern": "flamared.com/stripe/webhook", "zone_name": "flamared.com" },
+  ],
   // Licenses by email and handled orders. Make it with `npx wrangler kv namespace create LICENSES` and put its id here.
   "kv_namespaces": [{ "binding": "LICENSES", "id": "e699924aa219496f9e67ed0cc81b0789" }],
   // Secrets are set with `npx wrangler secret put <NAME>`, never written here: LICENSE_SIGNING_KEY,

@@ -43,7 +43,7 @@ The order defaults to a timestamp. `issue` gives a year of updates from today (`
 - Ended: `TrialEnded` replaces the whole app (the app isn't even mounted), with the key field.
 - Licensed: "Licensed to <name>", how long updates last, a field for a renewed key, and "Remove from this Mac" (back to trial/ended; the key keeps working elsewhere).
 - Updates ended before this version: `UpdatesEnded` replaces the whole app (see above). It and `TrialEnded` share `LockScreen`.
-- Buy buttons appear only once `BUY_URL` in `app/src/brand.ts` is set, Renew buttons once `RENEW_URL` is. Both will point at the license server's `/buy` and `/renew` (below), not straight at Stripe, so links and the launch price can change without a release.
+- Buy buttons appear only when `BUY_URL` in `app/src/brand.ts` is set, Renew buttons when `RENEW_URL` is. They are `https://flamared.com/buy` and `/renew`: the license server (below) redirects to Stripe, so links and the launch price change without a release. While the server points at the Stripe sandbox, a release would sell test checkouts: go live first.
 
 ## Selling automatically (license-server/)
 

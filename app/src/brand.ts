@@ -4,8 +4,10 @@ export const APP_NAME = "Flamared";
 // The public repo: release notes and problem reports (the updater's address is in tauri.conf.json).
 export const REPO_URL = "https://github.com/agonqorolli/flamared";
 
-// The store page where a license is bought; the Buy buttons stay hidden while it is empty (no seller chosen yet).
-export const BUY_URL = "";
+// Where a license is bought: the license server (license-server/) redirects to the Stripe Payment Link, so the link
+// and the launch price can change without a release. The Buy buttons stay hidden while it is empty.
+export const BUY_URL = "https://flamared.com/buy";
 
-// Where a year more of updates is bought for an existing license; its Renew buttons stay hidden while it is empty.
-export const RENEW_URL = "";
+// Where a year more of updates is bought for an existing license (the license server again); its Renew buttons stay
+// hidden while it is empty.
+export const RENEW_URL = "https://flamared.com/renew";
