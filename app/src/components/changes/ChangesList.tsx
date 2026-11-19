@@ -46,7 +46,8 @@ function GroupBlock({
   reviewOf,
   onSelect,
 }: { block: Block } & Omit<Props, "sections">) {
-  const { folded, toggle } = useFold(selected, (index) => block.rows.some((row) => row.index === index));
+  const holds = (index: number) => block.rows.some((row) => row.index === index);
+  const { folded, toggle } = useFold(selected, holds, block.folded);
   return (
     <div className={cn("rounded-lg border bg-card p-1.5", block.lonely && "border-warn/30")}>
       {/* The group's name and the fold button; the longer description is on hover. */}

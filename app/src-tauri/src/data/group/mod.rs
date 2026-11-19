@@ -12,6 +12,7 @@ mod tsconfig;
 
 use super::diff::{changed_files, diff_by_file, numstat};
 use super::git::git_or_empty;
+use super::left_out;
 use super::paths::{basename, dirname, join, splitext};
 use super::tree::At;
 use imports::imports_of;
@@ -64,8 +65,10 @@ pub struct Group {
 }
 
 pub struct Grouping {
-    /// changed path -> status letter, in git's order, untracked files last (as "A")
+    /// changed path -> status letter, in git's order, untracked files last (as "A"); without the left-out files
     pub files: IndexMap<String, String>,
+    /// the changed files left out of the review by the person's patterns (see left_out.rs), path -> status
+    pub left_out: IndexMap<String, String>,
     pub groups: Vec<Group>,
     pub loose_tests: Vec<String>,
     /// kind -> the changed files that aren't code
@@ -77,7 +80,7 @@ pub struct Grouping {
 }
 
 pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
-    let files = changed_files(repo, base, at)?;
+    let (files, left_out) = left_out::split(changed_files(repo, base, at)?);
     let mut stats = numstat(repo, base, at)?;
     let code = CodeFiles::among(&files);
     let texts: HashMap<String, String> = code
@@ -127,6 +130,7 @@ pub fn group(repo: &str, base: &str, at: &At) -> Result<Grouping, String> {
         .collect();
     Ok(Grouping {
         files,
+        left_out,
         groups,
         loose_tests,
         support,

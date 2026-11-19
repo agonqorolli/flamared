@@ -52,6 +52,10 @@ export const TIPS = {
     title: "Not code",
     text: "Docs, config, data, assets and other non-code files, grouped by kind. New files not added to git yet are included.",
   },
+  leftOut: {
+    title: "Left out by your patterns",
+    text: "Changed files that match a pattern in Settings → Files. They are still part of the change, counted at the top and checked for flags, but kept out of the groups, the Timeline and the Map. Folded so you don’t step through them; open the card to see one.",
+  },
 } as const;
 export type TipKey = keyof typeof TIPS;
 

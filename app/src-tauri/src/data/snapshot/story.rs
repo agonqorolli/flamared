@@ -50,7 +50,11 @@ impl<'a> Files<'a> {
     }
 
     fn info(&self, path: &String) -> FileInfo {
-        let changed = &self.grouping.files;
+        let status = self
+            .grouping
+            .files
+            .get(path)
+            .or_else(|| self.grouping.left_out.get(path));
         let (add, rem) = self.stat(path);
         let words = self.words.get(path);
         let mut links_out: Vec<String> = self
@@ -64,7 +68,7 @@ impl<'a> Files<'a> {
         let links_in = self.grouping.importers.get(path).cloned().unwrap_or_default();
         FileInfo {
             path: path.clone(),
-            status: changed.get(path).map_or("M", |status| status.as_str()).to_string(),
+            status: status.map_or("M", |status| status.as_str()).to_string(),
             add,
             rem,
             words: words.map(|words| words.text.clone()),
@@ -148,6 +152,7 @@ pub fn story(files: &Files) -> Story {
         .filter(|kind| !kind.files.is_empty())
         .collect();
     let loose_tests = grouping.loose_tests.iter().map(|path| files.info(path)).collect();
+    let left_out = grouping.left_out.keys().map(|path| files.info(path)).collect();
     Story {
         logic,
         shared,
@@ -155,5 +160,6 @@ pub fn story(files: &Files) -> Story {
         loose,
         support,
         loose_tests,
+        left_out,
     }
 }

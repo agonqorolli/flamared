@@ -1,7 +1,7 @@
 // The open repo's data, kept current: loads it, reloads when the Rust side reports a change (Live), and remembers
 // which files and edits are new since you last looked, so the screens can mark them.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { inTauri, loadRepos, loadSnapshot, onAgentsChanged, onRepoChanged, watchRepo } from "./api";
+import { inTauri, loadRepos, loadSnapshot, onRepoChanged, onSourcesChanged, watchRepo } from "./api";
 import { lastRepo, rememberRepo } from "./repos";
 import { getItem, setItem } from "./store";
 import { buildTimeline, editKey, isShown } from "./timeline";
@@ -176,11 +176,11 @@ export function useLiveRepo() {
     void openFirst();
   }, [openFirst]);
 
-  // An agent's folder changed in Settings: watch the new folder and reload with its sessions (even while paused,
-  // since you asked for it), or, with no repo open yet, look for one again.
+  // A setting changed what is read (an agent's folder, the files to leave out): watch again and reload (even while
+  // paused, since you asked for it), or, with no repo open yet, look for one again.
   useEffect(() => {
     if (!inTauri) return;
-    const listening = onAgentsChanged(() => {
+    const listening = onSourcesChanged(() => {
       const { repo, branch, snap } = shown.current;
       if (!repo || !snap) {
         void openFirst();
@@ -189,7 +189,7 @@ export function useLiveRepo() {
       watchRepo(snap.path).catch((e) => console.warn("Live updates unavailable:", e));
       void pull(repo, branch, true);
     });
-    listening.catch((e) => console.warn("Couldn't follow agent folder changes:", e));
+    listening.catch((e) => console.warn("Couldn't follow settings changes:", e));
     return () => {
       listening.then((stop) => stop()).catch(() => {});
     };

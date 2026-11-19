@@ -45,7 +45,8 @@ pub fn rule_flags(grouping: &Grouping, diff_lines: &HashMap<&String, Vec<String>
         .map(|group| &group.files[0])
         .collect();
     let mut by_file = BTreeMap::new();
-    for (path, status) in &grouping.files {
+    // Left-out files are checked too: leaving out a folder must not hide a secret in it.
+    for (path, status) in grouping.files.iter().chain(&grouping.left_out) {
         let mut flags: Vec<String> = Vec::new();
         if status == "D" && TEST_RE.is_match(basename(path)) {
             flags.push("test deleted".into());

@@ -73,12 +73,15 @@ export function ChangesView({
     return <BranchEmpty branch={snap.viewing.branch} />;
   }
 
-  // Marking a file moves on to the next one not checked yet (wrapping round); clearing a mark stays put.
+  // Marking a file moves on to the next one not checked yet (wrapping round), never into the left-out files; clearing
+  // a mark stays put.
   const markAndMoveOn = (state: ReviewState | null, shown?: string) => {
     review.toggle(row.file, state, shown);
     if (!state) return;
     const after = rows.map((_, step) => (selectedIndex + 1 + step) % rows.length);
-    const next = after.find((index) => index !== selectedIndex && !review.stateOf(rows[index].file));
+    const next = after.find(
+      (index) => index !== selectedIndex && !rows[index].leftOut && !review.stateOf(rows[index].file),
+    );
     if (next !== undefined) select(next);
   };
 

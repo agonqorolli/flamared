@@ -23,7 +23,7 @@ pub async fn agent_folders() -> Result<Vec<AgentFolder>, String> {
 }
 
 /// Read `agent`'s sessions from the picked folder, or from its default again with None. The window then gets
-/// "agents-changed", so it reloads and watches the new folder.
+/// "sources-changed", so it reloads and watches the new folder.
 #[tauri::command]
 pub async fn agent_folder_set(app: AppHandle, agent: Agent, path: Option<String>) -> Result<Vec<AgentFolder>, String> {
     let folder = match path {
@@ -34,6 +34,6 @@ pub async fn agent_folder_set(app: AppHandle, agent: Agent, path: Option<String>
     chosen.set(agent, folder);
     app_data::write(&app, FILE, &chosen)?;
     folders::set_chosen(chosen);
-    let _ = app.emit("agents-changed", ());
+    let _ = app.emit("sources-changed", ());
     blocking(folders::status).await
 }

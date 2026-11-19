@@ -9,6 +9,7 @@ export interface Row {
   file: FileInfo;
   group: string;
   index: number; // position in the flat list (j/k and "File N of M")
+  leftOut: boolean; // left out by the patterns in Settings → Files: skipped when marking moves on
 }
 export interface Block {
   key: string;
@@ -20,6 +21,7 @@ export interface Block {
   words_agent: string | null;
   rows: Row[];
   lonely: boolean; // a loose file that uses nothing changed
+  folded: boolean; // starts folded (the left-out files)
 }
 export interface Section {
   label: string;
@@ -35,9 +37,10 @@ const sum = (files: FileInfo[], count: "add" | "rem") => files.reduce((total, fi
 const latestWords = (files: FileInfo[]) =>
   files.filter((file) => file.words).sort((a, b) => ms(b.words_at) - ms(a.words_at))[0];
 
-// The Changes list: logic groups, shared, wiring, loose files by folder, lone tests, then non-code files.
+// The Changes list: logic groups, shared, wiring, loose files by folder, lone tests, non-code files, then the files
+// left out by your patterns, folded.
 export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[] } {
-  const { logic, shared, wiring, loose, loose_tests: looseTests, support } = snap.story;
+  const { logic, shared, wiring, loose, loose_tests: looseTests, support, left_out: leftOut } = snap.story;
   const rows: Row[] = [];
 
   // One block of the list; its files take the next positions in the flat list.
@@ -47,7 +50,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
     sub: string,
     files: FileInfo[],
     tests: FileInfo[],
-    lonely = false,
+    { lonely = false, left = false } = {},
   ): Block => {
     const all = [...files, ...tests];
     const latest = latestWords(all);
@@ -60,8 +63,9 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       words: latest?.words ?? null,
       words_agent: latest?.words_agent ?? null,
       lonely,
+      folded: left,
       rows: all.map((file) => {
-        const row = { file, group: name, index: rows.length };
+        const row = { file, group: name, index: rows.length, leftOut: left };
         rows.push(row);
         return row;
       }),
@@ -71,7 +75,7 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
   const merged = (key: string, name: string, sub: string, groups: GroupItem[], lonely = false) => {
     const files = groups.flatMap((group) => group.files);
     const tests = groups.flatMap((group) => group.tests);
-    return block(key, name, sub, files, tests, lonely);
+    return block(key, name, sub, files, tests, { lonely });
   };
 
   const sections: Section[] = [];
@@ -116,6 +120,14 @@ export function buildSections(snap: Snapshot): { sections: Section[]; rows: Row[
       block(`support-${kind}`, kind, plural(files.length, "file"), files, []),
     );
     sections.push({ label: "Supporting changes", tip: "support", blocks });
+  }
+  if (leftOut.length) {
+    const sub = `${plural(leftOut.length, "file")} matching your patterns in Settings → Files`;
+    sections.push({
+      label: "Left out",
+      tip: "leftOut",
+      blocks: [block("left-out", "left out", sub, leftOut, [], { left: true })],
+    });
   }
   return { sections, rows };
 }

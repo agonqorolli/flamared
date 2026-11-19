@@ -55,6 +55,8 @@ pub struct Story {
     pub loose: Vec<LooseFolder>,
     pub support: Vec<SupportKind>,
     pub loose_tests: Vec<FileInfo>,
+    /// changed files the person's patterns leave out of the review (Settings → Files), in git's order
+    pub left_out: Vec<FileInfo>,
 }
 
 #[derive(Serialize)]

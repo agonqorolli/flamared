@@ -1,6 +1,6 @@
 // Everything the window asks of the Rust side, one function per command. This is the only file that imports
 // @tauri-apps or knows a command's name; the Rust end of each is in src-tauri/src (commands.rs, watch.rs, state.rs,
-// license.rs, agents.rs, about.rs).
+// license.rs, agents.rs, left_out.rs, about.rs).
 //
 // Outside the Tauri window (a plain browser in development) there is no Rust side. The dev server hands out one
 // saved snapshot instead, and the modules with a stand-in of their own (store.ts, license.tsx) check `inTauri`.
@@ -74,8 +74,15 @@ export async function pickAgentFolder(agent: AgentId, name: string): Promise<Age
 // Back to the agent's own default folder.
 export const resetAgentFolder = (agent: AgentId) => invoke<AgentFolder[]>("agent_folder_set", { agent, path: null });
 
-// Called after an agent's folder changed; resolves to a function that stops listening.
-export const onAgentsChanged = (handler: () => void) => listen("agents-changed", handler);
+// Called after a setting that changes what is read (an agent's folder, the files to leave out); resolves to a
+// function that stops listening.
+export const onSourcesChanged = (handler: () => void) => listen("sources-changed", handler);
+
+// --- Files to leave out of the review (left_out.rs). Only in the app.
+
+export const leftOutPatterns = () => invoke<string[]>("left_out_patterns");
+// Saves the whole list; resolves to it tidied, or throws a plain-language reason when a pattern can't be used.
+export const setLeftOutPatterns = (patterns: string[]) => invoke<string[]>("left_out_set", { patterns });
 
 // --- License (license.rs). Only in the app.
 

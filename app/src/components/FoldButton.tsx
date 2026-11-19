@@ -35,10 +35,10 @@ export function FoldButton({ folded, count, unit = "file", rows = "below", class
   );
 }
 
-// Whether a card is folded. Stepping onto one of its rows (J / K, or from another screen) opens it again, so the
-// selection stays visible.
-export function useFold(selected: number, holds: (index: number) => boolean) {
-  const [folded, setFolded] = useState(false);
+// Whether a card is folded (`startFolded`: at first). Stepping onto one of its rows (J / K, or from another screen)
+// opens it again, so the selection stays visible.
+export function useFold(selected: number, holds: (index: number) => boolean, startFolded = false) {
+  const [folded, setFolded] = useState(startFolded);
   const [seen, setSeen] = useState(selected);
   if (seen !== selected) {
     setSeen(selected);

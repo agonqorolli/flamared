@@ -6,6 +6,7 @@ mod cache;
 pub mod diff;
 pub mod git;
 pub mod group;
+pub mod left_out;
 pub mod paths;
 pub mod repos;
 pub mod sessions;

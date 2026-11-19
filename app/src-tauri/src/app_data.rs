@@ -1,5 +1,5 @@
 //! The app's own files in its data folder (~/Library/Application Support/com.flamared/ on a Mac):
-//! state.json, license.json and agents.json. Each is a small JSON file, read whole and written whole.
+//! state.json, license.json, agents.json and left-out.json. Each is a small JSON file, read whole and written whole.
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;

@@ -158,6 +158,7 @@ export interface Snapshot {
     loose: { folder: string; files: GroupItem[] }[];
     support: { kind: string; files: FileInfo[] }[];
     loose_tests: FileInfo[];
+    left_out: FileInfo[]; // left out of the review by the patterns in Settings → Files, in git's order
   };
   diffs: Record<string, string>;
   timeline: {

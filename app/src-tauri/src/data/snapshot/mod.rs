@@ -41,11 +41,18 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Snapshot, String> {
     let top = realpath(top);
     let top = top.as_str();
     // Everything that could be committed is shown: every changed, deleted and untracked (not ignored) file, any type.
+    // Files the person chose to leave out (left_out.rs) are still counted, flagged and listed, but not grouped, not
+    // linked to agent edits and not colored on the Map.
     let grouping = group(top, base, at)?;
     let changed = &grouping.files;
+    let all: IndexMap<String, String> = changed
+        .iter()
+        .chain(&grouping.left_out)
+        .map(|(path, status)| (path.clone(), status.clone()))
+        .collect();
     let untracked: HashSet<String> = at.untracked(top).into_iter().collect();
     let stats = stats_with_untracked(&grouping, &untracked, top, at);
-    let binary: HashSet<&String> = changed.keys().filter(|path| at.is_binary(top, path)).collect();
+    let binary: HashSet<&String> = all.keys().filter(|path| at.is_binary(top, path)).collect();
 
     let checked_out = current_branch(top); // empty when detached
     // The branch being shown: the checked-out one, or the one picked to view. Agent edits are matched against it.
@@ -67,8 +74,8 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Snapshot, String> {
     let head = git_line(top, &["rev-parse", "--short", at.rev()]);
 
     let files = Files::new(&grouping, &stats, &binary, &linked.words);
-    let diff_lines = diffs::lines_by_file(top, base, at, changed, &untracked);
-    let (add, rem) = changed
+    let diff_lines = diffs::lines_by_file(top, base, at, &all, &untracked);
+    let (add, rem) = all
         .keys()
         .map(|path| files.stat(path))
         .fold((0, 0), |(add, rem), (a, r)| (add + a, rem + r));
@@ -92,17 +99,17 @@ pub fn build(top: &str, base: &str, at: &At) -> Result<Snapshot, String> {
             checked_out: matches!(at, At::Work),
         },
         stats: Totals {
-            files: changed.len(),
+            files: all.len(),
             add,
             rem,
         },
         story: story::story(&files),
-        diffs: changed
+        diffs: all
             .keys()
             .map(|path| (path.clone(), diffs::shown_text(&diff_lines[path])))
             .collect(),
         map: Map {
-            files: map::files_sized(top, at, changed, |path| files.stat(path).1),
+            files: map::files_sized(top, at, &all, |path| files.stat(path).1),
             flags: flags::rule_flags(&grouping, &diff_lines),
             groups: group_names(&grouping),
         },

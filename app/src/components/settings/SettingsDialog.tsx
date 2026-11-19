@@ -1,4 +1,4 @@
-import { BotIcon, CodeIcon, InfoIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
+import { BotIcon, CodeIcon, FileMinusIcon, InfoIcon, KeyboardIcon, KeyRoundIcon, PaletteIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LicenseSettings } from "@/components/license/LicenseSettings";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,15 @@ import { AboutSettings } from "./AboutSettings";
 import { AgentSettings } from "./AgentSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { DiffSettings } from "./DiffSettings";
+import { FilesSettings } from "./FilesSettings";
 import { KeyboardSettings } from "./KeyboardSettings";
 
-// Sections of the settings menu. More come later (files to leave out...).
+// Sections of the settings menu.
 const SECTIONS = [
   { id: "appearance", label: "Appearance", icon: PaletteIcon, content: AppearanceSettings },
   { id: "diff", label: "Diff style", icon: CodeIcon, content: DiffSettings },
   { id: "agents", label: "Agents", icon: BotIcon, content: AgentSettings },
+  { id: "files", label: "Files", icon: FileMinusIcon, content: FilesSettings },
   { id: "keyboard", label: "Keyboard", icon: KeyboardIcon, content: KeyboardSettings },
   { id: "license", label: "License", icon: KeyRoundIcon, content: LicenseSettings },
   { id: "about", label: "About", icon: InfoIcon, content: AboutSettings },
