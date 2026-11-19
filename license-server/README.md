@@ -29,12 +29,14 @@ pnpm deploy
 2. Secrets, typed into wrangler (never into the repo or chat):
    - `base64 -i ~/.flamared-keys/license-signing.key | npx wrangler secret put LICENSE_SIGNING_KEY`
    - `npx wrangler secret put RESEND_API_KEY` (a Resend key with sending access only)
+   - `npx wrangler secret put OWNER_EMAIL` (step 5)
    - `STRIPE_WEBHOOK_SECRET`: the `whsec_…` of the webhook endpoint below.
 3. `pnpm deploy` (it serves `flamared.com/buy`, `/renew` and `/stripe/webhook`; the rest of the site is untouched),
    then add a Stripe webhook endpoint at `https://flamared.com/stripe/webhook` for
    `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
 4. In Resend, verify the sending domain (`FROM_EMAIL` is `licenses@flamared.com`).
-5. Fill `OWNER_EMAIL` and `REPLY_TO` in `wrangler.jsonc`.
+5. `npx wrangler secret put OWNER_EMAIL` (where renewal alerts go). `REPLY_TO` in `wrangler.jsonc` is
+   `support@flamared.com`, which Cloudflare Email Routing forwards to the owner's inbox.
 
 Local testing: put the three secrets in `.dev.vars`, run `pnpm dev`, and in another terminal
 `stripe listen --forward-to localhost:8787/stripe/webhook` (it prints the `whsec_…` to use locally).

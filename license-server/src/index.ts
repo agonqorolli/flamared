@@ -13,6 +13,8 @@ export interface Env {
   LICENSE_SIGNING_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   RESEND_API_KEY: string;
+  /** Where "a renewal needs a hand" alerts go: a secret so the address stays out of the public repo. */
+  OWNER_EMAIL: string;
   // Settings (wrangler.jsonc vars).
   BUY_LINK: string;
   BUY_LINK_ID: string;
@@ -20,7 +22,6 @@ export interface Env {
   RENEW_LINK_ID: string;
   FROM_EMAIL: string;
   REPLY_TO?: string;
-  OWNER_EMAIL: string;
   /** A Stripe promotion code added to /buy while the launch price runs, until LAUNCH_ENDS (YYYY-MM-DD, last day). */
   LAUNCH_CODE?: string;
   LAUNCH_ENDS?: string;
