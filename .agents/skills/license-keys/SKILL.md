@@ -43,9 +43,18 @@ The order defaults to a timestamp. `issue` gives a year of updates from today (`
 - Ended: `TrialEnded` replaces the whole app (the app isn't even mounted), with the key field.
 - Licensed: "Licensed to <name>", how long updates last, a field for a renewed key, and "Remove from this Mac" (back to trial/ended; the key keeps working elsewhere).
 - Updates ended before this version: `UpdatesEnded` replaces the whole app (see above). It and `TrialEnded` share `LockScreen`.
-- Buy buttons appear only once `BUY_URL` in `app/src/brand.ts` is set, Renew buttons once `RENEW_URL` is (no seller chosen yet; Paddle recommended).
+- Buy buttons appear only once `BUY_URL` in `app/src/brand.ts` is set, Renew buttons once `RENEW_URL` is. Both will point at the license server's `/buy` and `/renew` (below), not straight at Stripe, so links and the launch price can change without a release.
+
+## Selling automatically (license-server/)
+
+- A Cloudflare Worker: `/buy` and `/renew` redirect to Stripe Payment Links (Managed Payments); `/stripe/webhook` signs a key on each paid sale and emails it through Resend. Setup, Stripe ids and the launch price are in `license-server/README.md`.
+- `src/license.ts` makes keys exactly as above (WebCrypto Ed25519, same fields and order). A test checks its `PUBLIC_KEY` matches `license.rs`; every key is verified before it's sent. The signing key reaches the Worker only as the `LICENSE_SIGNING_KEY` secret (`base64 -i … | npx wrangler secret put …`).
+- Licenses are kept in KV by email (`license:<email>`), so a renewal needs no pasted key: it uses the checkout email, or the optional "License email" field on the renewal page, and `renewedUntil` (same rule as `renewed_until`). Keys issued by hand with the example tool aren't in KV; a renewal for one alerts `OWNER_EMAIL`, who renews it with `-- renew`.
+- Each order is handled once (`order:<checkout id>`); a retried webhook resends the same key, never a second renewal.
 
 ## Testing
+
+- License server: `cd license-server && pnpm test` covers signing and field order, forged and foreign keys, webhook signatures, buying, retries, renewing early and late, renewing under another email, a renewal with no license, and the launch link. To cross-check with Rust, sign a test key with the real seed in a shell variable and pass it to `-- check` (never print it).
 
 - Rust: `cargo test --lib` covers keys (valid, wrapped, forged name, other signer, junk), trial counting (days, ending, clock rollback, bad stored key), the updates window (default year, leap day, last day, renewing early and late, the refusal message) and that keys from before `updates_until` still read.
 - Browser preview: `?license=ended`, `?license=licensed`, `?license=lapsed` (updates ended), `?license=renew` (this version not covered), `?license=3` (days left); the key `test` activates there.

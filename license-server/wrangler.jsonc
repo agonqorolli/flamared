@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flamared-license-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  // Licenses by email and handled orders. Make it with `npx wrangler kv namespace create LICENSES` and put its id here.
+  "kv_namespaces": [{ "binding": "LICENSES", "id": "e699924aa219496f9e67ed0cc81b0789" }],
+  // Secrets are set with `npx wrangler secret put <NAME>`, never written here: LICENSE_SIGNING_KEY,
+  // STRIPE_WEBHOOK_SECRET, RESEND_API_KEY. For `wrangler dev`, put them in .dev.vars (ignored by git).
+  "vars": {
+    // Stripe sandbox (test mode) links. Switch to the live links when going live.
+    "BUY_LINK": "https://buy.stripe.com/test_cNifZicQBanA0fA2RiejK00",
+    "BUY_LINK_ID": "plink_1Uddh4ILE4tP9GN9Rlg2PEaW",
+    "RENEW_LINK": "https://buy.stripe.com/test_3cIeVe7wh3Zc8M6ajKejK01",
+    "RENEW_LINK_ID": "plink_1Uddh5ILE4tP9GN9bW0EeYKa",
+    "FROM_EMAIL": "Flamared <licenses@flamared.com>",
+    "REPLY_TO": "",
+    "OWNER_EMAIL": "",
+    // The launch price: a Stripe promotion code for the LAUNCH-20 coupon, and its last day (YYYY-MM-DD).
+    "LAUNCH_CODE": "",
+    "LAUNCH_ENDS": "",
+  },
+}

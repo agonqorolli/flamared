@@ -11,7 +11,7 @@ Detailed project knowledge lives in skills under `.agents/skills/` (`.claude/ski
 | The diff view (`DiffView.tsx`): CodeView, row heights, coloring, long diffs | `diffs` (the library's own docs) and `design-system` |
 | `app/src-tauri/src/data/`, agent adapters, imports per language, live watching | `agent-data` |
 | Adding or changing a keyboard shortcut | `keyboard-shortcuts` |
-| License keys, the trial, `license.rs`, `lib/license.tsx` | `license-keys` |
+| License keys, the trial, `license.rs`, `lib/license.tsx`, `license-server/` | `license-keys` |
 | Running the app or proving a change works | `preview-and-verify` |
 | The version, building and publishing a release, the updater and its signing key | `releases` |
 | Scope, wording, behavior, "why is it like this", what's next | `product-decisions` |
@@ -20,6 +20,7 @@ Detailed project knowledge lives in skills under `.agents/skills/` (`.claude/ski
 ## Layout
 
 - `app/`: the desktop app. `src/` is the window (`components/changes/`, `components/timeline/`, `components/map/` are the three screens); `src-tauri/src/` is the Rust side (`data/` is the data layer).
+- `license-server/`: the Cloudflare Worker that sells licenses (Stripe Payment Links) and emails signed keys (Resend). Its README has setup and the Stripe ids.
 
 ## Commands
 
@@ -30,6 +31,7 @@ cd app && pnpm install
 cd app && pnpm tauri dev                 # the app, with the Rust side
 cd app && pnpm format && pnpm lint && npx tsc --noEmit -p .                       # after every frontend change
 cd app/src-tauri && cargo fmt && cargo clippy --all-targets && cargo test --lib   # after Rust changes
+cd license-server && pnpm format && pnpm test && pnpm typecheck                   # after license server changes
 ```
 
 The browser preview (no Rust side, from a saved snapshot) is in the `preview-and-verify` skill.
