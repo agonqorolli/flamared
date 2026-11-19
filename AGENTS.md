@@ -8,6 +8,7 @@ Detailed project knowledge lives in skills under `.agents/skills/` (`.claude/ski
 | --- | --- |
 | Writing or changing any code in `app/` (Rust or the window) | `code-patterns` |
 | Anything people see in `app/src` (screens, cards, labels, colors, spacing, a new shadcn component) | `design-system` (and `shadcn` for the components themselves) |
+| The diff view (`DiffView.tsx`): CodeView, row heights, coloring, long diffs | `diffs` (the library's own docs) and `design-system` |
 | `app/src-tauri/src/data/`, agent adapters, imports per language, live watching | `agent-data` |
 | Adding or changing a keyboard shortcut | `keyboard-shortcuts` |
 | License keys, the trial, `license.rs`, `lib/license.tsx` | `license-keys` |

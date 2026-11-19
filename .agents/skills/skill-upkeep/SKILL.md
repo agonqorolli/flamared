@@ -29,8 +29,9 @@ Commit messages carry decisions ("drop X", "reverse Y", "rename Z") — those ma
 |---|---|
 | `app/src/index.css`, `app/src/components/**` (not `ui/`), `app/src/lib/utils.ts`, wording in UI strings | `design-system` |
 | `app/src/components/ui/**`, `components.json` | `design-system` (shadcn notes), `shadcn` is external — never edit it |
+| `app/src/components/DiffView.tsx`, `@pierre/diffs` version bumps | `design-system` (DiffView row), `product-decisions` (Long diffs); `diffs` is external — never edit it. Refresh it with `npx skills update`, run in a scratch folder and copied in, since `.claude/skills` is a link to `.agents/skills` |
 | `app/src/lib/keys.ts`, `KeyHint`, `useKeys` callers | `keyboard-shortcuts` |
-| `app/src-tauri/src/license.rs`, `examples/license.rs`, `app/src/lib/license.tsx`, `components/license/**`, `src/brand.ts` (`BUY_URL`) | `license-keys` |
+| `app/src-tauri/src/license.rs`, `app/src-tauri/build.rs`, `examples/license.rs`, `app/src/lib/license.tsx`, `components/license/**`, `src/brand.ts` (`BUY_URL`, `RENEW_URL`) | `license-keys` |
 | `app/src-tauri/src/data/**`, `watch.rs`, `state.rs`, `agents.rs`, `left_out.rs`, `app/src/lib/types.ts`, `app/src/lib/flags.ts` | `agent-data` |
 | `app/src-tauri/examples/**`, `vite.config.ts`, `package.json` scripts, `.claude/launch.json`, test setup | `preview-and-verify` |
 | `app/src/lib/updates.tsx`, `app/scripts/latest-json.mjs`, the version and `plugins.updater` in `app/src-tauri/tauri.conf.json`, `app/src-tauri/capabilities/`, `app/src-tauri/src/about.rs`, `components/settings/AboutSettings.tsx` | `releases` |
