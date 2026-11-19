@@ -1,6 +1,6 @@
 ---
 name: license-keys
-description: The offline license, its year of updates and the 14-day trial — issuing or renewing a license key for a buyer, checking a key, where the signing key lives and why it must be backed up, how the trial is counted, and how to test each state. Use when someone asks to make, check or explain a license key, or changes license/trial code (src-tauri/src/license.rs, src/lib/license.tsx, components/license/).
+description: The offline license, its year of updates and the 5-day trial — issuing or renewing a license key for a buyer, checking a key, where the signing key lives and why it must be backed up, how the trial is counted, and how to test each state. Use when someone asks to make, check or explain a license key, or changes license/trial code (src-tauri/src/license.rs, src/lib/license.tsx, components/license/).
 ---
 
 # License keys and trial
@@ -33,7 +33,7 @@ The order defaults to a timestamp. `issue` gives a year of updates from today (`
 
 ## Trial
 
-- 14 days from the first launch, in `license.json` in the app's data folder (`~/Library/Application Support/com.flamared/`), separate from `state.json`.
+- 5 days from the first launch, in `license.json` in the app's data folder (`~/Library/Application Support/com.flamared/`), separate from `state.json`.
 - Counted from the latest time ever seen, so turning the clock back gains nothing. Deleting the file or reinstalling starts a new trial — accepted.
 - Checked at launch and hourly. States: `licensed` (holder), `trial` (days left, end), `ended`.
 
@@ -49,4 +49,4 @@ The order defaults to a timestamp. `issue` gives a year of updates from today (`
 
 - Rust: `cargo test --lib` covers keys (valid, wrapped, forged name, other signer, junk), trial counting (days, ending, clock rollback, bad stored key), the updates window (default year, leap day, last day, renewing early and late, the refusal message) and that keys from before `updates_until` still read.
 - Browser preview: `?license=ended`, `?license=licensed`, `?license=lapsed` (updates ended), `?license=renew` (this version not covered), `?license=3` (days left); the key `test` activates there.
-- Desktop app: issue a key with the command above and paste it; to see "ended", edit `trial_started` in `license.json` to >14 days ago and relaunch. To see "not covered", issue a key with `--until` in the past, or run with `FLAMARED_RELEASED` after its last day. Don't print real keys in chat; capture them in a shell variable and pass them on (`K=$(… issue … | head -1); … check "$K"`).
+- Desktop app: issue a key with the command above and paste it; to see "ended", edit `trial_started` in `license.json` to >5 days ago and relaunch. To see "not covered", issue a key with `--until` in the past, or run with `FLAMARED_RELEASED` after its last day. Don't print real keys in chat; capture them in a shell variable and pass them on (`K=$(… issue … | head -1); … check "$K"`).

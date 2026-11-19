@@ -24,7 +24,7 @@ You only do this once. After that it opens like any other app.
 
 ## Trial and license
 
-Everything works for 14 days. After that Flamared needs a license: one payment, no subscription. Paste the key from your purchase email in **Settings → License**. The key is checked on your Mac; nothing is sent anywhere. To move to another Mac, choose **Remove from this Mac** there and enter the key on the new one.
+Everything works for 5 days. After that Flamared needs a license: one payment, no subscription. Paste the key from your purchase email in **Settings → License**. The key is checked on your Mac; nothing is sent anywhere. To move to another Mac, choose **Remove from this Mac** there and enter the key on the new one.
 
 ## Updates
 

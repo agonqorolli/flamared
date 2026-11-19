@@ -5,7 +5,7 @@ import { activateLicense, inTauri, licenseStatus, removeLicense } from "./api";
 import { utcToday } from "./format";
 import type { LicenseStatus } from "./types";
 
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 5;
 const DAY_SECONDS = 86400;
 const HOUR_MS = 60 * 60 * 1000;
 const BAD_KEY = "That isn't a valid license key. Copy the whole key from your purchase email and try again.";

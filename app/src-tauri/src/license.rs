@@ -1,4 +1,4 @@
-//! The license and the 14-day trial, checked offline. A license key is a small JSON record (who bought it, when)
+//! The license and the 5-day trial, checked offline. A license key is a small JSON record (who bought it, when)
 //! signed with a private key that never leaves the seller's machine (examples/license.rs makes keys); the app holds
 //! only the matching public key, so it can tell a real key from a made-up one without asking a server.
 //!
@@ -22,7 +22,7 @@ const PUBLIC_KEY: [u8; 32] = [
     58, 219, 44, 3, 145, 130, 22, 149, 55, 4, 183, 43, 147, 9, 240, 76, 228, 171, 9, 83, 80, 136, 112, 252, 46, 169,
     119, 197, 220, 248, 5, 145,
 ];
-pub const TRIAL_DAYS: i64 = 14;
+pub const TRIAL_DAYS: i64 = 5;
 const DAY: i64 = 24 * 60 * 60;
 /// How long a purchase or a renewal includes new versions.
 const UPDATE_MONTHS: u32 = 12;
@@ -274,39 +274,39 @@ mod tests {
         assert_eq!(
             status_at(&mut s, t0, RELEASED),
             Status::Trial {
-                days_left: 14,
-                ends: t0 + 14 * DAY
+                days_left: 5,
+                ends: t0 + 5 * DAY
             }
         );
         assert_eq!(s.trial_started, Some(t0));
         assert_eq!(
             status_at(&mut s, t0 + DAY, RELEASED),
             Status::Trial {
-                days_left: 13,
-                ends: t0 + 14 * DAY
+                days_left: 4,
+                ends: t0 + 5 * DAY
             }
         );
         assert_eq!(
-            status_at(&mut s, t0 + 13 * DAY + 1, RELEASED),
+            status_at(&mut s, t0 + 4 * DAY + 1, RELEASED),
             Status::Trial {
                 days_left: 1,
-                ends: t0 + 14 * DAY
+                ends: t0 + 5 * DAY
             }
         );
         assert_eq!(
-            status_at(&mut s, t0 + 14 * DAY, RELEASED),
-            Status::Ended { ended: t0 + 14 * DAY }
+            status_at(&mut s, t0 + 5 * DAY, RELEASED),
+            Status::Ended { ended: t0 + 5 * DAY }
         );
         // Turning the clock back doesn't bring the trial back.
         assert_eq!(
             status_at(&mut s, t0 + 2 * DAY, RELEASED),
-            Status::Ended { ended: t0 + 14 * DAY }
+            Status::Ended { ended: t0 + 5 * DAY }
         );
         // A key that doesn't check out is ignored.
         s.key = Some("made-up".into());
         assert_eq!(
             status_at(&mut s, t0 + 20 * DAY, RELEASED),
-            Status::Ended { ended: t0 + 14 * DAY }
+            Status::Ended { ended: t0 + 5 * DAY }
         );
     }
 
