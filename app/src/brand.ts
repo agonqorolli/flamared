@@ -6,3 +6,6 @@ export const REPO_URL = "https://github.com/agonqorolli/flamared";
 
 // The store page where a license is bought; the Buy buttons stay hidden while it is empty (no seller chosen yet).
 export const BUY_URL = "";
+
+// Where a year more of updates is bought for an existing license; its Renew buttons stay hidden while it is empty.
+export const RENEW_URL = "";

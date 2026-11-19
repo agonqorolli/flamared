@@ -5,6 +5,9 @@ export const base = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 export const dir = (path: string) => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 
 // "1 file", "3 files"; `words` for a word that doesn't just take an s ("branches").
+// Today in UTC, YYYY-MM-DD: the form each build's release day and a license's last day of updates are written in.
+export const utcToday = () => new Date().toISOString().slice(0, 10);
+
 export const plural = (count: number, word: string, words = `${word}s`) => `${count} ${count === 1 ? word : words}`;
 
 export const STATUS: Record<Status, string> = {

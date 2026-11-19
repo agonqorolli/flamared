@@ -28,6 +28,9 @@ The app updates itself from the **GitHub releases of `agonqorolli/flamared`**: i
    ```
    `bundle.createUpdaterArtifacts` makes it write `<App>.app.tar.gz` and its `.sig` next to the `.app`; without the
    key in the environment the build stops at that step.
+   The build is stamped with the day it was made (`build.rs`), and a license covers versions made while its updates
+   last (see the `license-keys` skill): bumping the version is what makes the stamp fresh, so never ship a build
+   without it.
 3. **latest.json**: `cd app && node scripts/latest-json.mjs` (pass `aarch64-apple-darwin` for an Apple-silicon-only
    build). It reads the version and the signature and writes `latest.json` in the bundle's `macos/` folder.
 4. **Release** on GitHub tagged `v<version>`, with the `.app.tar.gz`, `latest.json` and the `.dmg` people download:
@@ -54,6 +57,8 @@ One source, `app/src-tauri/icons/app-icon.svg` (1024×1024, the macOS rounded-sq
   body; macOS comes from `about.rs`, since the web view reports an old fixed version).
 - The plugin calls are in `lib/api.ts` (`installUpdate`, `restartApp`, `appVersion`); permissions `updater:default`
   and `process:allow-restart` in `capabilities/default.json`.
+- A version released after the license's updates ended (by `pub_date`) is not downloaded: the state is `held`, and
+  About says so with Renew updates. Write latest.json on release day, since `pub_date` is when the script runs.
 - A check sends nothing but the request for `latest.json`: no code, sessions or license data. Keep it that way; the
   Settings line says so.
 

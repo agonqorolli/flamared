@@ -1,5 +1,5 @@
 import { type KeyboardEvent, useState } from "react";
-import { BUY_URL } from "@/brand";
+import { BUY_URL, RENEW_URL } from "@/brand";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -7,8 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { openInBrowser } from "@/lib/api";
 import { useLicense } from "@/lib/license";
 
-// Where a license key is pasted, in Settings and on the trial-ended screen. The key is checked on this Mac.
-export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
+// What the store button beside Activate sells: a license, or a year more of updates for one.
+export type Purchase = "buy" | "renew";
+
+const STORE = {
+  buy: { url: BUY_URL, label: "Buy a license", placeholder: "Paste the key from your purchase email" },
+  renew: { url: RENEW_URL, label: "Renew updates", placeholder: "Paste the new key from your renewal email" },
+};
+
+interface Props {
+  purchase: Purchase;
+  autoFocus?: boolean;
+}
+
+// Where a license key is pasted, in Settings and on the screens that ask for one. The key is checked on this Mac.
+export function KeyForm({ purchase, autoFocus }: Props) {
+  const store = STORE[purchase];
   const { activate } = useLicense();
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +64,7 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
             setError(null);
           }}
           onKeyDown={onKeyDown}
-          placeholder="Paste the key from your purchase email"
+          placeholder={store.placeholder}
           aria-invalid={!!error || undefined}
           autoFocus={autoFocus}
           spellCheck={false}
@@ -64,16 +78,12 @@ export function KeyForm({ autoFocus }: { autoFocus?: boolean }) {
           {busy && <Spinner data-icon="inline-start" />}
           Activate
         </Button>
-        {BUY_URL && <BuyButton variant="outline" />}
+        {store.url && (
+          <Button type="button" size="sm" variant="outline" onClick={() => openInBrowser(store.url)}>
+            {store.label}
+          </Button>
+        )}
       </div>
     </form>
-  );
-}
-
-function BuyButton({ variant = "default" }: { variant?: "default" | "outline" }) {
-  return (
-    <Button type="button" size="sm" variant={variant} onClick={() => openInBrowser(BUY_URL)}>
-      Buy a license
-    </Button>
   );
 }

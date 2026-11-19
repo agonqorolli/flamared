@@ -175,12 +175,16 @@ export interface Holder {
   email: string;
   id: string;
   issued: string; // YYYY-MM-DD
+  updates_until?: string; // YYYY-MM-DD, set on renewed keys; read `updates_until` on the status instead
 }
 
+// Days are YYYY-MM-DD. `updates_until`: the last day whose new versions the key covers; `released`: the day this
+// version was made, after that.
 export type LicenseStatus =
-  | { state: "licensed"; holder: Holder }
+  | { state: "licensed"; holder: Holder; updates_until: string }
   | { state: "trial"; days_left: number; ends: number } // ends: seconds since 1970
-  | { state: "ended"; ended: number };
+  | { state: "ended"; ended: number }
+  | { state: "not_covered"; holder: Holder; updates_until: string; released: string };
 
 // What Settings → About shows that only the Rust side can read.
 export interface About {

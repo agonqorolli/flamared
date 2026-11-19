@@ -2,12 +2,17 @@
 //! signed with a private key that never leaves the seller's machine (examples/license.rs makes keys); the app holds
 //! only the matching public key, so it can tell a real key from a made-up one without asking a server.
 //!
+//! A purchase includes a year of new versions; renewing adds another year (a new key with a later `updates_until`).
+//! A version released after a key's updates ended doesn't take that key: the version you had keeps working, and the
+//! updater doesn't install one the key doesn't cover. Each build knows the day it was made (build.rs).
+//!
 //! Kept in license.json in the app's data folder, apart from state.json so the window's saved settings never touch
 //! it. The trial starts the first time the app opens. Deleting the file (or reinstalling) starts a new trial; that is
 //! accepted. Turning the clock back gains nothing: the trial counts from the latest time the app has seen.
 use crate::app_data;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
+use chrono::{Months, NaiveDate};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -19,6 +24,11 @@ const PUBLIC_KEY: [u8; 32] = [
 ];
 pub const TRIAL_DAYS: i64 = 14;
 const DAY: i64 = 24 * 60 * 60;
+/// How long a purchase or a renewal includes new versions.
+const UPDATE_MONTHS: u32 = 12;
+/// The day this build was made, YYYY-MM-DD (build.rs; `FLAMARED_RELEASED` overrides it for testing).
+pub const RELEASED: &str = env!("FLAMARED_RELEASED");
+const DAY_FORMAT: &str = "%Y-%m-%d";
 
 /// Who a license belongs to: what the signed record in a key says.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -29,6 +39,45 @@ pub struct Holder {
     pub id: String,
     /// The day it was made, YYYY-MM-DD.
     pub issued: String,
+    /// The last day whose new versions it covers, YYYY-MM-DD. Left out: a year after `issued`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updates_until: Option<String>,
+}
+
+impl Holder {
+    /// The last day of updates, YYYY-MM-DD: the one written in the key, or a year after it was made.
+    pub fn covered_until(&self) -> String {
+        self.updates_until
+            .clone()
+            .unwrap_or_else(|| a_year_after(&self.issued).unwrap_or_else(|| self.issued.clone()))
+    }
+
+    /// Whether a version made on `released` (YYYY-MM-DD) came out while this key's updates lasted.
+    pub fn covers(&self, released: &str) -> bool {
+        released <= self.covered_until().as_str()
+    }
+}
+
+/// The last day of updates for a renewal made on `today`: a year on from where the old key's updates end, or from
+/// today if they have already ended, so renewing early loses nothing.
+pub fn renewed_until(old: &Holder, today: &str) -> Option<String> {
+    a_year_after(old.covered_until().as_str().max(today))
+}
+
+/// The same day a year later (Feb 29 becomes Feb 28), YYYY-MM-DD.
+fn a_year_after(day: &str) -> Option<String> {
+    let date = NaiveDate::parse_from_str(day, DAY_FORMAT).ok()?;
+    Some(
+        date.checked_add_months(Months::new(UPDATE_MONTHS))?
+            .format(DAY_FORMAT)
+            .to_string(),
+    )
+}
+
+/// "Nov 15, 2026", for messages; the day as given if it isn't a date.
+fn long_date(day: &str) -> String {
+    NaiveDate::parse_from_str(day, DAY_FORMAT)
+        .map_or_else(|_| day.to_string(), |date| date.format("%b %-d, %Y").to_string())
 }
 
 /// A key as given to a buyer: the record and its signature, each in URL-safe base64, joined by a dot.
@@ -67,18 +116,34 @@ struct Saved {
 #[derive(Serialize, Debug, PartialEq)]
 #[serde(tag = "state", rename_all = "lowercase")]
 pub enum Status {
-    Licensed { holder: Holder },
-    Trial { days_left: i64, ends: i64 },
-    Ended { ended: i64 },
+    Licensed {
+        holder: Holder,
+        updates_until: String,
+    },
+    Trial {
+        days_left: i64,
+        ends: i64,
+    },
+    Ended {
+        ended: i64,
+    },
+    /// A real key whose updates ended before this version (made on `released`) came out.
+    #[serde(rename = "not_covered")]
+    NotCovered {
+        holder: Holder,
+        updates_until: String,
+        released: String,
+    },
 }
 
-/// The status at `now` (seconds), starting the trial if it hasn't started. Updates `saved`; the caller writes it.
-fn status_at(saved: &mut Saved, now: i64) -> Status {
+/// The status at `now` (seconds) of a build made on `released`, starting the trial if it hasn't started. Updates
+/// `saved`; the caller writes it.
+fn status_at(saved: &mut Saved, now: i64, released: &str) -> Status {
     let now = now.max(saved.last_seen.unwrap_or(now));
     saved.last_seen = Some(now);
     let started = *saved.trial_started.get_or_insert(now);
     if let Some(holder) = saved.key.as_deref().and_then(|k| verify(k).ok()) {
-        return Status::Licensed { holder };
+        return licensed(holder, released);
     }
     let ends = started + TRIAL_DAYS * DAY;
     match ends - now {
@@ -87,6 +152,19 @@ fn status_at(saved: &mut Saved, now: i64) -> Status {
             ends,
         },
         _ => Status::Ended { ended: ends },
+    }
+}
+
+/// The status a real key gives a build made on `released`: licensed, or not covered once its updates had ended.
+fn licensed(holder: Holder, released: &str) -> Status {
+    let updates_until = holder.covered_until();
+    if holder.covers(released) {
+        return Status::Licensed { holder, updates_until };
+    }
+    Status::NotCovered {
+        holder,
+        updates_until,
+        released: released.to_string(),
     }
 }
 
@@ -108,18 +186,33 @@ fn now() -> i64 {
 #[tauri::command]
 pub fn license_status(app: AppHandle) -> Status {
     let mut saved = load(&app);
-    let status = status_at(&mut saved, now());
+    let status = status_at(&mut saved, now(), RELEASED);
     let _ = save(&app, &saved);
     status
 }
 
-/// Enter a license key: saved when it is valid, otherwise the reason it isn't.
+/// Why a real key can't be used with a build made on `released`, if it can't.
+fn not_covered_reason(holder: &Holder, released: &str) -> Option<String> {
+    if holder.covers(released) {
+        return None;
+    }
+    let until = long_date(&holder.covered_until());
+    Some(format!(
+        "This key's updates ended on {until}, and this version came out on {}. Renew for another year of updates, or use a version from before {until}.",
+        long_date(released)
+    ))
+}
+
+/// Enter a license key: saved when it is valid for this version, otherwise the reason it isn't.
 #[tauri::command]
 pub fn license_activate(app: AppHandle, key: String) -> Result<Status, String> {
-    verify(&key)?;
+    let holder = verify(&key)?;
+    if let Some(reason) = not_covered_reason(&holder, RELEASED) {
+        return Err(reason);
+    }
     let mut saved = load(&app);
     saved.key = Some(key.chars().filter(|c| !c.is_whitespace()).collect());
-    let status = status_at(&mut saved, now());
+    let status = status_at(&mut saved, now(), RELEASED);
     save(&app, &saved)?;
     Ok(status)
 }
@@ -129,7 +222,7 @@ pub fn license_activate(app: AppHandle, key: String) -> Result<Status, String> {
 pub fn license_remove(app: AppHandle) -> Result<Status, String> {
     let mut saved = load(&app);
     saved.key = None;
-    let status = status_at(&mut saved, now());
+    let status = status_at(&mut saved, now(), RELEASED);
     save(&app, &saved)?;
     Ok(status)
 }
@@ -145,6 +238,7 @@ mod tests {
             email: "ada@example.com".into(),
             id: "1".into(),
             issued: "2026-11-16".into(),
+            updates_until: None,
         }
     }
 
@@ -178,7 +272,7 @@ mod tests {
         let mut s = Saved::default();
         let t0 = 1_800_000_000;
         assert_eq!(
-            status_at(&mut s, t0),
+            status_at(&mut s, t0, RELEASED),
             Status::Trial {
                 days_left: 14,
                 ends: t0 + 14 * DAY
@@ -186,24 +280,86 @@ mod tests {
         );
         assert_eq!(s.trial_started, Some(t0));
         assert_eq!(
-            status_at(&mut s, t0 + DAY),
+            status_at(&mut s, t0 + DAY, RELEASED),
             Status::Trial {
                 days_left: 13,
                 ends: t0 + 14 * DAY
             }
         );
         assert_eq!(
-            status_at(&mut s, t0 + 13 * DAY + 1),
+            status_at(&mut s, t0 + 13 * DAY + 1, RELEASED),
             Status::Trial {
                 days_left: 1,
                 ends: t0 + 14 * DAY
             }
         );
-        assert_eq!(status_at(&mut s, t0 + 14 * DAY), Status::Ended { ended: t0 + 14 * DAY });
+        assert_eq!(
+            status_at(&mut s, t0 + 14 * DAY, RELEASED),
+            Status::Ended { ended: t0 + 14 * DAY }
+        );
         // Turning the clock back doesn't bring the trial back.
-        assert_eq!(status_at(&mut s, t0 + 2 * DAY), Status::Ended { ended: t0 + 14 * DAY });
+        assert_eq!(
+            status_at(&mut s, t0 + 2 * DAY, RELEASED),
+            Status::Ended { ended: t0 + 14 * DAY }
+        );
         // A key that doesn't check out is ignored.
         s.key = Some("made-up".into());
-        assert_eq!(status_at(&mut s, t0 + 20 * DAY), Status::Ended { ended: t0 + 14 * DAY });
+        assert_eq!(
+            status_at(&mut s, t0 + 20 * DAY, RELEASED),
+            Status::Ended { ended: t0 + 14 * DAY }
+        );
+    }
+
+    #[test]
+    fn updates() {
+        // A year after the key was made, or the day written in it; Feb 29 becomes Feb 28.
+        assert_eq!(holder().covered_until(), "2027-11-16");
+        let leap = Holder {
+            issued: "2028-02-29".into(),
+            ..holder()
+        };
+        assert_eq!(leap.covered_until(), "2029-02-28");
+        let renewed = Holder {
+            updates_until: Some("2028-11-16".into()),
+            ..holder()
+        };
+        assert_eq!(renewed.covered_until(), "2028-11-16");
+        // The last day still counts; the day after doesn't.
+        assert!(holder().covers("2027-11-16"));
+        assert!(!holder().covers("2027-11-17"));
+        assert!(not_covered_reason(&holder(), "2027-11-16").is_none());
+        assert_eq!(
+            not_covered_reason(&holder(), "2027-12-03").as_deref(),
+            Some(
+                "This key's updates ended on Nov 16, 2027, and this version came out on Dec 3, 2027. Renew for another year of updates, or use a version from before Nov 16, 2027."
+            )
+        );
+        assert_eq!(
+            licensed(holder(), "2027-01-10"),
+            Status::Licensed {
+                holder: holder(),
+                updates_until: "2027-11-16".into()
+            }
+        );
+        assert_eq!(
+            licensed(holder(), "2027-12-03"),
+            Status::NotCovered {
+                holder: holder(),
+                updates_until: "2027-11-16".into(),
+                released: "2027-12-03".into()
+            }
+        );
+        // Renewing early adds a year to the end; renewing late adds a year from the day of the renewal.
+        assert_eq!(renewed_until(&holder(), "2027-06-01").as_deref(), Some("2028-11-16"));
+        assert_eq!(renewed_until(&holder(), "2028-03-15").as_deref(), Some("2029-03-15"));
+    }
+
+    #[test]
+    fn old_keys_still_read() {
+        // A key made before `updates_until` existed has no such field; its record still reads, and the field is
+        // left out of new records that don't set it, so their bytes (and signatures) stay the same.
+        let old = r#"{"name":"Ada","email":"ada@example.com","id":"1","issued":"2026-11-16"}"#;
+        assert_eq!(serde_json::from_str::<Holder>(old).unwrap(), holder());
+        assert_eq!(serde_json::to_string(&holder()).unwrap(), old);
     }
 }

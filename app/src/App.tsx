@@ -5,6 +5,7 @@ import { BranchEmpty } from "@/components/BranchEmpty";
 import { Header } from "@/components/header/Header";
 import { KeyHint } from "@/components/KeyHint";
 import { TrialEnded } from "@/components/license/TrialEnded";
+import { UpdatesEnded } from "@/components/license/UpdatesEnded";
 import { LoadingHints } from "@/components/loading/LoadingHints";
 import { LogoLoader } from "@/components/loading/LogoLoader";
 import { useLoadingScreen } from "@/components/loading/useLoadingScreen";
@@ -24,23 +25,27 @@ import { UpdatesProvider } from "@/lib/updates";
 import { cn } from "@/lib/utils";
 import type { View } from "@/lib/views";
 
-// The license decides what the window shows: the app, or the trial-ended screen (the app isn't even started then).
+// The license decides what the window shows: the app, or the screen that asks for a key (the app isn't even started
+// then). Updates sit inside the license: they install only versions the key covers.
 export default function App({ license }: { license: LicenseStatus }) {
   return (
     <SettingsProvider>
-      <UpdatesProvider>
-        <LicenseProvider initial={license}>
+      <LicenseProvider initial={license}>
+        <UpdatesProvider>
           <TooltipProvider delayDuration={200}>
             <Gate />
           </TooltipProvider>
-        </LicenseProvider>
-      </UpdatesProvider>
+        </UpdatesProvider>
+      </LicenseProvider>
     </SettingsProvider>
   );
 }
 
 function Gate() {
-  return useLicense().status.state === "ended" ? <TrialEnded /> : <Workspace />;
+  const { status } = useLicense();
+  if (status.state === "ended") return <TrialEnded />;
+  if (status.state === "not_covered") return <UpdatesEnded />;
+  return <Workspace />;
 }
 
 // The app itself: the header, and under it the open repo's screens, or what stands in for them while there is

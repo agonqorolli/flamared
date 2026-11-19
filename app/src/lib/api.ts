@@ -12,6 +12,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
+import { utcToday } from "./format";
 import type { About, AgentFolder, AgentId, BranchFiles, LicenseStatus, RepoRow, RepoStatus, Snapshot } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -97,15 +98,26 @@ export const appVersion = () => getVersion();
 // The macOS version and the app's data folder (about.rs). Only in the app.
 export const aboutApp = () => invoke<About>("about");
 
-// Looks for a newer version and, when there is one, downloads and installs it, calling `onFound` with its version
-// before the download starts. Resolves to that version, or null when this is the newest. The installed version
-// runs from the next start (`restartApp`).
-export async function installUpdate(onFound: (version: string) => void): Promise<string | null> {
+// What a look for a newer version found.
+export type UpdateResult =
+  | { found: "none" } // this is the newest
+  | { found: "installed"; version: string } // runs from the next start (`restartApp`)
+  | { found: "held"; version: string }; // released after the license's updates ended, so not downloaded
+
+// Looks for a newer version and, when there is one the license covers (`covered`, given the day it was released,
+// YYYY-MM-DD), downloads and installs it, calling `onFound` with its version before the download starts.
+export async function installUpdate(
+  onFound: (version: string) => void,
+  covered: (released: string) => boolean,
+): Promise<UpdateResult> {
   const update = await check();
-  if (!update) return null;
+  if (!update) return { found: "none" };
+  // The date is RFC 3339 in UTC, like the day each build is stamped with; without one it counts as today.
+  const released = update.date?.slice(0, 10) ?? utcToday();
+  if (!covered(released)) return { found: "held", version: update.version };
   onFound(update.version);
   await update.downloadAndInstall();
-  return update.version;
+  return { found: "installed", version: update.version };
 }
 
 export const restartApp = () => relaunch();

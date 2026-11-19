@@ -3,8 +3,10 @@
 //! means anyone can make keys.
 //!   cargo run --example license -- new-keypair                      once: makes the signing key, prints the public key
 //!   cargo run --example license -- issue "<name>" <email> [order]   prints a license key to send to the buyer
+//!                                                                   (updates for a year; --until YYYY-MM-DD sets the end)
+//!   cargo run --example license -- renew <key> [order]              a new key for the same buyer with a year more updates
 //!   cargo run --example license -- check <key>                      who a key belongs to, as the app sees it
-use app_lib::license::{Holder, encode, verify};
+use app_lib::license::{Holder, encode, renewed_until, verify};
 use ed25519_dalek::{Signer, SigningKey};
 use std::io::Read;
 use std::path::PathBuf;
@@ -25,6 +27,46 @@ fn signer() -> SigningKey {
             .try_into()
             .unwrap_or_else(|_| fail("The signing key file is damaged.")),
     )
+}
+
+/// Signs a key for `holder` and prints it with the last day of its updates, after checking the app would accept it.
+fn print_key(holder: Holder) {
+    let signer = signer();
+    let key = encode(&holder, |r| signer.sign(r).to_bytes());
+    match verify(&key) {
+        Ok(holder) => println!("{key}\n\nUpdates until {}.", holder.covered_until()),
+        Err(_) => fail(
+            "Made a key, but the app wouldn't accept it: the public key in src/license.rs doesn't match this signing key.",
+        ),
+    }
+}
+
+/// The arguments without `--until <day>`, and that day if it was given (checked to be YYYY-MM-DD).
+fn take_until(args: &[String]) -> (Vec<String>, Option<String>) {
+    let Some(at) = args.iter().position(|a| a == "--until") else {
+        return (args.to_vec(), None);
+    };
+    let day = args
+        .get(at + 1)
+        .unwrap_or_else(|| fail("--until needs a day, YYYY-MM-DD"));
+    if chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").is_err() {
+        fail("--until needs a day, YYYY-MM-DD");
+    }
+    let rest = args
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != at && *i != at + 1)
+        .map(|(_, a)| a.clone());
+    (rest.collect(), Some(day.clone()))
+}
+
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// An order number from the time, when none is given.
+fn order_now() -> String {
+    chrono::Local::now().format("%Y%m%d%H%M%S").to_string()
 }
 
 fn fail(msg: &str) -> ! {
@@ -56,35 +98,44 @@ fn main() {
             println!("Public key for src/license.rs:\nconst PUBLIC_KEY: [u8; 32] = {public:?};");
         }
         Some("issue") => {
-            let (Some(name), Some(email)) = (args.get(1), args.get(2)) else {
-                fail("usage: issue \"<name>\" <email> [order]")
+            let (rest, until) = take_until(&args[1..]);
+            let (Some(name), Some(email)) = (rest.first(), rest.get(1)) else {
+                fail("usage: issue \"<name>\" <email> [order] [--until YYYY-MM-DD]")
             };
-            let issued = chrono::Local::now().format("%Y-%m-%d").to_string();
-            let id = args
-                .get(3)
-                .cloned()
-                .unwrap_or_else(|| chrono::Local::now().format("%Y%m%d%H%M%S").to_string());
-            let signer = signer();
-            let key = encode(
-                &Holder {
-                    name: name.clone(),
-                    email: email.clone(),
-                    id,
-                    issued,
-                },
-                |r| signer.sign(r).to_bytes(),
-            );
-            match verify(&key) {
-                Ok(_) => println!("{key}"),
-                Err(_) => fail(
-                    "Made a key, but the app wouldn't accept it: the public key in src/license.rs doesn't match this signing key.",
-                ),
-            }
+            print_key(Holder {
+                name: name.clone(),
+                email: email.clone(),
+                id: rest.get(2).cloned().unwrap_or_else(order_now),
+                issued: today(),
+                updates_until: until,
+            });
+        }
+        Some("renew") => {
+            let Some(old) = args.get(1) else {
+                fail("usage: renew <key> [order]")
+            };
+            let old = verify(old).unwrap_or_else(|e| fail(&e));
+            let until = renewed_until(&old, &today()).unwrap_or_else(|| fail("The old key's dates don't read."));
+            print_key(Holder {
+                id: args.get(2).cloned().unwrap_or_else(order_now),
+                issued: today(),
+                updates_until: Some(until),
+                ..old
+            });
         }
         Some("check") => match verify(&args[1..].join("")) {
-            Ok(h) => println!("Valid: {} <{}>, order {}, made {}", h.name, h.email, h.id, h.issued),
+            Ok(h) => println!(
+                "Valid: {} <{}>, order {}, made {}, updates until {}",
+                h.name,
+                h.email,
+                h.id,
+                h.issued,
+                h.covered_until()
+            ),
             Err(e) => fail(&e),
         },
-        _ => fail("usage: license new-keypair | issue \"<name>\" <email> [order] | check <key>"),
+        _ => fail(
+            "usage: license new-keypair | issue \"<name>\" <email> [order] [--until YYYY-MM-DD] | renew <key> [order] | check <key>",
+        ),
     }
 }
