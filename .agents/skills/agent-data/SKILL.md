@@ -1,6 +1,6 @@
 ---
 name: agent-data
-description: What coding agents record on disk and how the app turns it into Changes, Timeline and Map — Claude Code transcripts, Codex rollouts, git, the Rust data layer (src-tauri/src/data), linking sessions to a branch, grouping by imports, reading order, checks (tests, types, lint, build), effects outside the diff, rule flags, "still in final", live watching, branch views, caching. Use when changing anything under app/src-tauri/src/data, adding an agent adapter or a language's imports, or answering what the app can know about an agent's work.
+description: What coding agents record on disk and how the app turns it into Changes, Timeline and Map — Claude Code transcripts, Codex rollouts, git, the Rust data layer (src-tauri/src/data), linking sessions to a branch, grouping by imports, reading order, checks (tests, types, lint, build), effects outside the diff, rule flags, "still in final", live watching, branch views, caching, where agent folders are (Settings → Agents) and files left out of the review (Settings → Files). Use when changing anything under app/src-tauri/src/data, adding an agent adapter or a language's imports, or answering what the app can know about an agent's work.
 ---
 
 # Agent data and the data layer

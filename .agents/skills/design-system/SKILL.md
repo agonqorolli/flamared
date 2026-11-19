@@ -60,7 +60,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `PaneHandle` | the drag edge of the left list or the side column; saves the width, double-click resets |
 | `FileCard` | head card of the side column: "5 of 25" (or "← Overview" on the Map), jump buttons, file name, agent's words; previous/next are `StepButtons` above it |
 | `StepButtons` | previous / next across the full width of the side column, above its first card (J / K); only the arrows when the column is narrow |
-| `FoldButton` | the bare chevron that folds a card in a left list (a group in Changes, a turn in Timeline); open it points at its rows, folded it points right |
+| `FoldButton` | the bare chevron that folds a card in a left list (a group in Changes, a turn in Timeline); open it points at its rows, folded it points right; `useFold(selected, holds, startFolded)` can start a card folded (the "Left out" card in Changes) |
 | `JumpButton` | the icon button that shows the same file on another screen (`to="timeline"`) |
 | `InfoButton` | the small ⓘ; wrap it in a tooltip's or popover's trigger |
 | `MiniCard`, `MiniRow` | small titled card and its rows (Uses, Used by, File history, Checks after this edit, map overview); a `MiniRow` without `onClick` is display-only |
@@ -76,6 +76,7 @@ Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (
 | `loading/LogoLoader` | the animated logo on the loading and first-load screens, in place of a spinner: the flame stands still while green types across its code lines one after another (`animate-logo-type`); with reduced motion it is the still icon, fading gently |
 | `settings/SectionHead` | title + one line under it, for a Settings section |
 | `settings/SettingRow` | `SettingRow` (a setting's name and line on the left, its control on the right), `Choice` (a few values side by side), `SettingsBody`, `ResetButton` |
+| `settings/SettingsDialog` | the menu (`SECTIONS`): Appearance, Diff style, Agents, Files, Flags, Keyboard, License, About (last, as in Mac apps). A section is `SectionHead` + `SettingsBody` + `SettingRow`s; one that needs the Rust side shows a line saying so in the browser preview |
 
 Jump buttons to other screens (`JumpButton`) are `variant="outline" size="icon-xs"` with the nav icons from `lib/views.ts`: Changes `FileDiffIcon`, Timeline `ClockIcon`, Map `MapIcon`, in that order, top right of the card.
 
@@ -93,4 +94,4 @@ Repo row: name · **N changed files** badge (gray; uncommitted files, the same c
 
 Plain words, no code-review or GitHub terms: "Looks good / Needs work / Not checked", not Approve / Reject. Say what something is for the person using it ("Used by no changed files"), not how it's computed. Sentence case. The product name only via `APP_NAME` in `src/brand.ts`.
 
-Selecting a branch shows that branch's content. When it has no changes, show **"No changes on <branch>"** and "This branch has no file changes to show." No return CTA or explanation about the working folder in this empty state. When the first repo can't be read, the screen shows "Couldn't read this repository" with Retry and **Open folder…**, since the header has no repo picker yet. Keep the distinction between a preview and the working folder in branch-picker help, not in the main content. Git terms ("check out", "worktree") are fine in user-facing copy when they are the clearest word. The branch picker changes what the app shows, not the files on disk. Git commands, internal field names, and technical comments can keep Git terminology.
+Selecting a branch shows that branch's content. When it has no changes, show **"No changes on <branch>"** and "This branch has no file changes to show." No return CTA or explanation about the working folder in this empty state. When the first repo can't be read, the screen shows "Couldn't read this repository" with Retry and **Open folder…**, since the header has no repo picker yet. Before any repo is found, the screen says "No repository yet" with **Agent folders…**, which opens Settings → Agents. Keep the distinction between a preview and the working folder in branch-picker help, not in the main content. Git terms ("check out", "worktree") are fine in user-facing copy when they are the clearest word. The branch picker changes what the app shows, not the files on disk. Git commands, internal field names, and technical comments can keep Git terminology.

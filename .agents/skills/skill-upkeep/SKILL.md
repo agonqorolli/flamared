@@ -31,9 +31,9 @@ Commit messages carry decisions ("drop X", "reverse Y", "rename Z") — those ma
 | `app/src/components/ui/**`, `components.json` | `design-system` (shadcn notes), `shadcn` is external — never edit it |
 | `app/src/lib/keys.ts`, `KeyHint`, `useKeys` callers | `keyboard-shortcuts` |
 | `app/src-tauri/src/license.rs`, `examples/license.rs`, `app/src/lib/license.tsx`, `components/license/**`, `src/brand.ts` (`BUY_URL`) | `license-keys` |
-| `app/src-tauri/src/data/**`, `watch.rs`, `state.rs`, `app/src/lib/types.ts` | `agent-data` |
+| `app/src-tauri/src/data/**`, `watch.rs`, `state.rs`, `agents.rs`, `left_out.rs`, `app/src/lib/types.ts`, `app/src/lib/flags.ts` | `agent-data` |
 | `app/src-tauri/examples/**`, `vite.config.ts`, `package.json` scripts, `.claude/launch.json`, test setup | `preview-and-verify` |
-| `app/src/lib/updates.tsx`, `app/scripts/latest-json.mjs`, the version and `plugins.updater` in `app/src-tauri/tauri.conf.json`, `app/src-tauri/capabilities/` | `releases` |
+| `app/src/lib/updates.tsx`, `app/scripts/latest-json.mjs`, the version and `plugins.updater` in `app/src-tauri/tauri.conf.json`, `app/src-tauri/capabilities/`, `app/src-tauri/src/about.rs`, `components/settings/AboutSettings.tsx` | `releases` |
 | `app/src/brand.ts`, `app/src-tauri/icons/**`, the `[[bin]]` name in `app/src-tauri/Cargo.toml` | `product-decisions` |
 | product scope, pricing, platforms, names, anything a commit message calls a decision | `product-decisions` |
 | `AGENTS.md`, `.agents/skills/**`, `.claude/skills` symlink, `.claude/settings.json`, `.claude/hooks/**` | `skill-upkeep` (this one) |
