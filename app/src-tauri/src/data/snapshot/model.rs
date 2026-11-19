@@ -24,7 +24,8 @@ pub struct Snapshot {
     pub viewing: Viewing,
     pub stats: Totals,
     pub story: Story,
-    /// changed path -> its diff as text, in git's order
+    /// changed path -> its diff as text, in git's order; one longer than 400 lines is cut, its last line saying how
+    /// many more there are and a hash of the whole diff (diffs.rs)
     pub diffs: IndexMap<String, String>,
     pub timeline: Timeline,
     pub map: Map,

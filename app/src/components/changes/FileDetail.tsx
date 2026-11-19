@@ -1,4 +1,4 @@
-import { CheckIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronsDownIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DiffView } from "@/components/DiffView";
 import { FileCard } from "@/components/FileCard";
@@ -8,6 +8,7 @@ import { MiniCard, MiniRow } from "@/components/MiniCard";
 import { SideColumn } from "@/components/SideColumn";
 import { StepButtons } from "@/components/StepButtons";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Delta } from "@/lib/delta";
 import { base, plural } from "@/lib/format";
@@ -15,6 +16,7 @@ import { hint, useKeys } from "@/lib/keys";
 import type { ReviewState } from "@/lib/review";
 import { cn } from "@/lib/utils";
 import { type Row, toPatch } from "./model";
+import { useWholeDiff, type WholeDiff } from "./useWholeDiff";
 
 interface Props {
   row: Row;
@@ -23,6 +25,7 @@ interface Props {
   diff: string;
   reviewOf: (diff: string) => ReviewState | null; // the mark for the version on screen
   changedSince: (diff: string) => { was: ReviewState; delta: Delta } | null; // what is new since a reset mark
+  loadWhole: ((path: string) => Promise<string>) | null; // a file's whole diff, for Show all; null in the preview
   inTimeline: boolean;
   onReview: (state: ReviewState | null, shown?: string) => void;
   onStep: (step: 1 | -1) => void;
@@ -40,6 +43,7 @@ export function FileDetail({
   diff,
   reviewOf,
   changedSince,
+  loadWhole,
   inTimeline,
   onReview,
   onStep,
@@ -68,8 +72,9 @@ export function FileDetail({
   const mark = (state: ReviewState) => reviewShown(review === state ? null : state);
   useKeys(active, { looksGood: () => mark("approved"), needsWork: () => mark("rejected") });
 
+  const whole = useWholeDiff(file.path, shown, loadWhole ?? noWholeDiff);
   const hasTextDiff = !file.binary && shown.trim() !== "";
-  const { patch, more } = hasTextDiff ? toPatch(file, shown) : { patch: null, more: null };
+  const patch = hasTextDiff ? toPatch(file, whole.text) : null;
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3 p-3">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -89,7 +94,7 @@ export function FileDetail({
         <DiffView
           id={`${file.path}:${stale ? "held" : "latest"}`}
           patch={patch}
-          more={more}
+          footer={whole.left !== null && <CutNote whole={whole} canLoad={!!loadWhole} />}
           newLines={since?.delta}
           empty={file.binary ? "Binary file: no text diff to show" : "No text diff (empty file)"}
         />
@@ -122,6 +127,26 @@ export function FileDetail({
           onSelect={onSelect}
         />
       </SideColumn>
+    </div>
+  );
+}
+
+// In the browser preview there is no Rust side to ask.
+const noWholeDiff = () => Promise.reject(new Error("The whole diff is read in the app, not in this preview."));
+
+// Under a diff cut at 2,000 lines: how many lines are left out, and Show all to load and draw them.
+function CutNote({ whole, canLoad }: { whole: WholeDiff; canLoad: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t px-4 py-2 text-xs text-faint">
+      <span className={cn(whole.error && "text-destructive")}>
+        {whole.error ?? `${plural(whole.left ?? 0, "more line")} not shown`}
+      </span>
+      {canLoad && (
+        <Button variant="outline" size="xs" onClick={whole.showAll} disabled={whole.loading}>
+          {whole.loading ? <Spinner data-icon="inline-start" /> : <ChevronsDownIcon data-icon="inline-start" />}
+          Show all
+        </Button>
+      )}
     </div>
   );
 }

@@ -30,6 +30,14 @@ export interface Section {
 }
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/;
+// The last line of a diff cut at 2,000 lines: "… 520 more lines · <hash of the whole diff>" (snapshot/diffs.rs).
+const CUT_NOTE = /^… (\d+) more lines/;
+
+// How many lines were cut off a diff from the snapshot; null when it is whole.
+export function linesLeftOut(diff: string): number | null {
+  const found = CUT_NOTE.exec(diff.slice(diff.lastIndexOf("\n") + 1));
+  return found ? Number(found[1]) : null;
+}
 
 const sum = (files: FileInfo[], count: "add" | "rem") => files.reduce((total, file) => total + file[count], 0);
 
@@ -134,12 +142,11 @@ export function buildSections(snap: Snapshot, notConnected = true): { sections: 
 }
 
 // A unified patch the diff component can read; our diffs are hunks only, without file headers.
-// Long diffs are cut at 400 lines, so each hunk header's line counts are worked out again from what is left.
-export function toPatch(file: FileInfo, diff: string): { patch: string; more: string | null } {
+// Long diffs are cut at 2,000 lines, so each hunk header's line counts are worked out again from what is left.
+export function toPatch(file: FileInfo, diff: string): string {
   const lines = diff.split("\n");
-  // A diff that was cut ends with a line saying how many more lines there are.
-  const wasCut = lines[lines.length - 1].startsWith("… ");
-  const more = wasCut ? (lines.pop() ?? null) : null;
+  // A diff that was cut ends with a line saying how many more lines there are; it isn't code.
+  if (linesLeftOut(diff) !== null) lines.pop();
   for (let i = 0; i < lines.length; i++) {
     const header = HUNK_HEADER.exec(lines[i]);
     if (!header) continue;
@@ -149,5 +156,5 @@ export function toPatch(file: FileInfo, diff: string): { patch: string; more: st
     lines[i] = hunkHeader(oldStart, newStart, lines.slice(i + 1, end), context);
   }
   const header = fileHeader(file.path, { added: file.status === "A", deleted: file.status === "D" });
-  return { patch: `${header}${lines.join("\n")}\n`, more };
+  return `${header}${lines.join("\n")}\n`;
 }

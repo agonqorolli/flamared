@@ -19,6 +19,12 @@ pub async fn snapshot(repo: String, branch: Option<String>) -> Result<Snapshot, 
     blocking(move || crate::data::snapshot::view(&repo, branch.as_deref())).await?
 }
 
+/// One changed file's whole diff, for Show all: the snapshot's diffs are cut at 400 lines.
+#[tauri::command]
+pub async fn file_diff(repo: String, branch: Option<String>, path: String) -> Result<String, String> {
+    blocking(move || crate::data::snapshot::file_diff(&repo, branch.as_deref(), &path)).await?
+}
+
 /// The repo a picked folder belongs to (its top folder), or a plain-language reason it can't be opened.
 #[tauri::command]
 pub fn repo_root(path: String) -> Result<String, String> {

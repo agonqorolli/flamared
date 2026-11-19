@@ -1,5 +1,6 @@
-import { PatchDiff } from "@pierre/diffs/react";
-import type { CSSProperties } from "react";
+import { type CodeViewItem, parsePatchFiles } from "@pierre/diffs";
+import { CodeView } from "@pierre/diffs/react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { type DiffSettings, LIGHT_THEME, type Theme, useSettings } from "@/lib/settings";
 
 // A line of code is this many times as tall as its text.
@@ -28,10 +29,16 @@ function newLinesCss({ added, removed }: NewLines, lineNumbers: boolean) {
   return `${selectors.join(",\n")} { box-shadow: inset ${NEW_LINE_BAR_PX}px 0 0 var(--selection); ${look} }`;
 }
 
+// A row of the diff in px at a font size; CodeView is told it too, to work out how tall the whole diff is.
+const lineHeightAt = (fontSize: number) => Math.round(fontSize * LINE_HEIGHT);
+
 // The diff component's options and font size from the Diff style settings; in Light mode the theme's light twin.
+// Colored by the library's own engine, Highlights: it colors 20,000 lines in about 0.2 s on the window itself, where
+// the default (Shiki) took 25 s in background workers and froze the window for 45 s without them.
 export function diffOptions(diff: DiffSettings, theme: Theme) {
   return {
     options: {
+      preferredHighlighter: "highlights" as const,
       theme: { dark: diff.theme, light: LIGHT_THEME[diff.theme] },
       themeType: theme === "light" ? ("light" as const) : ("dark" as const),
       diffStyle: diff.layout,
@@ -44,33 +51,67 @@ export function diffOptions(diff: DiffSettings, theme: Theme) {
     },
     style: {
       "--diffs-font-size": `${diff.fontSize}px`,
-      "--diffs-line-height": `${Math.round(diff.fontSize * LINE_HEIGHT)}px`,
+      "--diffs-line-height": `${lineHeightAt(diff.fontSize)}px`,
     } as CSSProperties,
   };
 }
 
+// A short hash of a text (FNV-1a), to tell one version of a diff from another.
+function hashText(text: string) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+  return hash >>> 0;
+}
+
+// The patch as CodeView's one item, parsed once. Its version is a hash of the text, so new text for the same file
+// (Show all, a live edit) is redrawn in place, where you are.
+function useDiffItems(id: string, patch: string | null): CodeViewItem<undefined>[] {
+  return useMemo(() => {
+    if (!patch) return [];
+    const fileDiff = parsePatchFiles(patch)[0]?.files[0];
+    return fileDiff ? [{ id, type: "diff", fileDiff, version: hashText(patch) }] : [];
+  }, [id, patch]);
+}
+
 interface Props {
-  id: string; // a new id starts the diff from the top
+  id: string; // a new id starts the diff from the top; new text for the same id is swapped in where you are
   patch: string | null;
-  more?: string | null; // "… 120 more lines", when the diff was cut
+  footer?: ReactNode;
   newLines?: NewLines | null; // lines marked as new since you checked the file
   empty: string; // shown when there is no patch
 }
 
-// A diff in a card that scrolls inside itself; `empty` shows instead when there is no patch.
-export function DiffView({ id, patch, more, newLines, empty }: Props) {
+// A diff in a card that scrolls inside itself; `empty` shows instead when there is no patch. Drawn by the library's
+// CodeView, which draws only the rows in view (a 20,000-line diff scrolls as smoothly as a short one) and is told the
+// row height so it knows the whole diff's height before drawing it. `footer` goes under the last line (a cut diff's
+// Show all).
+export function DiffView({ id, patch, footer, newLines, empty }: Props) {
   const { settings, theme } = useSettings();
-  if (!patch) {
+  const items = useDiffItems(id, patch);
+  const unsafeCSS = newLines ? newLinesCss(newLines, settings.diff.lineNumbers) : undefined;
+  // Kept the same object while nothing in it changes, so CodeView doesn't redraw on every render.
+  const { options, style } = useMemo(() => {
+    const { options, style } = diffOptions(settings.diff, theme);
+    const itemMetrics = { lineHeight: lineHeightAt(settings.diff.fontSize) };
+    return { options: { ...options, unsafeCSS, itemMetrics, layout: CARD_LAYOUT }, style };
+  }, [settings.diff, theme, unsafeCSS]);
+  if (!items.length) {
     return (
       <div className="flex h-24 shrink-0 items-center rounded-xl border bg-card px-6 text-sm text-faint">{empty}</div>
     );
   }
-  const { options, style } = diffOptions(settings.diff, theme);
-  const unsafeCSS = newLines ? newLinesCss(newLines, settings.diff.lineNumbers) : undefined;
   return (
-    <div className="min-h-0 shrink overflow-auto rounded-xl border bg-card">
-      <PatchDiff key={id} patch={patch} options={{ ...options, unsafeCSS }} style={style} />
-      {more && <div className="border-t px-4 py-2 text-xs text-faint">{more}</div>}
-    </div>
+    // A new id is a new card, starting from the top.
+    <CodeView
+      key={id}
+      items={items}
+      options={options}
+      style={style}
+      className="min-h-0 shrink overflow-auto rounded-xl border bg-card"
+      renderCodeViewFooter={footer ? () => footer : undefined}
+    />
   );
 }
+
+// No padding or gaps around the one diff: the card's border is its edge.
+const CARD_LAYOUT = { paddingTop: 0, paddingBottom: 0, gap: 0 };

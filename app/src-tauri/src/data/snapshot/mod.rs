@@ -23,16 +23,45 @@ use timeline::{Linked, Scope};
 /// a branch checked out in a worktree is read from that folder (with its uncommitted changes); any other branch
 /// shows its commits since it split off from the default branch, read from git without touching the checkout.
 pub fn view(repo: &str, branch: Option<&str>) -> Result<Snapshot, String> {
+    let shown = what_to_show(repo, branch)?;
+    build(&shown.top, &shown.base, &shown.at)
+}
+
+/// One changed file's whole diff in the same view as `view` (the snapshot's diffs are cut at 400 lines).
+pub fn file_diff(repo: &str, branch: Option<&str>, path: &str) -> Result<String, String> {
+    let shown = what_to_show(repo, branch)?;
+    let top = realpath(&shown.top);
+    let untracked: HashSet<String> = shown.at.untracked(&top).into_iter().collect();
+    Ok(diffs::whole_text(&top, &shown.base, &shown.at, path, &untracked))
+}
+
+/// The folder, base and version a view of `branch` reads: see `view`.
+struct Shown {
+    top: String,
+    base: String,
+    at: At,
+}
+
+fn what_to_show(repo: &str, branch: Option<&str>) -> Result<Shown, String> {
     let top = toplevel(repo)?;
     let checked_out = current_branch(&top);
+    let work = |top: String| Shown {
+        top,
+        base: "HEAD".into(),
+        at: At::Work,
+    };
     let Some(branch) = branch.filter(|branch| *branch != checked_out) else {
-        return build(&top, "HEAD", &At::Work);
+        return Ok(work(top));
     };
     if let Some(folder) = worktree_of(&top, branch) {
-        return build(&folder, "HEAD", &At::Work);
+        return Ok(work(folder));
     }
     let split = split_off(&top, branch, default_branch(&top).as_deref())?;
-    build(&top, &split.base, &At::Commit(branch.to_string()))
+    Ok(Shown {
+        top,
+        base: split.base,
+        at: At::Commit(branch.to_string()),
+    })
 }
 
 /// The snapshot of the change between `base` and `at`: the working folder (the checked-out branch) or another

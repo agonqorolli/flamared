@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BranchEmpty } from "@/components/BranchEmpty";
 import { AgentToggle, ListPane } from "@/components/ListPane";
+import { inTauri, loadFileDiff } from "@/lib/api";
 import { plural } from "@/lib/format";
 import { useKeys } from "@/lib/keys";
 import type { Review, ReviewState } from "@/lib/review";
@@ -38,6 +39,12 @@ export function ChangesView({
   const notConnected = !useSettings().settings.flags.off.includes("connected");
   const { sections, rows } = useMemo(() => buildSections(snap, notConnected), [snap, notConnected]);
   const hasWords = sections.some((section) => section.blocks.some((block) => block.words));
+  // A file's whole diff, for Show all under a cut one; read from the same folder and branch as the snapshot.
+  const viewedBranch = snap.viewing.checked_out ? null : snap.viewing.branch;
+  const loadWhole = useCallback(
+    (path: string) => loadFileDiff(snap.path, viewedBranch, path),
+    [snap.path, viewedBranch],
+  );
   const [showAgent, setShowAgent] = useState(false);
 
   // The selection follows the file, so a reload that adds or removes files above it doesn't move you.
@@ -125,6 +132,7 @@ export function ChangesView({
           diff={snap.diffs[row.file.path] ?? ""}
           reviewOf={(diff) => review.stateOf(row.file, diff)}
           changedSince={(diff) => review.changedSince(row.file, diff)}
+          loadWhole={inTauri ? loadWhole : null}
           inTimeline={inTimeline(row.file.path)}
           onShowInTimeline={() => onShowInTimeline(row.file.path)}
           onShowInMap={() => onShowInMap(row.file.path)}

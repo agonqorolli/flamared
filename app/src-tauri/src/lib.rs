@@ -28,6 +28,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::snapshot,
+            commands::file_diff,
             commands::repos,
             commands::repo_root,
             commands::repo_status,

@@ -29,6 +29,10 @@ async function savedSnapshot(): Promise<Snapshot> {
 export const loadSnapshot = (repo: string, branch: string | null = null) =>
   inTauri ? invoke<Snapshot>("snapshot", { repo, branch }) : savedSnapshot();
 
+// One changed file's whole diff (the snapshot's are cut at 2,000 lines), in the same view as loadSnapshot.
+export const loadFileDiff = (repo: string, branch: string | null, path: string) =>
+  invoke<string>("file_diff", { repo, branch, path });
+
 export const loadRepos = () => (inTauri ? invoke<RepoRow[]>("repos") : savedSnapshot().then((snap) => snap.repos));
 
 // Read when a picker opens; the browser preview has no git, so nothing comes back there.
