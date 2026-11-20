@@ -65,5 +65,7 @@ webhook and put its secret in `STRIPE_WEBHOOK_SECRET` (the Worker checks one sec
 
 ## Launch price
 
-Make a promotion code `LAUNCH` for coupon `LAUNCH-20` that expires at the end of the launch month, then set
-`LAUNCH_CODE` and `LAUNCH_ENDS` (its last day) in `wrangler.jsonc` and deploy. `/buy` adds the code until that day.
+$39 until the end of 2026: the live promotion code `LAUNCH` (`promo_1UdfSuIlhs75SminZYH2c3Vh`, coupon `LAUNCH-20`)
+expires at 2027-01-01 00:00 UTC, and `LAUNCH_ENDS` is `2026-12-31`, so `/buy` stops adding it at the same moment.
+After that `/buy` sends buyers to the $59 page with nothing else to change. For another sale, make a new promotion code
+with its own end, set `LAUNCH_CODE` and `LAUNCH_ENDS`, and deploy.

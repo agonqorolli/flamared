@@ -25,7 +25,7 @@
     // Buyers' replies; Cloudflare Email Routing forwards it to the owner.
     "REPLY_TO": "support@flamared.com",
     // The launch price: a Stripe promotion code for the LAUNCH-20 coupon, and its last day (YYYY-MM-DD).
-    "LAUNCH_CODE": "",
-    "LAUNCH_ENDS": "",
+    "LAUNCH_CODE": "LAUNCH",
+    "LAUNCH_ENDS": "2026-12-31",
   },
 }
