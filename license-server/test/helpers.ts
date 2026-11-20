@@ -33,6 +33,7 @@ export function testEnv(seed: string, kv = memoryKv()): Env & { LICENSES: Return
     LICENSE_SIGNING_KEY: seed,
     STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
     RESEND_API_KEY: "re_test",
+    DOWNLOAD_LINK: "https://github.com/example/releases/latest/download/Flamared.dmg",
     BUY_LINK: "https://buy.stripe.com/test_buy",
     BUY_LINK_ID: "plink_buy",
     RENEW_LINK: "https://buy.stripe.com/test_renew",

@@ -47,7 +47,7 @@ The order defaults to a timestamp. `issue` gives a year of updates from today (`
 
 ## Selling automatically (license-server/)
 
-- A Cloudflare Worker: `/buy` and `/renew` redirect to Stripe Payment Links (Managed Payments); `/stripe/webhook` signs a key on each paid sale and emails it through Resend. Setup, Stripe ids and the launch price are in `license-server/README.md`.
+- A Cloudflare Worker: `/download` redirects to the newest DMG, `/buy` and `/renew` to Stripe Payment Links (Managed Payments), each counted per day (`pnpm stats`); `/stripe/webhook` signs a key on each paid sale and emails it through Resend. Setup, Stripe ids and the launch price are in `license-server/README.md`.
 - `license-server/src/license.ts` makes keys exactly as above (WebCrypto Ed25519, same fields and order). A test checks its `PUBLIC_KEY` matches `license.rs`; every key is verified before it's sent. The signing key reaches the Worker only as the `LICENSE_SIGNING_KEY` secret (`base64 -i … | npx wrangler secret put …`).
 - Licenses are kept in KV by email (`license:<email>`), so a renewal needs no pasted key: it uses the checkout email, or the optional "License email" field on the renewal page, and `renewedUntil` (same rule as `renewed_until`). Keys issued by hand with the example tool aren't in KV; a renewal for one alerts `OWNER_EMAIL`, who renews it with `-- renew`.
 - Each order is handled once (`order:<checkout id>`); a retried webhook resends the same key, never a second renewal.

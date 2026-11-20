@@ -4,8 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
-  // The app's Buy and Renew buttons and Stripe's webhook use these addresses; the rest of flamared.com is untouched.
+  // The website's Download, the app's Buy and Renew buttons and Stripe's webhook use these addresses; the rest of
+  // flamared.com is untouched.
   "routes": [
+    { "pattern": "flamared.com/download", "zone_name": "flamared.com" },
     { "pattern": "flamared.com/buy", "zone_name": "flamared.com" },
     { "pattern": "flamared.com/renew", "zone_name": "flamared.com" },
     { "pattern": "flamared.com/stripe/webhook", "zone_name": "flamared.com" },
@@ -21,6 +23,8 @@
     "BUY_LINK_ID": "plink_1UdfOfIlhs75Sminf5bTFzIt",
     "RENEW_LINK": "https://buy.stripe.com/9B67sLdPoftr8KU1220Jq01",
     "RENEW_LINK_ID": "plink_1UdfOrIlhs75SminRoynFB8d",
+    // The website's Download buttons go through /download to this (counted), the newest release's DMG.
+    "DOWNLOAD_LINK": "https://github.com/agonqorolli/flamared/releases/latest/download/Flamared.dmg",
     "FROM_EMAIL": "Flamared <licenses@flamared.com>",
     // Buyers' replies; Cloudflare Email Routing forwards it to the owner.
     "REPLY_TO": "support@flamared.com",

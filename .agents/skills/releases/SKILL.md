@@ -38,7 +38,7 @@ The app updates itself from the **GitHub releases of `agonqorolli/flamared`**: i
    gh release create v1.0.0 "src-tauri/target/universal-apple-darwin/release/bundle/macos/"{"Flamared.app.tar.gz",latest.json} src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
    ```
    The updater follows `releases/latest`, so a draft or pre-release reaches nobody until it is published as latest.
-5. **The website's download**: flamared.com links to `https://github.com/agonqorolli/flamared/releases/latest/download/Flamared.dmg`, so every release also
+5. **The website's download**: flamared.com's Download buttons go through `flamared.com/download` (the license server, counted) to `https://github.com/agonqorolli/flamared/releases/latest/download/Flamared.dmg`, so every release also
    carries the DMG under that fixed name (the versioned one is for people browsing the release):
    ```bash
    cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg /tmp/Flamared.dmg && gh release upload v1.0.0 /tmp/Flamared.dmg

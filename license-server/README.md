@@ -3,6 +3,7 @@
 A Cloudflare Worker that sells licenses through Stripe Payment Links (Managed Payments: Stripe is the merchant of
 record) and emails each buyer a signed license key through Resend.
 
+- `GET /download` → the newest release's `Flamared.dmg` on GitHub (the website's Download buttons)
 - `GET /buy` → the license Payment Link ($59; with the launch code filled in while `LAUNCH_ENDS` hasn't passed)
 - `GET /renew` → the renewal Payment Link ($29, the same whether updates ended or not)
 - `POST /stripe/webhook` → on `checkout.session.completed` (paid) or `checkout.session.async_payment_succeeded`:
@@ -20,8 +21,17 @@ pnpm install
 pnpm test && pnpm typecheck      # after every change
 pnpm format
 pnpm dev                         # local, on :8787 (secrets from .dev.vars)
+pnpm stats                       # daily downloads, Buy/Renew clicks and keys sent, from the live store
 pnpm deploy
 ```
+
+## Counts
+
+Each `/download`, `/buy` and `/renew` and each key emailed adds one to a per-day record in KV (`count:YYYY-MM-DD`,
+`src/stats.ts`); `pnpm stats` prints them by day with totals. Nothing about who: no IPs, emails or countries. A
+failed count is dropped rather than failing the request. Website visits are in Cloudflare Web Analytics (the Pages
+project's Metrics tab), Stripe's dashboard has payments, and GitHub's release asset counts include update checks
+(`latest.json`).
 
 ## Setup (once per Stripe mode)
 

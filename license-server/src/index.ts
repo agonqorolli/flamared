@@ -1,10 +1,13 @@
-//! Flamared's license server, a Cloudflare Worker. It does three things:
+//! Flamared's license server, a Cloudflare Worker. It does four things:
+//!   GET  /download        sends the visitor to the newest DMG on GitHub releases (the website's Download buttons)
 //!   GET  /buy             sends the buyer to the Stripe Payment Link for a license (with the launch code while it runs)
 //!   GET  /renew           sends the buyer to the Payment Link for a renewal
 //!   POST /stripe/webhook  on a paid sale, signs a license key and emails it to the buyer
-//! Licenses are remembered in KV by email, so a renewal finds the buyer's current key without asking for it.
+//! Licenses are remembered in KV by email, so a renewal finds the buyer's current key without asking for it. Each
+//! download, Buy or Renew click and key sent adds to a daily count (stats.ts, `pnpm stats`).
 import { keyEmail, ownerAlert, renewalNotFound, resend, type Send } from "./email.ts";
 import { coveredUntil, encode, type Holder, PUBLIC_KEY, renewedUntil, signingKey, today, verify } from "./license.ts";
+import { count, type Event } from "./stats.ts";
 import { type CheckoutSession, verifyEvent } from "./stripe.ts";
 
 export interface Env {
@@ -16,6 +19,8 @@ export interface Env {
   /** Where "a renewal needs a hand" alerts go: a secret so the address stays out of the public repo. */
   OWNER_EMAIL: string;
   // Settings (wrangler.jsonc vars).
+  /** The newest DMG: every release uploads it as Flamared.dmg too (see the releases skill). */
+  DOWNLOAD_LINK: string;
   BUY_LINK: string;
   BUY_LINK_ID: string;
   RENEW_LINK: string;
@@ -44,10 +49,17 @@ interface Order {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url);
-    if (request.method === "GET" && pathname === "/buy") return Response.redirect(buyLink(env), 303);
-    if (request.method === "GET" && pathname === "/renew") return Response.redirect(env.RENEW_LINK, 303);
+    /** Redirects at once and counts after, so a slow count never delays the visitor. */
+    const go = (to: string, event: Event) => {
+      const counting = count(env.LICENSES, event);
+      if (ctx) ctx.waitUntil(counting);
+      return Response.redirect(to, 303);
+    };
+    if (request.method === "GET" && pathname === "/download") return go(env.DOWNLOAD_LINK, "download");
+    if (request.method === "GET" && pathname === "/buy") return go(buyLink(env), "buy");
+    if (request.method === "GET" && pathname === "/renew") return go(env.RENEW_LINK, "renew");
     if (request.method === "POST" && pathname === "/stripe/webhook") {
       return webhook(request, env, { send: resend(env.RESEND_API_KEY, env.FROM_EMAIL, env.REPLY_TO) });
     }
@@ -94,6 +106,7 @@ async function fulfil(session: CheckoutSession, renewal: boolean, env: Env, deps
   await env.LICENSES.put(orderKey, JSON.stringify(order));
   if (order.key && order.updatesUntil) {
     await send(keyEmail(order.to, order.key, order.updatesUntil, order.renewal, id));
+    await count(env.LICENSES, order.renewal ? "key_renewal" : "key_license", deps.now);
   } else {
     const buyer = order.to;
     await send(renewalNotFound(buyer, id));
