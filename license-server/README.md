@@ -45,14 +45,19 @@ Local testing: put the three secrets in `.dev.vars`, run `pnpm dev`, and in anot
 
 | What | Id |
 | --- | --- |
-| Product "Flamared license", $59, tax code `txcd_10202003` | `prod_VexcXyb43ewKsh` |
-| Product "Flamared renewal", $29 | `prod_VexceAJcAMHmnP` |
+| Product "Flamared license", $59 tax included, tax code `txcd_10202003` | `prod_VexcXyb43ewKsh` |
+| Product "Flamared renewal", $29 tax included | `prod_VexceAJcAMHmnP` |
 | Buy link (promotion codes allowed) | `plink_1Uddh4ILE4tP9GN9Rlg2PEaW` |
 | Renew link (optional "License email" field) | `plink_1Uddh5ILE4tP9GN9bW0EeYKa` |
 | Coupon "Launch price", $20 off the license only | `LAUNCH-20` |
 | Webhook endpoint, `https://flamared.com/stripe/webhook` | `we_1UdenNILE4tP9GN9lnoXcph6` |
 
-Going live: create the same products, links and coupon in live mode, and switch the link vars in `wrangler.jsonc`.
+Prices are `tax_behavior: inclusive`: buyers pay exactly $59 / $29 and Managed Payments takes the VAT or sales tax out of
+it. Left unset, Managed Payments adds tax on top (a Belgian renewal came to $35.09). A price's tax behavior can be set
+only once, so set it when creating the price.
+
+Going live: create the same products (with inclusive prices), links and coupon in live mode, and switch the link vars
+in `wrangler.jsonc`.
 
 ## Launch price
 
