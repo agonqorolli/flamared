@@ -38,6 +38,14 @@ The app updates itself from the **GitHub releases of `agonqorolli/flamared`**: i
    gh release create v1.0.0 "src-tauri/target/universal-apple-darwin/release/bundle/macos/"{"Flamared.app.tar.gz",latest.json} src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
    ```
    The updater follows `releases/latest`, so a draft or pre-release reaches nobody until it is published as latest.
+5. **The website's download**: flamared.com links to `releases/latest/download/Flamared.dmg`, so every release also
+   carries the DMG under that fixed name (the versioned one is for people browsing the release):
+   ```bash
+   cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg /tmp/Flamared.dmg && gh release upload v1.0.0 /tmp/Flamared.dmg
+   ```
+   Without it the site's Download buttons 404 after the release. The site's source is `~/flamared-site`
+   (`agonqorolli/flamared-site`, deployed by Cloudflare Pages on push to `main`); its launch price lines go away on
+   the first build after `LAUNCH_UNTIL` in `src/pages/index.astro`, so push it once in January 2027.
 
 Renaming the app or the repo: change the endpoint in `tauri.conf.json`, `REPO` in `scripts/latest-json.mjs` and
 `REPO_URL` in `app/src/brand.ts` together (GitHub redirects a renamed repo, but don't rely on it).
