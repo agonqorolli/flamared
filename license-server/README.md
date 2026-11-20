@@ -41,23 +41,27 @@ pnpm deploy
 Local testing: put the three secrets in `.dev.vars`, run `pnpm dev`, and in another terminal
 `stripe listen --forward-to localhost:8787/stripe/webhook` (it prints the `whsec_…` to use locally).
 
-## Stripe objects (sandbox)
+## Stripe objects
 
-| What | Id |
-| --- | --- |
-| Product "Flamared license", $59 tax included, tax code `txcd_10202003` | `prod_VexcXyb43ewKsh` |
-| Product "Flamared renewal", $29 tax included | `prod_VexceAJcAMHmnP` |
-| Buy link (promotion codes allowed) | `plink_1Uddh4ILE4tP9GN9Rlg2PEaW` |
-| Renew link (optional "License email" field) | `plink_1Uddh5ILE4tP9GN9bW0EeYKa` |
-| Coupon "Launch price", $20 off the license only | `LAUNCH-20` |
-| Webhook endpoint, `https://flamared.com/stripe/webhook` | `we_1UdenNILE4tP9GN9lnoXcph6` |
+The server runs on the live account (`acct_1UddL2Ilhs75Smin`, CLI profile `live`: `stripe … --live --project-name
+live`). The sandbox (`acct_1UcQamILE4tP9GN9`, CLI profile `default`) has the same objects for testing.
+
+| What | Live | Sandbox |
+| --- | --- | --- |
+| Product "Flamared license", $59 tax included, tax code `txcd_10202003` | `prod_VezN9DjESOhtRe` | `prod_VexcXyb43ewKsh` |
+| Product "Flamared renewal", $29 tax included | `prod_VezNgW101BSD7O` | `prod_VexceAJcAMHmnP` |
+| Buy link (promotion codes allowed) | `plink_1UdfOfIlhs75Sminf5bTFzIt` | `plink_1Uddh4ILE4tP9GN9Rlg2PEaW` |
+| Renew link (optional "License email" field) | `plink_1UdfOrIlhs75SminRoynFB8d` | `plink_1Uddh5ILE4tP9GN9bW0EeYKa` |
+| Coupon "Launch price", $20 off the license only | `LAUNCH-20` | `LAUNCH-20` |
+| Webhook endpoint, `https://flamared.com/stripe/webhook` | `we_1UdfPLIlhs75SminSfnT4cK7` | `we_1UdenNILE4tP9GN9lnoXcph6` (disabled) |
 
 Prices are `tax_behavior: inclusive`: buyers pay exactly $59 / $29 and Managed Payments takes the VAT or sales tax out of
 it. Left unset, Managed Payments adds tax on top (a Belgian renewal came to $35.09). A price's tax behavior can be set
 only once, so set it when creating the price.
 
-Going live: create the same products (with inclusive prices), links and coupon in live mode, and switch the link vars
-in `wrangler.jsonc`.
+To test against the sandbox again: point the link vars in `wrangler.jsonc` at the sandbox links, re-enable the sandbox
+webhook and put its secret in `STRIPE_WEBHOOK_SECRET` (the Worker checks one secret at a time), or run `pnpm dev` with
+`stripe listen`.
 
 ## Launch price
 
