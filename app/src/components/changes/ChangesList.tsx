@@ -99,8 +99,8 @@ function FileRow({ row, on, fresh, review, onSelect }: FileRowProps) {
         // Marks: "Looks good" rows dim green, "Needs work" rows dim red.
         review === "approved" && "bg-add/[.07] hover:bg-add/[.12]",
         review === "rejected" && "bg-rem/[.07] hover:bg-rem/[.12]",
-        on && review === "approved" && "bg-add/[.16] shadow-[inset_2px_0_0_var(--add)] hover:bg-add/[.16]",
-        on && review === "rejected" && "bg-rem/[.16] shadow-[inset_2px_0_0_var(--rem)] hover:bg-rem/[.16]",
+        on && review === "approved" && "bg-add/[.16] hover:bg-add/[.16]",
+        on && review === "rejected" && "bg-rem/[.16] hover:bg-rem/[.16]",
       )}
     >
       <span className={cn("contents", review && !on && "[&>*]:opacity-55")}>
