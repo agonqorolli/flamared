@@ -189,7 +189,7 @@ function ReviewBar({
   return (
     <div className="mt-2 flex shrink-0 items-center justify-between gap-3" role="group" aria-label="Review this file">
       <span className={cn("text-xs text-faint", review && MARK_COLOR[review])} aria-live="polite">
-        {review ? MARK_LABEL[review] : "Not checked"}
+        {review ? MARK_LABEL[review] : "Not reviewed"}
         {review && <span className="text-faint"> · resets if the agent changes this file</span>}
       </span>
       <ToggleGroup

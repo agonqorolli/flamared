@@ -10,7 +10,7 @@ import type { Timeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
 import { Overview, Selected } from "./MapSide";
-import { buildStats, type Lens, LENSES } from "./model";
+import { buildStats, CHECK_COLOR, type Lens, LENSES } from "./model";
 import { buildTree } from "./tree";
 import { Treemap } from "./Treemap";
 
@@ -173,14 +173,14 @@ function Legend({ lens }: { lens: Lens }) {
   if (lens === "checks") {
     return (
       <>
-        <Swatch color="var(--lens-tested)" />
-        tested
-        <Swatch color="var(--lens-checked)" />
-        lint/types only
-        <Swatch color="var(--lens-failed)" />
+        <Swatch color={CHECK_COLOR.tested} />
+        tests passed
+        <Swatch color={CHECK_COLOR.passed} />
+        passed, no tests
+        <Swatch color={CHECK_COLOR.failed} />
         failed
-        <Swatch color="var(--lens-unchecked)" />
-        no check
+        <Swatch color={CHECK_COLOR.noChecks} />
+        no checks
       </>
     );
   }

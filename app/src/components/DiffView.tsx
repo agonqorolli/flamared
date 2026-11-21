@@ -8,7 +8,7 @@ const LINE_HEIGHT = 1.65;
 // The bar beside a new line is this wide, in px like the diff's own bars.
 const NEW_LINE_BAR_PX = 3;
 
-// Lines to mark as new since you last checked the file: added ones by their new-file number, removed ones by their
+// Lines to mark as new since you last marked the file: added ones by their new-file number, removed ones by their
 // old-file number.
 export interface NewLines {
   added: number[];
@@ -77,7 +77,7 @@ interface Props {
   id: string; // a new id starts the diff from the top; new text for the same id is swapped in where you are
   patch: string | null;
   footer?: ReactNode;
-  newLines?: NewLines | null; // lines marked as new since you checked the file
+  newLines?: NewLines | null; // lines marked as new since you marked the file
   empty: string; // shown when there is no patch
 }
 

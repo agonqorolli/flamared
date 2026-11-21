@@ -8,13 +8,21 @@ import type { FileInfo, Snapshot, TimelineEdit } from "@/lib/types";
 
 export type Lens = "size" | "rework" | "final" | "flags" | "checks" | "review";
 
-// Your mark on a file (lib/review.ts): Looks good, Needs work, reset by a newer change, or not checked yet.
+// Your mark on a file (lib/review.ts): Looks good, Needs work, reset by a newer change, or not reviewed yet.
 export type MarkState = ReviewState | "changed" | "none";
 
 // After the agent's last edit of a file: tests ran and passed, only other checks (lint, types, build) passed, the
-// latest check failed, or no check ran. Lint alone says the code is well-formed, not that it works, and agents
+// latest check failed, or no checks ran. Lint alone says the code is well-formed, not that it works, and agents
 // almost always lint at the end, so it doesn't count as tested.
-export type CheckState = "tested" | "checked" | "failed" | "unchecked";
+export type CheckState = "tested" | "passed" | "failed" | "noChecks";
+
+// Each check state's tile color, for the Tested lens and its legend.
+export const CHECK_COLOR: Record<CheckState, string> = {
+  tested: "var(--lens-tested)",
+  passed: "var(--lens-passed)",
+  failed: "var(--lens-failed)",
+  noChecks: "var(--lens-no-checks)",
+};
 
 // One changed file as the map sees it.
 export interface FileStats {
@@ -96,10 +104,10 @@ function markOf(file: FileInfo, review: Pick<Review, "stateOf" | "resetMarkOf">)
 // any test run after the edit passed, even if a lint run came last.
 function checkState(after: CheckRun[]): { state: CheckState; run: CheckRun | null } {
   const [latest] = after;
-  if (!latest) return { state: "unchecked", run: null };
+  if (!latest) return { state: "noChecks", run: null };
   if (latest.failed) return { state: "failed", run: latest };
   const tests = after.find((run) => run.checks.includes("test") && !run.failed);
-  return tests ? { state: "tested", run: tests } : { state: "checked", run: latest };
+  return tests ? { state: "tested", run: tests } : { state: "passed", run: latest };
 }
 
 // The share of a file's agent edits that are still in it (a partly kept edit counts half); null when it has none
@@ -144,9 +152,9 @@ export const LENSES: Record<Lens, LensInfo> = {
     color: ({ survival }) => finalColor(keptShare(survival)),
   },
   checks: {
-    label: "Checked",
+    label: "Tested",
     key: "lensChecks",
-    color: ({ check }) => (check ? `var(--lens-${check})` : "var(--lens-none)"),
+    color: ({ check }) => (check ? CHECK_COLOR[check] : "var(--lens-none)"),
   },
   review: {
     label: "Reviewed",

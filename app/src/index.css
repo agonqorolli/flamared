@@ -153,9 +153,9 @@
     --lens-gone: #8C959F;
     --lens-flag: #CF4A2A;
     --lens-tested: hsl(135 50% 40%);
-    --lens-checked: hsl(145 18% 58%);
+    --lens-passed: hsl(145 18% 58%);
     --lens-failed: hsl(4 70% 50%);
-    --lens-unchecked: hsl(40 85% 46%);
+    --lens-no-checks: hsl(40 85% 46%);
     --lens-approved: hsl(135 50% 40%);
     --lens-rejected: hsl(4 70% 50%);
     --lens-changed: hsl(218 80% 52%);
@@ -225,9 +225,9 @@
     --lens-gone: #3A3F48;
     --lens-flag: #B4533A;
     --lens-tested: hsl(135 50% 34%);
-    --lens-checked: hsl(140 16% 30%);
+    --lens-passed: hsl(140 16% 30%);
     --lens-failed: hsl(4 60% 45%);
-    --lens-unchecked: hsl(40 70% 38%);
+    --lens-no-checks: hsl(40 70% 38%);
     --lens-approved: hsl(135 50% 34%);
     --lens-rejected: hsl(4 60% 45%);
     --lens-changed: hsl(218 70% 50%);

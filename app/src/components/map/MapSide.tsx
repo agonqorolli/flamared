@@ -16,20 +16,20 @@ const TOP_FILES = 5;
 // How many of the latest commands the "Outside the diff" card lists; its title counts them all.
 const TOP_EFFECTS = 6;
 
-// A file's check state as said in the side panel, in the Checked lens's colors.
 // Your mark on a file as said in the side panel, in the Reviewed lens's colors.
 const MARK: Record<MarkState, { label: string; color: string }> = {
   approved: { label: "Looks good", color: "text-add" },
   rejected: { label: "Needs work", color: "text-rem" },
   changed: { label: "Changed since your mark", color: "text-selection" },
-  none: { label: "Not checked", color: "text-faint" },
+  none: { label: "Not reviewed", color: "text-faint" },
 };
 
+// A file's check state as said in the side panel, in the Tested lens's colors.
 const CHECK_STATE: Record<CheckState, { label: string; color: string }> = {
   tested: { label: "Tests passed", color: "text-add" },
-  checked: { label: "Checked, no tests", color: "text-subtle" },
+  passed: { label: "Passed, no tests", color: "text-subtle" },
   failed: { label: "Check failed", color: "text-rem" },
-  unchecked: { label: "No check", color: "text-warn" },
+  noChecks: { label: "No checks", color: "text-warn" },
 };
 
 // A label and its value: one row of a card in the side panel, with an optional faint note under it.
@@ -93,7 +93,7 @@ export function Overview({ snap, stats, effects, onSelect }: OverviewProps) {
         <Stat label="Lines">
           <Counts add={snap.stats.add} rem={snap.stats.rem} />
         </Stat>
-        <CheckedFiles files={files} />
+        <TestedFiles files={files} />
         <ReviewedFiles files={files} />
       </MiniCard>
       <MiniCard
@@ -157,14 +157,14 @@ function ReviewedFiles({ files }: { files: FileStats[] }) {
   );
 }
 
-function CheckedFiles({ files }: { files: FileStats[] }) {
+function TestedFiles({ files }: { files: FileStats[] }) {
   const edited = files.filter((stats) => stats.check);
   if (!edited.length) return null;
   const count = (state: CheckState) => edited.filter((stats) => stats.check === state).length;
   const rest = [
-    count("checked") && `${count("checked")} checked without tests`,
+    count("passed") && `${count("passed")} passed without tests`,
     count("failed") && `${count("failed")} failed`,
-    count("unchecked") && `${count("unchecked")} with no check`,
+    count("noChecks") && `${count("noChecks")} with no checks`,
   ].filter(Boolean);
   return (
     <Stat label="Tested after the last edit" note={rest.join(" · ") || undefined}>

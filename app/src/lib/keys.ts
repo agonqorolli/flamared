@@ -55,8 +55,8 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
     scope: "Changes",
     rows: [
       { ids: ["prev", "next"], does: "Previous / next file" },
-      { ids: ["looksGood"], does: "Mark Looks good", note: "then opens the next unchecked file" },
-      { ids: ["needsWork"], does: "Mark Needs work", note: "then opens the next unchecked file" },
+      { ids: ["looksGood"], does: "Mark Looks good", note: "then opens the next unreviewed file" },
+      { ids: ["needsWork"], does: "Mark Needs work", note: "then opens the next unreviewed file" },
       { ids: ["agent"], does: "Show or hide the agent's messages" },
       { ids: ["toTimeline", "toMap"], does: "Show the file in Timeline / Map" },
       { ids: ["splitDiff"], does: "Diff side by side or in one column" },
@@ -76,7 +76,7 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
     rows: [
       {
         ids: ["lensSize", "lensRework", "lensFinal", "lensChecks", "lensReview", "lensFlags"],
-        does: "Color by Change size / Rework / Still in final / Checked / Reviewed / Flags",
+        does: "Color by Change size / Rework / Still in final / Tested / Reviewed / Flags",
       },
       { ids: ["toChanges", "toTimeline"], does: "Show the selected file in Changes / Timeline" },
       { ids: ["back"], does: "Back to the overview, then out of a zoomed folder" },

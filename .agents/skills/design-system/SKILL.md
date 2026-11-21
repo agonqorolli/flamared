@@ -15,12 +15,12 @@ The window is shadcn/ui (Radix, "Nova" preset) on Tailwind CSS 4, with the app's
 |---|---|
 | `panel`, `raised` | header/panel surface; hover and raised surfaces |
 | `faint`, `subtle` | secondary text (labels, meta); quieter body text |
-| `selection`, `selection-bg` | selected row, fresh dot, new lines since you checked a file (the bar in the diff), accents |
+| `selection`, `selection-bg` | selected row, fresh dot, new lines since you marked a file (the bar in the diff), accents |
 | `add` / `add-bg`, `rem` / `rem-bg` | added / removed lines, "Looks good" / "Needs work" |
 | `warn` | flags, "not connected", partly kept |
 | `ai`, `ai-foreground`, `ai-bg` | the agent's own color (agent-neutral violet) |
 | `map-bg`, `map-tile`, `map-edge`, `map-folder` | treemap surfaces |
-| `--lens-*` (size/rework low→high, kept, partly, gone, flag, tested, checked, failed, unchecked, approved, rejected, changed, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
+| `--lens-*` (size/rework low→high, kept, partly, gone, flag, tested, passed, failed, no-checks, approved, rejected, changed, none, text) | map data colors; used through `var()` in `LENSES` (`components/map/model.ts`) |
 | `logo-flame`, `logo-line` | the logo's flat flame red and green code line, the same in every theme (copied from the app icon); only the loading logo uses them |
 
 Three themes, each defining every token: Light (`:root`), Dark (`.dark`), Gray (`.dark.gray`, only surfaces change). The System setting is not a fourth set of tokens: it picks Gray or Light from macOS (`resolveTheme` in `settings.tsx`), and code that colors itself reads the resolved `theme` from `useSettings()`, not `settings.appearance.theme`. **Default: Gray, Normal density** (`DEFAULTS` in `src/lib/settings.tsx`, and `class="dark gray"` in `index.html` so the first paint matches). A new color token gets a value in Light and Dark (Gray inherits Dark unless it is a surface).
@@ -92,6 +92,6 @@ Repo row: name · **N changed files** badge (gray; uncommitted files, the same c
 
 ## Wording
 
-Plain words, no code-review or GitHub terms: "Looks good / Needs work / Not checked", not Approve / Reject. Say what something is for the person using it ("Used by no changed files"), not how it's computed. Sentence case. The product name only via `APP_NAME` in `src/brand.ts`.
+Plain words, no code-review or GitHub terms: "Looks good / Needs work / Not reviewed", not Approve / Reject. "Check" is only for what the agent ran (tests, types, lint, build); what you do is "review". Say what something is for the person using it ("Used by no changed files"), not how it's computed. Sentence case. The product name only via `APP_NAME` in `src/brand.ts`.
 
 Selecting a branch shows that branch's content. When it has no changes, show **"No changes on <branch>"** and "This branch has no file changes to show." No return CTA or explanation about the working folder in this empty state. When the first repo can't be read, the screen shows "Couldn't read this repository" with Retry and **Open folder…**, since the header has no repo picker yet. Before any repo is found, the screen says "No repository yet" with **Agent folders…**, which opens Settings → Agents. Keep the distinction between a preview and the working folder in branch-picker help, not in the main content. Git terms ("check out", "worktree") are fine in user-facing copy when they are the clearest word. The branch picker changes what the app shows, not the files on disk. Git commands, internal field names, and technical comments can keep Git terminology.

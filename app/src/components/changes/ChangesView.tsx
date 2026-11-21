@@ -82,7 +82,7 @@ export function ChangesView({
     return <BranchEmpty branch={snap.viewing.branch} />;
   }
 
-  // Marking a file moves on to the next one not checked yet (wrapping round), never into the left-out files; clearing
+  // Marking a file moves on to the next one not reviewed yet (wrapping round), never into the left-out files; clearing
   // a mark stays put.
   const markAndMoveOn = (state: ReviewState | null, shown?: string) => {
     review.toggle(row.file, state, shown);

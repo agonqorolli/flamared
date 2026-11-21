@@ -4,7 +4,7 @@ A desktop app for checking the uncommitted code changes AI coding agents (Claude
 
 Three screens built from a real repo and the agent sessions on this machine:
 
-- **Changes**: every committable file, grouped by how the files import each other, and a review mark on each file (Looks good / Needs work / Not checked) that resets when the agent changes the file again.
+- **Changes**: every committable file, grouped by how the files import each other, and a review mark on each file (Looks good / Needs work / Not reviewed) that resets when the agent changes the file again.
 - **Timeline**: every agent edit in order, with the agent's message before it, whether it survived, and the checks it ran (tests, types, lint, build).
 - **Map**: the whole repo as a treemap, colored by one of six lenses: change size, rework, still in final, checked, reviewed and flags.
 
