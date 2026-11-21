@@ -9,12 +9,22 @@ import { base, dir, plural, STATUS, SURVIVAL, type Survival, time } from "@/lib/
 import type { EffectRun } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
-import { type CheckState, type FileStats, keptShare, type MapStats, type MarkState } from "./model";
+import {
+  type CheckState,
+  type FileStats,
+  keptShare,
+  type Lens,
+  type MapStats,
+  type MarkState,
+  tileMark,
+} from "./model";
 
 // How many files the "Most changed" and "Most reworked" cards list.
 const TOP_FILES = 5;
 // How many of the latest commands the "Outside the diff" card lists; its title counts them all.
 const TOP_EFFECTS = 6;
+// How many files a list of a lens's panel shows before "N more".
+const LIST_FILES = 12;
 
 // Your mark on a file as said in the side panel, in the Reviewed lens's colors.
 const MARK: Record<MarkState, { label: string; color: string }> = {
@@ -33,7 +43,7 @@ const CHECK_STATE: Record<CheckState, { label: string; color: string }> = {
 };
 
 // A label and its value: one row of a card in the side panel, with an optional faint note under it.
-function Stat({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
+function Stat({ label, note, children }: { label: ReactNode; note?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 px-1 py-1">
       {/* The value wraps under its label when the side column is dragged narrow. */}
@@ -56,27 +66,76 @@ function FileLine({
 }: {
   path: string;
   onSelect: (path: string) => void;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <MiniRow onClick={() => onSelect(path)} title={path}>
       <span className="min-w-0 flex-1 truncate font-mono font-medium">{base(path)}</span>
-      <span className="shrink-0 text-faint">{children}</span>
+      {children && <span className="shrink-0 text-faint">{children}</span>}
     </MiniRow>
   );
 }
 
-interface OverviewProps {
+// A card listing some of the changed files, the first LIST_FILES of them, then how many more; nothing when empty.
+function FileList({
+  title,
+  files,
+  onSelect,
+  about,
+}: {
+  title: ReactNode;
+  files: FileStats[];
+  onSelect: (path: string) => void;
+  about?: (stats: FileStats) => ReactNode; // what the row says on the right
+}) {
+  if (!files.length) return null;
+  const more = files.length - LIST_FILES;
+  return (
+    <MiniCard title={title}>
+      {files.slice(0, LIST_FILES).map((stats) => (
+        <FileLine key={stats.file.path} path={stats.file.path} onSelect={onSelect}>
+          {about?.(stats)}
+        </FileLine>
+      ))}
+      {more > 0 && <div className="px-1.5 py-1 text-mini text-faint">and {more} more</div>}
+    </MiniCard>
+  );
+}
+
+interface LensPanelProps {
+  lens: Lens;
   snap: Snapshot;
   stats: MapStats;
   effects: EffectRun[]; // commands that changed things outside the diff, latest first
   onSelect: (path: string) => void;
 }
 
-// The helicopter summary when nothing is selected.
-export function Overview({ snap, stats, effects, onSelect }: OverviewProps) {
+// The side panel when no file is selected: what the chosen lens shows, and the files it asks you to look at.
+export function LensPanel({ lens, snap, stats, effects, onSelect }: LensPanelProps) {
   const files = Object.values(stats.files);
+  if (lens === "checks") return <TestedPanel files={files} onSelect={onSelect} />;
+  if (lens === "review") return <ReviewedPanel files={files} onSelect={onSelect} />;
+  if (lens === "flags") return <FlagsPanel files={files} onSelect={onSelect} />;
+  return <SizePanel snap={snap} files={files} effects={effects} onSelect={onSelect} />;
+}
+
+// Change size: how big the change is, where it is biggest, where the agent went back most, and what it changed
+// outside the diff.
+function SizePanel({
+  snap,
+  files,
+  effects,
+  onSelect,
+}: {
+  snap: Snapshot;
+  files: FileStats[];
+  effects: EffectRun[];
+  onSelect: (path: string) => void;
+}) {
   const folders = new Set(files.map((stats) => dir(stats.file.path)));
+  const marks = files.map((stats) => tileMark(stats.file));
+  const added = marks.filter((mark) => mark === "new").length;
+  const deleted = marks.filter((mark) => mark === "deleted").length;
   // The files with the most of something, leaving out the ones with none of it.
   const top = (amount: (stats: FileStats) => number) =>
     [...files]
@@ -89,12 +148,30 @@ export function Overview({ snap, stats, effects, onSelect }: OverviewProps) {
         <Stat label="Changed files">
           {files.length} of {snap.map.files.length}
         </Stat>
+        {(added > 0 || deleted > 0) && (
+          <Stat label="New · deleted">
+            {added} · {deleted}
+          </Stat>
+        )}
         <Stat label="Folders touched">{folders.size}</Stat>
         <Stat label="Lines">
           <Counts add={snap.stats.add} rem={snap.stats.rem} />
         </Stat>
-        <TestedFiles files={files} />
-        <ReviewedFiles files={files} />
+      </MiniCard>
+      <MiniCard title="Most changed">
+        {top(({ file }) => file.add + file.rem).map(({ file }) => (
+          <FileLine key={file.path} path={file.path} onSelect={onSelect}>
+            <Counts add={file.add} rem={file.rem} />
+          </FileLine>
+        ))}
+      </MiniCard>
+      <MiniCard title="Most reworked by agents" empty="No agent edits in this range">
+        {top(({ edits }) => edits).map(({ file, edits, survival }) => (
+          <FileLine key={file.path} path={file.path} onSelect={onSelect}>
+            {plural(edits, "edit")}
+            {keptShare(survival) != null && ` · ${Math.round((keptShare(survival) ?? 0) * 100)}% kept`}
+          </FileLine>
+        ))}
       </MiniCard>
       <MiniCard
         title={`Outside the diff · ${effects.length}`}
@@ -108,81 +185,117 @@ export function Overview({ snap, stats, effects, onSelect }: OverviewProps) {
           </MiniRow>
         ))}
       </MiniCard>
-      <MiniCard title="Most changed">
-        {top(({ file }) => file.add + file.rem).map(({ file }) => (
-          <FileLine key={file.path} path={file.path} onSelect={onSelect}>
-            <Counts add={file.add} rem={file.rem} />
-          </FileLine>
-        ))}
-      </MiniCard>
-      <MiniCard title="Most reworked by agents" empty="No agent edits in this range">
-        {top(({ edits }) => edits).map(({ file, edits }) => (
-          <FileLine key={file.path} path={file.path} onSelect={onSelect}>
-            {plural(edits, "edit")}
-          </FileLine>
-        ))}
-      </MiniCard>
-      <MiniCard
-        title={
-          <span className="flex flex-wrap items-center gap-1">
-            Flagged <FlagRules />
-          </span>
-        }
-        empty="Nothing flagged"
-      >
-        {files
-          .filter(({ flags }) => flags.length)
-          .map(({ file, flags }) => (
-            <FileLine key={file.path} path={file.path} onSelect={onSelect}>
-              <span className="text-warn">{flags[0]}</span>
-            </FileLine>
-          ))}
-      </MiniCard>
     </>
   );
 }
 
-// How many of the files the agent edited had passing tests after their last edit, and what the rest had.
-// How many changed files you marked (Looks good or Needs work), and how many of those need you again.
-function ReviewedFiles({ files }: { files: FileStats[] }) {
-  const count = (mark: MarkState) => files.filter((stats) => stats.mark === mark).length;
-  const rest = [
-    count("rejected") && `${count("rejected")} need work`,
-    count("changed") && `${count("changed")} changed since your mark`,
-  ].filter(Boolean);
+// Tested: how many edited code files had passing tests after the agent's last edit, then the ones that didn't,
+// worst first.
+function TestedPanel({ files, onSelect }: { files: FileStats[]; onSelect: (path: string) => void }) {
+  const edited = files.filter((stats) => stats.check);
+  const inState = (state: CheckState) => edited.filter((stats) => stats.check === state);
+  const lastCheck = ({ lastCheck }: FileStats) => lastCheck && `${checkLabel(lastCheck.checks)} ${time(lastCheck.at)}`;
   return (
-    <Stat label="Reviewed" note={rest.join(" · ") || undefined}>
-      {count("approved") + count("rejected")} of {files.length}
-    </Stat>
+    <>
+      <MiniCard title="After the agent's last edit" empty="No agent edits to code files">
+        {edited.length > 0 && (
+          <Stat label="Tests passed">
+            {inState("tested").length} of {edited.length}
+          </Stat>
+        )}
+        {(["failed", "noChecks", "passed"] as const).map(
+          (state) =>
+            inState(state).length > 0 && (
+              <Stat key={state} label={<span className={CHECK_STATE[state].color}>{CHECK_STATE[state].label}</span>}>
+                {inState(state).length}
+              </Stat>
+            ),
+        )}
+      </MiniCard>
+      <FileList title="Check failed" files={inState("failed")} onSelect={onSelect} about={lastCheck} />
+      <FileList title="No checks" files={inState("noChecks")} onSelect={onSelect} />
+      <FileList title="Passed, no tests" files={inState("passed")} onSelect={onSelect} about={lastCheck} />
+    </>
   );
 }
 
-function TestedFiles({ files }: { files: FileStats[] }) {
-  const edited = files.filter((stats) => stats.check);
-  if (!edited.length) return null;
-  const count = (state: CheckState) => edited.filter((stats) => stats.check === state).length;
-  const rest = [
-    count("passed") && `${count("passed")} passed without tests`,
-    count("failed") && `${count("failed")} failed`,
-    count("noChecks") && `${count("noChecks")} with no checks`,
-  ].filter(Boolean);
+// Reviewed: your progress, then what is left: the files you said need work, the ones changed since your mark, and
+// the ones you haven't reviewed.
+function ReviewedPanel({ files, onSelect }: { files: FileStats[]; onSelect: (path: string) => void }) {
+  const withMark = (mark: MarkState) => files.filter((stats) => stats.mark === mark);
+  const marked = withMark("approved").length + withMark("rejected").length;
   return (
-    <Stat label="Tested after the last edit" note={rest.join(" · ") || undefined}>
-      {count("tested")} of {edited.length}
-    </Stat>
+    <>
+      <MiniCard title="Your review">
+        <Stat label="Reviewed">
+          {marked} of {files.length}
+        </Stat>
+        {(["approved", "rejected", "changed"] as const).map(
+          (mark) =>
+            withMark(mark).length > 0 && (
+              <Stat key={mark} label={<span className={MARK[mark].color}>{MARK[mark].label}</span>}>
+                {withMark(mark).length}
+              </Stat>
+            ),
+        )}
+      </MiniCard>
+      <FileList title="Needs work" files={withMark("rejected")} onSelect={onSelect} />
+      <FileList
+        title="Changed since your mark"
+        files={withMark("changed")}
+        onSelect={onSelect}
+        about={({ markWas }) => markWas && `was ${MARK[markWas].label}`}
+      />
+      <FileList title="Not reviewed" files={withMark("none")} onSelect={onSelect} />
+    </>
+  );
+}
+
+// Flags: every flagged file with what flagged it.
+function FlagsPanel({ files, onSelect }: { files: FileStats[]; onSelect: (path: string) => void }) {
+  const flagged = files.filter(({ flags }) => flags.length);
+  return (
+    <MiniCard
+      title={
+        <span className="flex flex-wrap items-center gap-1">
+          Flagged · {flagged.length} <FlagRules />
+        </span>
+      }
+      empty="Nothing flagged"
+    >
+      {flagged.map(({ file, flags }) => (
+        <MiniRow key={file.path} onClick={() => onSelect(file.path)} title={`${file.path} · ${flags.join(", ")}`}>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-mono font-medium">{base(file.path)}</span>
+            <span className="truncate text-mini text-warn">{flags.join(" · ")}</span>
+          </span>
+        </MiniRow>
+      ))}
+    </MiniCard>
   );
 }
 
 interface SelectedProps {
   stats: FileStats;
+  all: MapStats;
   inTimeline: boolean;
   onBack: () => void;
+  onSelect: (path: string) => void;
   onOpenInChanges: (path: string) => void;
   onShowInTimeline: (path: string) => void;
 }
 
-// The selected file: its card, and what the map knows about it.
-export function Selected({ stats, inTimeline, onBack, onOpenInChanges, onShowInTimeline }: SelectedProps) {
+// The selected file: its card, what the map knows about it, and the changed files it connects to (lit up on the
+// map).
+export function Selected({
+  stats,
+  all,
+  inTimeline,
+  onBack,
+  onSelect,
+  onOpenInChanges,
+  onShowInTimeline,
+}: SelectedProps) {
   const { file, edits, survival, flags, group } = stats;
   const kept = keptShare(survival);
   // "2 in final · 1 partly rewritten"
@@ -190,6 +303,7 @@ export function Selected({ stats, inTimeline, onBack, onOpenInChanges, onShowInT
     .filter(([, count]) => count)
     .map(([state, count]) => `${count} ${SURVIVAL[state].label}`)
     .join(" · ");
+  const changed = (paths: string[]) => paths.filter((path) => all.files[path]).map((path) => all.files[path]);
   return (
     <>
       <FileCard
@@ -237,6 +351,16 @@ export function Selected({ stats, inTimeline, onBack, onOpenInChanges, onShowInT
             <span className="text-warn">{flags.join(", ")}</span>
           </Stat>
         )}
+      </MiniCard>
+      <MiniCard title="Uses" empty="Uses no changed files">
+        {changed(file.links_out).map((used) => (
+          <FileLine key={used.file.path} path={used.file.path} onSelect={onSelect} />
+        ))}
+      </MiniCard>
+      <MiniCard title="Used by" empty="Used by no changed files">
+        {changed(file.links_in).map((user) => (
+          <FileLine key={user.file.path} path={user.file.path} onSelect={onSelect} />
+        ))}
       </MiniCard>
     </>
   );

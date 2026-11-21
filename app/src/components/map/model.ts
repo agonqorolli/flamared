@@ -6,7 +6,15 @@ import type { Review, ReviewState } from "@/lib/review";
 import { type CheckRun, ms, type Timeline } from "@/lib/timeline";
 import type { FileInfo, Snapshot, TimelineEdit } from "@/lib/types";
 
-export type Lens = "size" | "rework" | "final" | "flags" | "checks" | "review";
+export type Lens = "size" | "checks" | "review" | "flags";
+
+// How a tile shows what happened to its file, over any lens's color: a new file gets a folded corner, a deleted one
+// stripes; a modified file is plain.
+export type TileMark = "new" | "deleted" | null;
+export function tileMark(file: FileInfo): TileMark {
+  if (file.status === "A" || file.status === "C") return "new";
+  return file.status === "D" ? "deleted" : null;
+}
 
 // Your mark on a file (lib/review.ts): Looks good, Needs work, reset by a newer change, or not reviewed yet.
 export type MarkState = ReviewState | "changed" | "none";
@@ -40,7 +48,6 @@ export interface FileStats {
 export interface MapStats {
   files: Record<string, FileStats>; // by path, in the order of the Changes list
   maxLines: number; // the most lines changed in one file, for the scale of the size lens
-  maxEdits: number; // the most agent edits of one file, for the scale of the rework lens
 }
 
 export function buildStats(
@@ -89,7 +96,6 @@ export function buildStats(
   return {
     files,
     maxLines: Math.max(1, ...all.map((stats) => stats.file.add + stats.file.rem)),
-    maxEdits: Math.max(1, ...all.map((stats) => stats.edits)),
   };
 }
 
@@ -117,53 +123,65 @@ export function keptShare(survival: Record<Survival, number>): number | null {
   return edits ? (survival.kept + survival.partly / 2) / edits : null;
 }
 
-// Tile colors come from the --lens-* tokens in index.css (each theme has its own). The two scales mix a lens's low
-// and high color by how much the file has of it (`share`, 0 to 1).
-const onScale = (lens: "size" | "rework", share: number) =>
-  `color-mix(in srgb, var(--lens-${lens}-high) ${Math.round(share * 100)}%, var(--lens-${lens}-low))`;
+// How a changed file connects to the selected one: the selected file imports it, it imports the selected file, or
+// it is only in the same group.
+export type Relation = "usedBy" | "uses" | "group";
 
-function finalColor(share: number | null) {
-  if (share == null) return "var(--lens-none)";
-  if (share >= 0.8) return "var(--lens-kept)";
-  return share >= 0.4 ? "var(--lens-partly)" : "var(--lens-gone)";
+// The changed files connected to the selected file at `path`, and how. Imports win over sharing a group.
+export function relatedFiles(stats: MapStats, path: string): Map<string, Relation> {
+  const { file, group } = stats.files[path];
+  const related = new Map<string, Relation>();
+  for (const other of Object.values(stats.files)) {
+    if (group && other.group === group && other.file.path !== path) related.set(other.file.path, "group");
+  }
+  for (const used of file.links_out) related.set(used, "usedBy");
+  for (const user of file.links_in) related.set(user, "uses");
+  return related;
 }
+
+// Tile colors come from the --lens-* tokens in index.css (each theme has its own). The size scale mixes the lens's
+// low and high color by how much the file changed (`share`, 0 to 1).
+const sizeColor = (share: number) =>
+  `color-mix(in srgb, var(--lens-size-high) ${Math.round(share * 100)}%, var(--lens-size-low))`;
 
 interface LensInfo {
   label: string;
   key: KeyId;
   color: (file: FileStats, stats: MapStats) => string;
+  // The files this lens asks you to look at, counted on its button; `of` says what they are ("2 not tested").
+  needsLook: (file: FileStats) => boolean;
+  of: string;
 }
 
+// In the order of the buttons: what changed, whether the agent verified it, your review, then the rules' warnings.
 export const LENSES: Record<Lens, LensInfo> = {
   size: {
     label: "Change size",
     key: "lensSize",
     // On a log scale: one huge file shouldn't leave every other one pale.
-    color: ({ file }, stats) => onScale("size", Math.log1p(file.add + file.rem) / Math.log1p(stats.maxLines)),
-  },
-  rework: {
-    label: "Rework",
-    key: "lensRework",
-    color: ({ edits }, stats) => (edits ? onScale("rework", edits / stats.maxEdits) : "var(--lens-none)"),
-  },
-  final: {
-    label: "Still in final",
-    key: "lensFinal",
-    color: ({ survival }) => finalColor(keptShare(survival)),
+    color: ({ file }, stats) => sizeColor(Math.log1p(file.add + file.rem) / Math.log1p(stats.maxLines)),
+    needsLook: () => true,
+    of: "changed",
   },
   checks: {
     label: "Tested",
     key: "lensChecks",
     color: ({ check }) => (check ? CHECK_COLOR[check] : "var(--lens-none)"),
+    needsLook: ({ check }) => !!check && check !== "tested",
+    of: "without passing tests after the agent's last edit",
   },
   review: {
     label: "Reviewed",
     key: "lensReview",
     color: ({ mark }) => (mark === "none" ? "var(--lens-none)" : `var(--lens-${mark})`),
+    needsLook: ({ mark }) => mark === "none" || mark === "changed",
+    of: "to review",
   },
   flags: {
     label: "Flags",
     key: "lensFlags",
     color: ({ flags }) => (flags.length ? "var(--lens-flag)" : "var(--lens-none)"),
+    needsLook: ({ flags }) => flags.length > 0,
+    of: "flagged",
   },
 };

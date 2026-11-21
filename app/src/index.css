@@ -146,11 +146,6 @@
        "nothing to show in this lens". Tile names are white with a shadow in every theme. */
     --lens-size-low: hsl(218 80% 78%);
     --lens-size-high: hsl(218 80% 40%);
-    --lens-rework-low: hsl(38 95% 72%);
-    --lens-rework-high: hsl(28 90% 42%);
-    --lens-kept: hsl(135 50% 40%);
-    --lens-partly: hsl(40 85% 46%);
-    --lens-gone: #8C959F;
     --lens-flag: #CF4A2A;
     --lens-tested: hsl(135 50% 40%);
     --lens-passed: hsl(145 18% 58%);
@@ -218,11 +213,6 @@
     --map-folder: #262A31;
     --lens-size-low: hsl(218 70% 20%);
     --lens-size-high: hsl(218 70% 60%);
-    --lens-rework-low: hsl(36 85% 20%);
-    --lens-rework-high: hsl(36 85% 58%);
-    --lens-kept: hsl(135 50% 34%);
-    --lens-partly: hsl(40 70% 38%);
-    --lens-gone: #3A3F48;
     --lens-flag: #B4533A;
     --lens-tested: hsl(135 50% 34%);
     --lens-passed: hsl(140 16% 30%);

@@ -3,16 +3,17 @@ import { KeyHint } from "@/components/KeyHint";
 import { SideColumn } from "@/components/SideColumn";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { plural } from "@/lib/format";
 import { hint, useKeys } from "@/lib/keys";
 import type { Review } from "@/lib/review";
 import { useSettings } from "@/lib/settings";
 import type { Timeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
-import { Overview, Selected } from "./MapSide";
-import { buildStats, CHECK_COLOR, type Lens, LENSES } from "./model";
+import { LensPanel, Selected } from "./MapSide";
+import { buildStats, CHECK_COLOR, type Lens, LENSES, type MapStats, relatedFiles, tileMark } from "./model";
 import { buildTree } from "./tree";
-import { Treemap } from "./Treemap";
+import { DELETED_SAMPLE, NewCorner, Treemap } from "./Treemap";
 
 interface Props {
   snap: Snapshot;
@@ -37,8 +38,11 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
     () => buildStats(snap, timeline, { stateOf, resetMarkOf }, flagsOff),
     [snap, timeline, stateOf, resetMarkOf, flagsOff],
   );
-  // The selected file, while it is still one of the changed files.
+  // The selected file, while it is still one of the changed files, and the changed files connected to it.
   const picked = selected && stats.files[selected] ? selected : null;
+  const related = useMemo(() => (picked ? relatedFiles(stats, picked) : new Map()), [stats, picked]);
+  // Files outside the selection's connections step back.
+  const dimmed = (path: string) => !!picked && path !== picked && !related.has(path);
   const zoomParts = zoom ? zoom.split("/") : [];
 
   useEffect(() => {
@@ -56,18 +60,17 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  // 1–6 pick the lens, C / T jump to the selected file, Esc steps back: the overview first, then out of the zoom.
+  // 1–4 pick the lens, C / T jump to the selected file, Esc steps back: the lens's panel first, then out of the
+  // zoom.
   const stepBack = () => {
     if (picked) setSelected(null);
     else setZoom(zoomParts.slice(0, -1).join("/"));
   };
   useKeys(active, {
     lensSize: () => setLens("size"),
-    lensRework: () => setLens("rework"),
-    lensFinal: () => setLens("final"),
-    lensFlags: () => setLens("flags"),
     lensChecks: () => setLens("checks"),
     lensReview: () => setLens("review"),
+    lensFlags: () => setLens("flags"),
     toChanges: picked && (() => onOpenInChanges(picked)),
     toTimeline: picked && timeline.paths.has(picked) && (() => onShowInTimeline(picked)),
     back: (picked || zoom) && stepBack,
@@ -88,14 +91,7 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
             aria-label="Color by"
           >
             {(Object.keys(LENSES) as Lens[]).map((id) => (
-              <ToggleGroupItem
-                key={id}
-                value={id}
-                title={`Color by ${LENSES[id].label.toLowerCase()} (${hint(LENSES[id].key)})`}
-              >
-                {LENSES[id].label}
-                <KeyHint id={LENSES[id].key} />
-              </ToggleGroupItem>
+              <LensButton key={id} lens={id} stats={stats} />
             ))}
           </ToggleGroup>
           <nav aria-label="Folder" className="flex min-w-0 flex-wrap items-center gap-1 font-mono text-xs text-faint">
@@ -118,7 +114,7 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
           </nav>
           <span className="flex-1" />
           <span className="text-mini text-faint">
-            <Legend lens={lens} />
+            <Legend lens={lens} stats={stats} />
           </span>
         </div>
         <Treemap
@@ -127,25 +123,49 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
           stats={stats}
           lens={lens}
           selected={selected}
+          related={related}
+          dimmed={dimmed}
           active={active}
           onSelect={select}
           onZoom={setZoom}
         />
       </main>
-      <SideColumn label="Selected file">
+      <SideColumn label={picked ? "Selected file" : `${LENSES[lens].label} overview`}>
         {picked ? (
           <Selected
             stats={stats.files[picked]}
+            all={stats}
             inTimeline={timeline.paths.has(picked)}
             onBack={() => setSelected(null)}
+            onSelect={select}
             onOpenInChanges={onOpenInChanges}
             onShowInTimeline={onShowInTimeline}
           />
         ) : (
-          <Overview snap={snap} stats={stats} effects={timeline.effects} onSelect={select} />
+          <LensPanel lens={lens} snap={snap} stats={stats} effects={timeline.effects} onSelect={select} />
         )}
       </SideColumn>
     </div>
+  );
+}
+
+// A lens's button: its name, and how many files it asks you to look at.
+function LensButton({ lens, stats }: { lens: Lens; stats: MapStats }) {
+  const { label, key, needsLook, of } = LENSES[lens];
+  const count = Object.values(stats.files).filter(needsLook).length;
+  return (
+    <ToggleGroupItem
+      value={lens}
+      title={`Color by ${label.toLowerCase()} (${hint(key)}) · ${plural(count, "file")} ${of}`}
+    >
+      {label}
+      {count > 0 && (
+        <span className="rounded-sm bg-foreground/10 px-1 font-mono text-micro text-muted-foreground tabular-nums">
+          {count}
+        </span>
+      )}
+      <KeyHint id={key} />
+    </ToggleGroupItem>
   );
 }
 
@@ -154,22 +174,44 @@ function Swatch({ color }: { color: string }) {
   return <span className="mr-1 ml-2 inline-block size-2.5 rounded-[2px] align-[-1px]" style={{ background: color }} />;
 }
 
+// The marks for new and deleted files, when the change has any.
+function MarkLegend({ stats }: { stats: MapStats }) {
+  const marks = new Set(Object.values(stats.files).map((file) => tileMark(file.file)));
+  return (
+    <>
+      {marks.has("new") && (
+        <>
+          <span className="relative mr-1 ml-2 inline-block size-2.5 rounded-[2px] bg-map-folder align-[-1px]">
+            <NewCorner className="size-1.5" />
+          </span>
+          new
+        </>
+      )}
+      {marks.has("deleted") && (
+        <>
+          <span
+            className="mr-1 ml-2 inline-block size-2.5 rounded-[2px] bg-map-folder align-[-1px]"
+            style={DELETED_SAMPLE}
+          />
+          deleted
+        </>
+      )}
+    </>
+  );
+}
+
 // What the colors of the chosen lens mean.
-function Legend({ lens }: { lens: Lens }) {
+function Legend({ lens, stats }: { lens: Lens; stats: MapStats }) {
+  return (
+    <>
+      <LensLegend lens={lens} />
+      <MarkLegend stats={stats} />
+    </>
+  );
+}
+
+function LensLegend({ lens }: { lens: Lens }) {
   if (lens === "size") return <>stronger color = more lines changed</>;
-  if (lens === "rework") return <>stronger color = more agent edits · gray = no agent edits here</>;
-  if (lens === "final") {
-    return (
-      <>
-        <Swatch color="var(--lens-kept)" />
-        mostly in final
-        <Swatch color="var(--lens-partly)" />
-        partly
-        <Swatch color="var(--lens-gone)" />
-        mostly gone
-      </>
-    );
-  }
   if (lens === "checks") {
     return (
       <>

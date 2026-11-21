@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { plural } from "@/lib/format";
+import { base, plural, STATUS } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type FileStats, type Lens, LENSES, type MapStats } from "./model";
+import { type FileStats, type Lens, LENSES, type MapStats, type Relation, tileMark } from "./model";
 import { squarify, type TreeNode } from "./tree";
 
 // Sizes in px: the map is laid out in px, whatever the density.
@@ -9,6 +9,18 @@ const FOLDER_LABEL_HEIGHT = 15; // the room a folder's name takes above its tile
 const FOLDER_PADDING = 2; // between a folder's frame and its tiles
 const LABELLED_FOLDER = { minWidth: 48, minHeight: 30 }; // a smaller folder gets no name
 const NAMED_TILE = { minWidth: 44, minHeight: 16 }; // a smaller tile gets no file name
+const NEW_CORNER = 8; // the folded corner of a new file: big enough to see on the smallest tiles
+const DELETED_STRIPE = 4; // the width of a deleted file's stripes and of the gaps between them
+
+// A deleted file's stripes, drawn over the lens color so that still reads.
+const DELETED_STRIPES = `repeating-linear-gradient(135deg, transparent 0 ${DELETED_STRIPE}px, color-mix(in srgb, var(--lens-text) 35%, transparent) ${DELETED_STRIPE}px ${DELETED_STRIPE * 1.5}px)`;
+
+// How a related file is described in its tile's hover text, after the selected file's name.
+const RELATION: Record<Relation, string> = {
+  usedBy: "used by",
+  uses: "uses",
+  group: "in the same group as",
+};
 
 // One thing to draw: a folder's frame or a file's tile.
 interface Box {
@@ -51,6 +63,8 @@ interface Props {
   stats: MapStats;
   lens: Lens;
   selected: string | null;
+  related: Map<string, Relation>; // changed files connected to the selected one
+  dimmed: (path: string) => boolean; // changed files pushed back: not connected to the selection, or not in the prompt
   active: boolean;
   onSelect: (path: string) => void;
   onZoom: (path: string) => void;
@@ -58,7 +72,7 @@ interface Props {
 
 // The repo drawn as nested boxes: folders as frames, files as tiles. Changed files are colored by the lens and can
 // be selected; a folder's name zooms into it.
-export function Treemap({ tree, zoom, stats, lens, selected, active, onSelect, onZoom }: Props) {
+export function Treemap({ tree, zoom, stats, lens, selected, related, dimmed, active, onSelect, onZoom }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   useEffect(() => {
@@ -98,6 +112,7 @@ export function Treemap({ tree, zoom, stats, lens, selected, active, onSelect, o
             />
           );
         }
+        const relation = related.get(node.path);
         return (
           <ChangedTile
             key={node.path}
@@ -106,6 +121,10 @@ export function Treemap({ tree, zoom, stats, lens, selected, active, onSelect, o
             place={place}
             color={LENSES[lens].color(file, stats)}
             selected={selected === node.path}
+            relation={selected && relation ? `${RELATION[relation]} ${base(selected)}` : null}
+            linked={relation === "uses" || relation === "usedBy"}
+            groupOnly={relation === "group"}
+            dim={dimmed(node.path)}
             named={box.w > NAMED_TILE.minWidth && box.h > NAMED_TILE.minHeight}
             onSelect={onSelect}
           />
@@ -147,23 +166,74 @@ interface ChangedTileProps {
   place: Place;
   color: string;
   selected: boolean;
+  relation: string | null; // how it connects to the selected file, for the hover text: "used by api.ts"
+  linked: boolean; // imports the selected file or is imported by it
+  groupOnly: boolean; // only in the same group as the selected file: half faded, behind the imports
+  dim: boolean;
   named: boolean;
   onSelect: (path: string) => void;
 }
 
-function ChangedTile({ node, file, place, color, selected, named, onSelect }: ChangedTileProps) {
-  const flags = file.flags.length ? " · " + file.flags.join(", ") : "";
+function ChangedTile({
+  node,
+  file,
+  place,
+  color,
+  selected,
+  relation,
+  linked,
+  groupOnly,
+  dim,
+  named,
+  onSelect,
+}: ChangedTileProps) {
+  const mark = tileMark(file.file);
+  const title = [
+    node.path,
+    STATUS[file.file.status],
+    `+${file.file.add} −${file.file.rem}`,
+    plural(file.edits, "agent edit"),
+    ...file.flags,
+    relation,
+  ].filter(Boolean);
   return (
     <button
       onClick={() => onSelect(node.path)}
       className={cn(
-        "absolute flex items-start overflow-hidden rounded-[2px] border border-map-edge px-1 py-0.5 text-left font-mono text-micro text-lens-text hover:brightness-125",
+        "absolute flex items-start overflow-hidden rounded-[2px] border border-map-edge px-1 py-0.5 text-left font-mono text-micro text-lens-text transition-opacity hover:brightness-125",
+        // Dashed white, so it shows on every lens color, and is told apart from the selection's solid line.
+        linked && "z-10 outline-2 -outline-offset-2 outline-lens-text/80 outline-dashed",
+        groupOnly && "opacity-60",
         selected && "z-10 outline-2 -outline-offset-2 outline-white",
+        dim && "opacity-30 hover:opacity-70",
       )}
-      style={{ ...place, background: color }}
-      title={`${node.path} · +${file.file.add} −${file.file.rem} · ${plural(file.edits, "agent edit")}${flags}`}
+      style={{
+        ...place,
+        backgroundColor: color,
+        backgroundImage: mark === "deleted" ? DELETED_STRIPES : undefined,
+      }}
+      title={title.join(" · ")}
     >
-      {named && <span className="truncate [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">{node.name}</span>}
+      {mark === "new" && <NewCorner />}
+      {named && (
+        <span className={cn("truncate [text-shadow:0_1px_2px_rgba(0,0,0,.6)]", mark === "new" && "pl-1")}>
+          {node.name}
+        </span>
+      )}
     </button>
   );
 }
+
+// The folded top-left corner of a new file's tile.
+export function NewCorner({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn("absolute top-0 left-0 bg-lens-text/80 [clip-path:polygon(0_0,100%_0,0_100%)]", className)}
+      style={{ width: NEW_CORNER, height: NEW_CORNER }}
+    />
+  );
+}
+
+// A small sample of a deleted file's stripes, for the legend.
+export const DELETED_SAMPLE = { backgroundImage: DELETED_STRIPES };

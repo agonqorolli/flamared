@@ -29,11 +29,9 @@ export const KEYS = {
   toTimeline: { key: "t" },
   toMap: { key: "m" },
   lensSize: { key: "1" },
-  lensRework: { key: "2" },
-  lensFinal: { key: "3" },
-  lensChecks: { key: "4" },
-  lensReview: { key: "5" },
-  lensFlags: { key: "6" },
+  lensChecks: { key: "2" },
+  lensReview: { key: "3" },
+  lensFlags: { key: "4" },
   back: { key: "Escape", label: "Esc" },
 } satisfies Record<string, Key>;
 export type KeyId = keyof typeof KEYS;
@@ -75,8 +73,8 @@ export const SHORTCUT_ROWS: { scope: Scope; rows: { ids: KeyId[]; does: string; 
     scope: "Map",
     rows: [
       {
-        ids: ["lensSize", "lensRework", "lensFinal", "lensChecks", "lensReview", "lensFlags"],
-        does: "Color by Change size / Rework / Still in final / Tested / Reviewed / Flags",
+        ids: ["lensSize", "lensChecks", "lensReview", "lensFlags"],
+        does: "Color by Change size / Tested / Reviewed / Flags",
       },
       { ids: ["toChanges", "toTimeline"], does: "Show the selected file in Changes / Timeline" },
       { ids: ["back"], does: "Back to the overview, then out of a zoomed folder" },
