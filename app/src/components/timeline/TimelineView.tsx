@@ -3,7 +3,7 @@ import { AgentToggle, ListPane } from "@/components/ListPane";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { plural } from "@/lib/format";
 import { useKeys } from "@/lib/keys";
-import { editKey, type Timeline } from "@/lib/timeline";
+import { editKey, type PromptOnMap, type Timeline } from "@/lib/timeline";
 import { clamp } from "@/lib/utils";
 import { EditDetail } from "./EditDetail";
 import { TimelineList } from "./TimelineList";
@@ -15,6 +15,7 @@ interface Props {
   inChanges: (path: string) => boolean;
   onShowInChanges: (path: string) => void;
   onShowInMap: (path: string) => void;
+  onShowPromptOnMap: (prompt: PromptOnMap) => void;
   fresh: Set<string>; // edits that arrived since you last selected them (editKey)
   onSeen: (key: string) => void;
 }
@@ -27,6 +28,7 @@ export function TimelineView({
   inChanges,
   onShowInChanges,
   onShowInMap,
+  onShowPromptOnMap,
   fresh,
   onSeen,
 }: Props) {
@@ -95,6 +97,8 @@ export function TimelineView({
           showAgent={showAgent && hasWords}
           fresh={fresh}
           onSelect={select}
+          inChanges={inChanges}
+          onShowPromptOnMap={onShowPromptOnMap}
         />
       </ListPane>
       {edit ? (

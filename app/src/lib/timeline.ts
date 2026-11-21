@@ -34,6 +34,23 @@ export type TimelineItem =
       rows: TimelineRow[];
     };
 
+export type TurnItem = Extract<TimelineItem, { kind: "turn" }>;
+
+// One prompt shown on the Map (from its card in Timeline): the files its edits touched.
+export interface PromptOnMap {
+  key: string; // the turn's key, so showing it again is told apart
+  agent: string;
+  prompt: string;
+  paths: Set<string>;
+}
+
+export const promptOnMap = (turn: TurnItem): PromptOnMap => ({
+  key: turn.key,
+  agent: turn.agent,
+  prompt: turn.prompt,
+  paths: new Set(turn.rows.flatMap((row) => (row.kind === "edit" ? [row.edit.path] : []))),
+});
+
 export interface Timeline {
   items: TimelineItem[];
   edits: TimelineEdit[]; // every edit, latest first: the order of the list, J/K and "Edit N of M"

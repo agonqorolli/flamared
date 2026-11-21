@@ -142,7 +142,16 @@ function Workspace() {
         {!loadingShown && !snap && !error && <NoRepo loading={loading} onAgents={() => openSettings("agents")} />}
         {!loadingShown && snap && !hasChanges && <BranchEmpty branch={snap.viewing.branch} />}
         {!loadingShown && snap && hasChanges && (
-          <Screens snap={snap} view={view} active focus={focus} fresh={fresh} onSeen={seen} onJump={jump} />
+          <Screens
+            snap={snap}
+            view={view}
+            active
+            focus={focus}
+            fresh={fresh}
+            onSeen={seen}
+            onJump={jump}
+            onView={setView}
+          />
         )}
       </div>
     </div>

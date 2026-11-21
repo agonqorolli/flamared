@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { KeyHint } from "@/components/KeyHint";
 import { SideColumn } from "@/components/SideColumn";
@@ -7,7 +8,7 @@ import { plural } from "@/lib/format";
 import { hint, useKeys } from "@/lib/keys";
 import type { Review } from "@/lib/review";
 import { useSettings } from "@/lib/settings";
-import type { Timeline } from "@/lib/timeline";
+import type { PromptOnMap, Timeline } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { FlagRules } from "./FlagRules";
 import { LensPanel, Selected } from "./MapSide";
@@ -21,13 +22,25 @@ interface Props {
   review: Review; // your marks, set in Changes
   active: boolean;
   focus: { path: string; n: number } | null; // "Show in Map" from another screen
+  prompt: PromptOnMap | null; // a prompt's files to light up, from its card in Timeline
+  onClearPrompt: () => void;
   onOpenInChanges: (path: string) => void;
   onShowInTimeline: (path: string) => void;
 }
 
 // Map: the whole repo as a treemap. The layout follows the folder tree (sized by file length), so it stays put
 // day to day; changed files light up, colored by the chosen lens.
-export function MapView({ snap, timeline, review, active, focus, onOpenInChanges, onShowInTimeline }: Props) {
+export function MapView({
+  snap,
+  timeline,
+  review,
+  active,
+  focus,
+  prompt,
+  onClearPrompt,
+  onOpenInChanges,
+  onShowInTimeline,
+}: Props) {
   const [lens, setLens] = useState<Lens>("size");
   const [zoom, setZoom] = useState(""); // the folder being shown; "" for the whole repo
   const [selected, setSelected] = useState<string | null>(null);
@@ -41,13 +54,16 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
   // The selected file, while it is still one of the changed files, and the changed files connected to it.
   const picked = selected && stats.files[selected] ? selected : null;
   const related = useMemo(() => (picked ? relatedFiles(stats, picked) : new Map()), [stats, picked]);
-  // Files outside the selection's connections step back.
-  const dimmed = (path: string) => !!picked && path !== picked && !related.has(path);
+  // Files outside the selection's connections, or outside the prompt being shown, step back.
+  const dimmed = (path: string) =>
+    (!!picked && path !== picked && !related.has(path)) || (!!prompt && !prompt.paths.has(path));
   const zoomParts = zoom ? zoom.split("/") : [];
 
   useEffect(() => {
     setZoom("");
     setSelected(null);
+    onClearPrompt();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap.path]);
 
   const select = (path: string) => {
@@ -60,10 +76,11 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  // 1–4 pick the lens, C / T jump to the selected file, Esc steps back: the lens's panel first, then out of the
-  // zoom.
+  // 1–4 pick the lens, C / T jump to the selected file, Esc steps back: the lens's panel first, then the prompt,
+  // then out of the zoom.
   const stepBack = () => {
     if (picked) setSelected(null);
+    else if (prompt) onClearPrompt();
     else setZoom(zoomParts.slice(0, -1).join("/"));
   };
   useKeys(active, {
@@ -73,7 +90,7 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
     lensFlags: () => setLens("flags"),
     toChanges: picked && (() => onOpenInChanges(picked)),
     toTimeline: picked && timeline.paths.has(picked) && (() => onShowInTimeline(picked)),
-    back: (picked || zoom) && stepBack,
+    back: (picked || prompt || zoom) && stepBack,
   });
 
   return (
@@ -112,6 +129,7 @@ export function MapView({ snap, timeline, review, active, focus, onOpenInChanges
               </span>
             ))}
           </nav>
+          {prompt && <PromptChip prompt={prompt} stats={stats} onClear={onClearPrompt} />}
           <span className="flex-1" />
           <span className="text-mini text-faint">
             <Legend lens={lens} stats={stats} />
@@ -166,6 +184,30 @@ function LensButton({ lens, stats }: { lens: Lens; stats: MapStats }) {
       )}
       <KeyHint id={key} />
     </ToggleGroupItem>
+  );
+}
+
+// The prompt whose files are lit up, with a button to show every changed file again.
+function PromptChip({ prompt, stats, onClear }: { prompt: PromptOnMap; stats: MapStats; onClear: () => void }) {
+  const shown = [...prompt.paths].filter((path) => stats.files[path]).length;
+  return (
+    <span
+      className="flex max-w-80 min-w-0 items-center gap-1.5 rounded-md bg-raised py-0.5 pr-0.5 pl-2 text-xs text-foreground"
+      title={prompt.prompt}
+    >
+      <span className="shrink-0 font-medium">Prompt</span>
+      <span className="min-w-0 truncate text-subtle">{prompt.prompt}</span>
+      <span className="shrink-0 text-mini text-faint">{plural(shown, "file")}</span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Show every changed file again"
+        title={`Show every changed file again (${hint("back")})`}
+        onClick={onClear}
+      >
+        <XIcon />
+      </Button>
+    </span>
   );
 }
 

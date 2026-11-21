@@ -1,10 +1,21 @@
+import { MapIcon } from "lucide-react";
 import { FoldButton, useFold } from "@/components/FoldButton";
 import { FreshDot, ListRow, ROW_LAYOUT } from "@/components/ListRow";
 import { Said } from "@/components/Said";
 import { SectionLabel } from "@/components/SectionLabel";
 import { Counts, StatusLetter } from "@/components/StatusLetter";
+import { Button } from "@/components/ui/button";
 import { base, time } from "@/lib/format";
-import { editKey, editStatus, editStatusTip, type TimelineItem, type TimelineRow } from "@/lib/timeline";
+import {
+  editKey,
+  editStatus,
+  editStatusTip,
+  type PromptOnMap,
+  promptOnMap,
+  type TimelineItem,
+  type TimelineRow,
+  type TurnItem,
+} from "@/lib/timeline";
 import { CheckResult, checkTitle } from "./CheckResult";
 import { EffectResult, effectTitle } from "./EffectResult";
 import { byDay, type TurnOrCommit } from "./model";
@@ -16,6 +27,8 @@ interface Props {
   showAgent: boolean;
   fresh: Set<string>;
   onSelect: (index: number) => void;
+  inChanges: (path: string) => boolean; // still changed, so it is on the Map
+  onShowPromptOnMap: (prompt: PromptOnMap) => void;
 }
 
 // The Timeline list: one section per day, laid out like the groups in Changes: the day's label, then its cards
@@ -41,7 +54,6 @@ export function TimelineList({ items, hasEdits, ...list }: Props) {
 }
 
 type ItemProps = Omit<Props, "items" | "hasEdits">;
-type TurnItem = Extract<TurnOrCommit, { kind: "turn" }>;
 
 // A commit as one dashed line, or a turn as a card.
 function Item({ item, ...list }: { item: TurnOrCommit } & ItemProps) {
@@ -59,7 +71,15 @@ function Item({ item, ...list }: { item: TurnOrCommit } & ItemProps) {
 
 // A turn as a card: its edits (and, with the agent, its messages), then your prompt in the footer with the button that
 // folds the card down to it.
-function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem } & ItemProps) {
+function Turn({
+  turn,
+  selected,
+  showAgent,
+  fresh,
+  onSelect,
+  inChanges,
+  onShowPromptOnMap,
+}: { turn: TurnItem } & ItemProps) {
   // Edits, checks and commands with effects by default; with the agent, its messages too.
   const rows = turn.rows.filter((row) => row.kind !== "say" || showAgent);
   const edits = turn.rows.filter((row) => row.kind === "edit").length;
@@ -81,9 +101,36 @@ function Turn({ turn, selected, showAgent, fresh, onSelect }: { turn: TurnItem }
       {/* items-start: an opened prompt grows downward and the chevron stays beside its first line. */}
       <footer className="flex items-start gap-2 bg-raised/40 px-3 py-2">
         <Said who="You" when={time(turn.at)} text={turn.prompt} lines={1} />
+        <PromptMapButton turn={turn} inChanges={inChanges} onShow={onShowPromptOnMap} />
         <FoldButton folded={folded} {...fold} rows="above" className="-mt-0.5" onToggle={toggle} />
       </footer>
     </article>
+  );
+}
+
+// Shows the prompt's files on the Map, when any of them is still changed.
+function PromptMapButton({
+  turn,
+  inChanges,
+  onShow,
+}: {
+  turn: TurnItem;
+  inChanges: (path: string) => boolean;
+  onShow: (prompt: PromptOnMap) => void;
+}) {
+  const prompt = promptOnMap(turn);
+  if (![...prompt.paths].some(inChanges)) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      className="-my-1 text-faint"
+      aria-label="Show this prompt's files on the Map"
+      title="Show this prompt's files on the Map"
+      onClick={() => onShow(prompt)}
+    >
+      <MapIcon />
+    </Button>
   );
 }
 

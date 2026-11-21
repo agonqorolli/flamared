@@ -1,10 +1,10 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { ChangesView } from "@/components/changes/ChangesView";
 import { MapView } from "@/components/map/MapView";
 import { TimelineView } from "@/components/timeline/TimelineView";
 import type { Fresh } from "@/lib/live";
 import { useReview } from "@/lib/review";
-import { buildTimeline } from "@/lib/timeline";
+import { buildTimeline, type PromptOnMap } from "@/lib/timeline";
 import type { Snapshot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { View } from "@/lib/views";
@@ -24,11 +24,18 @@ interface Props {
   fresh: Fresh;
   onSeen: (kind: keyof Fresh, key: string) => void;
   onJump: (to: View) => (path: string) => void;
+  onView: (view: View) => void;
 }
 
 // Changes, Timeline and Map. All three stay mounted so each keeps its place; only the shown one listens to keys.
-export function Screens({ snap, view, active, focus, fresh, onSeen, onJump }: Props) {
+export function Screens({ snap, view, active, focus, fresh, onSeen, onJump, onView }: Props) {
   const timeline = useMemo(() => buildTimeline(snap), [snap]);
+  // A prompt's files lit up on the Map, from its card in Timeline; cleared on the Map.
+  const [prompt, setPrompt] = useState<PromptOnMap | null>(null);
+  const showPromptOnMap = (shown: PromptOnMap) => {
+    setPrompt(shown);
+    onView("map");
+  };
   const changed = useMemo(() => new Set(Object.keys(snap.diffs)), [snap]);
   const review = useReview(snap);
   const focusOn = (screen: View) => (focus?.view === screen ? focus : null);
@@ -55,6 +62,7 @@ export function Screens({ snap, view, active, focus, fresh, onSeen, onJump }: Pr
           inChanges={(path) => changed.has(path)}
           onShowInChanges={onJump("changes")}
           onShowInMap={onJump("map")}
+          onShowPromptOnMap={showPromptOnMap}
           fresh={fresh.edits}
           onSeen={(key) => onSeen("edits", key)}
         />
@@ -66,6 +74,8 @@ export function Screens({ snap, view, active, focus, fresh, onSeen, onJump }: Pr
           review={review}
           active={active && view === "map"}
           focus={focusOn("map")}
+          prompt={prompt}
+          onClearPrompt={() => setPrompt(null)}
           onOpenInChanges={onJump("changes")}
           onShowInTimeline={onJump("timeline")}
         />
